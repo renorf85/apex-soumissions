@@ -42,11 +42,11 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // Mapbox Configuration
 const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1IjoicmVub3ZhdGlvbnJmIiwiYSI6ImNtamtxY2M5NzB1M3gzZG95eXYxd3EyNWwifQ.dus2yGGW12TnqPYsNq26sw';
 
-// Adresse de base Apex (pour calcul de distance)
-// Note: Remplacer par l'adresse réelle de Apex
+// Adresse de base Apex Désamiantage
+// 689 rue des Caryers, Québec, QC G3G 2B4
 const APEX_BASE_LOCATION = {
-    lng: -73.5673,  // Montréal par défaut
-    lat: 45.5017
+    lng: -71.2342,
+    lat: 46.8785
 };
 
 // Initialize Supabase client
