@@ -68,12 +68,15 @@ function setupStep1Events() {
     const btnChangeFileDesktop = document.getElementById('btn-change-file-desktop');
 
     // "Oui" - Has report → Go to upload
+    console.log('btnHasReport element:', btnHasReport);
     btnHasReport?.addEventListener('click', () => {
+        console.log('Clicked: Oui, j\'ai un rapport');
         state.hasReport = true;
         selectCard(btnHasReport, btnNoReport);
 
         // Small delay for visual feedback, then show upload
         setTimeout(() => {
+            console.log('Calling showUploadSection()');
             showUploadSection();
         }, 200);
     });
