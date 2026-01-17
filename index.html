@@ -96,16 +96,10 @@
         <!-- Step 1: Rapport Question -->
         <section id="step-1" class="step-content max-w-xl w-full">
             <div class="mb-8 sm:mb-10 text-center md:text-left">
-                <h1 class="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-slate-900 mb-3 whitespace-nowrap">
+                <h1 class="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-slate-900 whitespace-nowrap">
                     Avez-vous un rapport de caractérisation ?
                 </h1>
-                <p class="text-text-muted text-sm md:text-base leading-relaxed">
-                    Veuillez sélectionner l'option qui correspond à votre situation actuelle.
-                </p>
             </div>
-
-            <!-- Mobile: Label -->
-            <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 md:hidden">Choisir une option</div>
 
             <div class="space-y-4">
                 <button id="btn-has-report" class="choice-card w-full group">
@@ -134,38 +128,14 @@
                     <span class="material-symbols-outlined text-slate-300 text-xl hidden sm:block">close</span>
                 </button>
             </div>
-
-            <!-- Info box (mobile) -->
-            <div class="mt-8 p-5 bg-slate-50 rounded-2xl border border-slate-100 md:hidden">
-                <div class="flex items-start gap-3">
-                    <span class="material-symbols-outlined text-slate-400 !text-xl mt-0.5">info</span>
-                    <div>
-                        <h4 class="text-xs font-bold text-slate-700 mb-1">C'est quoi un rapport ?</h4>
-                        <p class="text-[11px] leading-relaxed text-slate-500">Le rapport de caractérisation identifie les matériaux contenant de l'amiante dans votre bâtiment.</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Actions -->
-            <div class="mt-8 sm:mt-10 flex flex-col md:flex-row items-center justify-between gap-4">
-                <button class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors hidden md:block">
-                    Besoin d'aide ?
-                </button>
-                <button id="btn-continue" class="w-full md:w-auto px-8 py-3 bg-primary text-white text-sm font-semibold rounded-xl shadow-sm hover:bg-primary-dark transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                    Continuer
-                </button>
-            </div>
         </section>
 
         <!-- Step 1b: Upload Report (hidden by default) -->
         <section id="step-1b" class="step-content max-w-xl w-full hidden">
             <div class="mb-8 sm:mb-10 text-center md:text-left">
-                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 mb-3">
+                <h1 class="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
                     Téléchargez votre rapport
                 </h1>
-                <p class="text-text-muted text-sm md:text-base leading-relaxed">
-                    Glissez votre fichier PDF ou cliquez pour parcourir.
-                </p>
             </div>
 
             <div id="drop-zone" class="w-full p-8 sm:p-12 bg-white border-2 border-dashed border-card-border rounded-2xl cursor-pointer transition-all hover:border-primary/50 hover:bg-blue-50/20">
@@ -189,13 +159,10 @@
                 <input type="file" id="file-input" accept=".pdf" class="hidden"/>
             </div>
 
-            <div class="mt-8 sm:mt-10 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="mt-8 flex justify-start">
                 <button id="btn-back-to-choice" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
                     <span class="material-symbols-outlined !text-lg">arrow_back</span>
                     Retour
-                </button>
-                <button id="btn-continue-upload" class="w-full md:w-auto px-8 py-3 bg-primary text-white text-sm font-semibold rounded-xl shadow-sm hover:bg-primary-dark transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                    Continuer
                 </button>
             </div>
         </section>
@@ -204,12 +171,8 @@
 
     <!-- Footer -->
     <footer class="py-6 sm:py-8 w-full border-t border-slate-200 bg-white mt-auto">
-        <div class="max-w-5xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="max-w-5xl mx-auto px-6 flex justify-center">
             <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.15em]">Apex Soumissions</p>
-            <div class="flex gap-6 hidden md:flex">
-                <a class="text-xs text-text-muted hover:underline" href="#">Confidentialité</a>
-                <a class="text-xs text-text-muted hover:underline" href="#">Support</a>
-            </div>
         </div>
     </footer>
 

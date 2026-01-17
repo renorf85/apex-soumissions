@@ -54,41 +54,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 function setupStep1Events() {
     const btnHasReport = document.getElementById('btn-has-report');
     const btnNoReport = document.getElementById('btn-no-report');
-    const btnContinue = document.getElementById('btn-continue');
-    const btnContinueUpload = document.getElementById('btn-continue-upload');
     const btnBackToChoice = document.getElementById('btn-back-to-choice');
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     const btnChangeFile = document.getElementById('btn-change-file');
 
-    // "Oui" - Has report
+    // "Oui" - Has report → Go to upload
     btnHasReport?.addEventListener('click', () => {
         state.hasReport = true;
         selectCard(btnHasReport, btnNoReport);
-        btnContinue.disabled = false;
+
+        // Small delay for visual feedback, then show upload
+        setTimeout(() => {
+            showUploadSection();
+        }, 200);
     });
 
-    // "Non" - No report
+    // "Non" - No report → Go to step 2
     btnNoReport?.addEventListener('click', () => {
         state.hasReport = false;
+        state.rapport = null;
         selectCard(btnNoReport, btnHasReport);
-        btnContinue.disabled = false;
-    });
 
-    // Continue button (step 1)
-    btnContinue?.addEventListener('click', () => {
-        if (state.hasReport === true) {
-            showUploadSection();
-        } else if (state.hasReport === false) {
+        // Small delay for visual feedback, then go to next step
+        setTimeout(() => {
             goToStep(2);
-        }
-    });
-
-    // Continue button (upload step)
-    btnContinueUpload?.addEventListener('click', () => {
-        if (state.rapport) {
-            goToStep(2);
-        }
+        }, 200);
     });
 
     // Back to choice
@@ -155,11 +146,15 @@ function showChoiceSection() {
     document.getElementById('step-1b').classList.add('hidden');
     document.getElementById('step-1').classList.remove('hidden');
 
+    // Reset selection state
+    document.getElementById('btn-has-report')?.classList.remove('active');
+    document.getElementById('btn-no-report')?.classList.remove('active');
+
     // Reset upload state
     document.getElementById('upload-default').classList.remove('hidden');
     document.getElementById('upload-success').classList.add('hidden');
-    document.getElementById('btn-continue-upload').disabled = true;
     state.rapport = null;
+    state.hasReport = null;
 }
 
 function handleFileSelected(file) {
@@ -182,9 +177,13 @@ function handleFileSelected(file) {
     document.getElementById('upload-default').classList.add('hidden');
     document.getElementById('upload-success').classList.remove('hidden');
     document.getElementById('file-name').textContent = file.name;
-    document.getElementById('btn-continue-upload').disabled = false;
 
     console.log('Fichier sélectionné:', file.name);
+
+    // Auto-advance to next step after showing success
+    setTimeout(() => {
+        goToStep(2);
+    }, 600);
 }
 
 // =====================================================
