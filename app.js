@@ -71,15 +71,20 @@ const state = {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('Apex Soumissions - Initialisation...');
 
+    // Load data from Supabase
+    await loadMateriaux();
+
     // Setup event listeners
     setupStep1Events();
     setupStep2Events();
+    setupStep3Events();
 
     // Setup dev mode shortcuts
     if (DEV_MODE) {
         setupDevMode();
         console.log('🛠️ MODE DEV ACTIVÉ - Raccourcis:');
         console.log('  D = Remplir formulaire client');
+        console.log('  Z = Remplir formulaire zone');
         console.log('  1-5 = Aller à l\'étape X');
     }
 
@@ -135,7 +140,9 @@ function setupStep1Events() {
 
     // Back button (mobile) - handles navigation based on current step
     btnBackMobile?.addEventListener('click', () => {
-        if (state.currentStep === 2) {
+        if (state.currentStep === 3) {
+            goToStep(2);
+        } else if (state.currentStep === 2) {
             goToStep(1);
         } else if (document.getElementById('step-1b')?.classList.contains('hidden') === false) {
             showChoiceSection();
@@ -353,6 +360,230 @@ function updateTransportCost(distance) {
 }
 
 // =====================================================
+// STEP 3: ZONES
+// =====================================================
+
+async function loadMateriaux() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('materiaux')
+            .select('*')
+            .order('ordre');
+
+        if (error) throw error;
+
+        state.materiaux = data;
+        console.log(`✅ ${data.length} matériaux chargés depuis Supabase`);
+
+        // Populate the dropdown
+        populateMateriauxDropdown();
+    } catch (err) {
+        console.error('Erreur chargement matériaux:', err);
+        // Fallback: use hardcoded list if Supabase fails
+        state.materiaux = [
+            { id: 1, nom: 'Gypse (panneau 1/2")', friabilite: 'non_friable', epaisseur_defaut: 0.5 },
+            { id: 2, nom: 'Plâtre sur lattes', friabilite: 'friable', epaisseur_defaut: 0.875 },
+            { id: 3, nom: 'Tuile vinyle 9x9', friabilite: 'non_friable', epaisseur_defaut: 0.0625 },
+            { id: 4, nom: 'Vermiculite (Zonolite)', friabilite: 'friable', epaisseur_defaut: 4.0 }
+        ];
+        populateMateriauxDropdown();
+    }
+}
+
+function populateMateriauxDropdown() {
+    const select = document.getElementById('zone-materiau');
+    if (!select) return;
+
+    // Clear existing options (keep first placeholder)
+    select.innerHTML = '<option value="">Sélectionner un matériau</option>';
+
+    // Add materiaux
+    state.materiaux.forEach(mat => {
+        const option = document.createElement('option');
+        option.value = mat.id;
+        option.textContent = mat.nom;
+        option.dataset.friabilite = mat.friabilite;
+        option.dataset.epaisseur = mat.epaisseur_defaut;
+        select.appendChild(option);
+    });
+}
+
+function setupStep3Events() {
+    const form = document.getElementById('zone-form');
+    const btnBack = document.getElementById('btn-back-step3');
+    const materiauSelect = document.getElementById('zone-materiau');
+    const longueurInput = document.getElementById('zone-longueur');
+    const largeurInput = document.getElementById('zone-largeur');
+    const epaisseurInput = document.getElementById('zone-epaisseur');
+
+    // Back button
+    btnBack?.addEventListener('click', () => {
+        goToStep(2);
+    });
+
+    // Material change → update friability badge + default thickness
+    materiauSelect?.addEventListener('change', (e) => {
+        const selectedOption = e.target.options[e.target.selectedIndex];
+        const friabilite = selectedOption.dataset.friabilite;
+        const epaisseur = selectedOption.dataset.epaisseur;
+
+        updateFriabiliteBadge(friabilite);
+
+        // Set default thickness
+        if (epaisseur && epaisseurInput) {
+            epaisseurInput.value = epaisseur;
+            calculateZoneValues();
+        }
+    });
+
+    // Dimension inputs → recalculate
+    [longueurInput, largeurInput, epaisseurInput].forEach(input => {
+        input?.addEventListener('input', calculateZoneValues);
+    });
+
+    // Form submission
+    form?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        addZone();
+    });
+}
+
+function updateFriabiliteBadge(friabilite) {
+    const badge = document.getElementById('friabilite-badge');
+    const text = document.getElementById('friabilite-text');
+    if (!badge || !text) return;
+
+    badge.classList.remove('hidden');
+
+    if (friabilite === 'friable') {
+        text.textContent = 'FRIABLE';
+        text.className = 'inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase bg-red-100 text-red-600';
+    } else {
+        text.textContent = 'NON FRIABLE';
+        text.className = 'inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase bg-slate-100 text-slate-500';
+    }
+}
+
+function calculateZoneValues() {
+    const longueur = parseFloat(document.getElementById('zone-longueur')?.value) || 0;
+    const largeur = parseFloat(document.getElementById('zone-largeur')?.value) || 0;
+    const epaisseur = parseFloat(document.getElementById('zone-epaisseur')?.value) || 0;
+
+    // Get friability from selected material
+    const materiauSelect = document.getElementById('zone-materiau');
+    const selectedOption = materiauSelect?.options[materiauSelect.selectedIndex];
+    const friabilite = selectedOption?.dataset.friabilite || 'non_friable';
+
+    // Calculate surface (pi²) = L × l
+    const surface = longueur * largeur;
+
+    // Calculate volume (pi³) = L × l × (épaisseur_po / 12)
+    const volume = longueur * largeur * (epaisseur / 12);
+
+    // Determine risk based on CSTC rules
+    const risque = determineRisque(volume, friabilite);
+
+    // Update UI
+    document.getElementById('calc-surface').textContent = surface > 0 ? surface.toFixed(1) : '--';
+    document.getElementById('calc-volume').textContent = volume > 0 ? volume.toFixed(2) : '--';
+
+    const risqueEl = document.getElementById('calc-risque');
+    if (risqueEl) {
+        if (risque === 'ÉLEVÉ') {
+            risqueEl.textContent = 'ÉLEVÉ';
+            risqueEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-red-100 text-red-600';
+        } else if (risque === 'MODÉRÉ') {
+            risqueEl.textContent = 'MODÉRÉ';
+            risqueEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-600';
+        } else {
+            risqueEl.textContent = '--';
+            risqueEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-400';
+        }
+    }
+
+    return { surface, volume, risque, friabilite };
+}
+
+function determineRisque(volume, friabilite) {
+    // CSTC Rules:
+    // - Friable: > 1 pi³ = ÉLEVÉ
+    // - Non friable: > 10 pi³ = ÉLEVÉ
+    if (volume <= 0) return null;
+
+    if (friabilite === 'friable') {
+        return volume > 1 ? 'ÉLEVÉ' : 'MODÉRÉ';
+    } else {
+        return volume > 10 ? 'ÉLEVÉ' : 'MODÉRÉ';
+    }
+}
+
+function addZone() {
+    const nom = document.getElementById('zone-nom')?.value.trim();
+    const categorie = document.getElementById('zone-categorie')?.value;
+    const materiauSelect = document.getElementById('zone-materiau');
+    const materiauId = materiauSelect?.value;
+    const materiauNom = materiauSelect?.options[materiauSelect.selectedIndex]?.textContent;
+    const longueur = parseFloat(document.getElementById('zone-longueur')?.value) || 0;
+    const largeur = parseFloat(document.getElementById('zone-largeur')?.value) || 0;
+    const epaisseur = parseFloat(document.getElementById('zone-epaisseur')?.value) || 0;
+
+    // Validate
+    if (!nom || !categorie || !materiauId || longueur <= 0 || largeur <= 0 || epaisseur <= 0) {
+        alert('Veuillez remplir tous les champs.');
+        return;
+    }
+
+    // Calculate values
+    const { surface, volume, risque, friabilite } = calculateZoneValues();
+
+    // Create zone object
+    const zone = {
+        id: Date.now(), // Unique ID
+        nom,
+        categorie,
+        materiauId,
+        materiauNom,
+        friabilite,
+        longueur,
+        largeur,
+        epaisseur,
+        surface,
+        volume,
+        risque
+    };
+
+    // Add to state
+    state.zones.push(zone);
+    console.log('✅ Zone ajoutée:', zone);
+    console.log('📋 Total zones:', state.zones.length);
+
+    // Reset form
+    resetZoneForm();
+
+    // Go to zone list (step 3b) - for now just show alert
+    // TODO: Navigate to step 3b when implemented
+    alert(`Zone "${nom}" ajoutée!\n\nTotal: ${state.zones.length} zone(s)\n\n(L'écran de liste des zones sera implémenté prochainement)`);
+}
+
+function resetZoneForm() {
+    document.getElementById('zone-nom').value = '';
+    document.getElementById('zone-categorie').value = '';
+    document.getElementById('zone-materiau').value = '';
+    document.getElementById('zone-longueur').value = '';
+    document.getElementById('zone-largeur').value = '';
+    document.getElementById('zone-epaisseur').value = '';
+
+    // Reset calculated values
+    document.getElementById('calc-surface').textContent = '--';
+    document.getElementById('calc-volume').textContent = '--';
+    document.getElementById('calc-risque').textContent = '--';
+    document.getElementById('calc-risque').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-400';
+
+    // Hide friability badge
+    document.getElementById('friabilite-badge')?.classList.add('hidden');
+}
+
+// =====================================================
 // NAVIGATION
 // =====================================================
 
@@ -379,9 +610,9 @@ function goToStep(step) {
         // Show mobile back button
         document.getElementById('btn-back-mobile')?.classList.remove('invisible');
     } else if (step === 3) {
-        // TODO: Navigate to step 3 (Zones)
-        alert('Étape 3 (Zones) - À implémenter');
-        return;
+        document.getElementById('step-3').classList.remove('hidden');
+        // Show mobile back button
+        document.getElementById('btn-back-mobile')?.classList.remove('invisible');
     }
 
     // Update progress bar (desktop + mobile)
@@ -442,6 +673,11 @@ function setupDevMode() {
             fillDevClientData();
         }
 
+        // Z = Remplir le formulaire zone
+        if (e.key.toLowerCase() === 'z') {
+            fillDevZoneData();
+        }
+
         // 1-5 = Navigation directe vers étape
         if (['1', '2', '3', '4', '5'].includes(e.key)) {
             const step = parseInt(e.key);
@@ -476,6 +712,31 @@ function fillDevClientData() {
     }
 
     console.log('📝 Données client pré-remplies');
+}
+
+function fillDevZoneData() {
+    const data = DEV_DATA.zones[0];
+
+    document.getElementById('zone-nom').value = data.nom;
+    document.getElementById('zone-categorie').value = data.categorie;
+
+    // Find and select the material
+    const materiauSelect = document.getElementById('zone-materiau');
+    if (materiauSelect && state.materiaux.length > 0) {
+        // Select the first material for simplicity
+        materiauSelect.value = state.materiaux[0].id;
+        // Trigger change to update friability
+        materiauSelect.dispatchEvent(new Event('change'));
+    }
+
+    document.getElementById('zone-longueur').value = data.longueur;
+    document.getElementById('zone-largeur').value = data.largeur;
+    document.getElementById('zone-epaisseur').value = data.epaisseur;
+
+    // Trigger calculation
+    calculateZoneValues();
+
+    console.log('📝 Données zone pré-remplies');
 }
 
 function devGoToStep(step) {
