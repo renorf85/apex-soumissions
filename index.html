@@ -10,7 +10,7 @@
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 
     <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 
     <!-- Supabase -->
@@ -24,14 +24,14 @@
                 extend: {
                     colors: {
                         "primary": "#1E73BE",
-                        "primary-dark": "#2E4A9E",
-                        "apex-bg": "#ffffff",
-                        "apex-gray": "#f5f5f7",
-                        "apex-text": "#1d1d1f",
-                        "apex-border": "#d2d2d7",
+                        "primary-dark": "#1a65a8",
+                        "surface": "#f8fafc",
+                        "card-border": "#e2e8f0",
+                        "text-main": "#0f172a",
+                        "text-muted": "#64748b",
                     },
                     fontFamily: {
-                        "sans": ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"]
+                        "sans": ["Inter", "sans-serif"]
                     },
                 },
             },
@@ -41,116 +41,176 @@
     <style type="text/tailwindcss">
         @layer base {
             body {
-                @apply bg-apex-bg text-apex-text antialiased font-sans;
-                letter-spacing: -0.011em;
+                @apply bg-[#f1f5f9] text-text-main antialiased font-sans;
             }
         }
         .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 200, 'GRAD' 0, 'opsz' 40;
-            font-size: 40px;
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+            font-size: 24px;
         }
-        .card-shadow {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        .radio-circle {
+            @apply w-5 h-5 rounded-full border border-gray-300 bg-white flex items-center justify-center transition-all duration-200;
         }
-        .card-shadow:hover {
-            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-            transform: translateY(-2px);
+        .choice-card:hover .radio-circle {
+            @apply border-primary;
         }
-        .card-selected {
-            @apply border-primary border-2;
-            box-shadow: 0 8px 24px rgba(30,115,190,0.15);
+        .choice-card.active {
+            @apply border-primary ring-1 ring-primary bg-blue-50/30;
+        }
+        .choice-card.active .radio-circle {
+            @apply border-primary;
+        }
+        .choice-card.active .radio-inner {
+            @apply w-2.5 h-2.5 rounded-full bg-primary;
+        }
+        .choice-card {
+            @apply flex items-center justify-between p-5 bg-white border border-card-border rounded-xl shadow-sm transition-all duration-200 text-left cursor-pointer;
+        }
+        .choice-card:hover {
+            @apply border-primary/50;
         }
     </style>
 </head>
 
 <body class="min-h-screen flex flex-col">
 
-    <!-- Progress Bar -->
-    <nav class="w-full pt-12 px-6 max-w-xl mx-auto">
-        <div class="flex flex-col gap-4">
-            <div class="flex justify-between items-center px-1">
-                <span id="step-label" class="text-[11px] font-medium tracking-wide text-zinc-400 uppercase">Étape 1 sur 5</span>
+    <!-- Header with Progress -->
+    <header class="w-full max-w-5xl mx-auto pt-8 sm:pt-12 px-6">
+        <div class="flex flex-col gap-4 max-w-xl mx-auto md:mx-0">
+            <div class="flex items-center gap-2">
+                <span id="step-label" class="text-xs font-semibold uppercase tracking-wider text-primary">Étape 1 sur 5</span>
             </div>
-            <div class="flex gap-1.5 h-[2px] w-full bg-apex-gray rounded-full overflow-hidden">
-                <div id="progress-1" class="w-1/5 bg-primary rounded-full"></div>
-                <div id="progress-2" class="flex-1"></div>
-                <div id="progress-3" class="flex-1"></div>
-                <div id="progress-4" class="flex-1"></div>
-                <div id="progress-5" class="flex-1"></div>
+            <div class="flex gap-2 h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                <div id="progress-1" class="w-1/5 bg-primary rounded-full transition-all duration-300"></div>
+                <div id="progress-2" class="flex-1 transition-all duration-300"></div>
+                <div id="progress-3" class="flex-1 transition-all duration-300"></div>
+                <div id="progress-4" class="flex-1 transition-all duration-300"></div>
+                <div id="progress-5" class="flex-1 transition-all duration-300"></div>
             </div>
         </div>
-    </nav>
+    </header>
 
     <!-- Main Content -->
-    <main class="flex-1 flex flex-col items-center justify-center px-6 py-12">
+    <main class="flex-1 flex flex-col items-center justify-center px-6 py-8 sm:py-12">
 
         <!-- Step 1: Rapport Question -->
-        <section id="step-1" class="step-content">
-            <div class="max-w-2xl w-full text-center mb-16">
-                <h1 class="text-apex-text text-2xl md:text-3xl font-normal tracking-tight leading-tight whitespace-nowrap">
+        <section id="step-1" class="step-content max-w-xl w-full">
+            <div class="mb-8 sm:mb-10 text-center md:text-left">
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 mb-3">
                     Avez-vous un rapport de caractérisation ?
                 </h1>
+                <p class="text-text-muted text-sm md:text-base leading-relaxed">
+                    Veuillez sélectionner l'option qui correspond à votre situation actuelle.
+                </p>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-lg">
-                <button id="btn-has-report" class="group relative flex flex-col items-center justify-center p-12 bg-white border border-apex-border/50 rounded-2xl card-shadow overflow-hidden">
-                    <div class="mb-6 text-primary/80">
-                        <span class="material-symbols-outlined">description</span>
+            <!-- Mobile: Label -->
+            <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 md:hidden">Choisir une option</div>
+
+            <div class="space-y-4">
+                <button id="btn-has-report" class="choice-card w-full group">
+                    <div class="flex items-center gap-4">
+                        <div class="radio-circle">
+                            <div class="radio-inner"></div>
+                        </div>
+                        <div>
+                            <span class="block text-sm font-semibold text-slate-900">Oui, j'ai un rapport</span>
+                            <span class="block text-xs text-text-muted mt-0.5">J'ai un document prêt à être partagé.</span>
+                        </div>
                     </div>
-                    <span class="text-sm font-medium tracking-widest text-apex-text/80 uppercase">Oui</span>
-                    <div class="absolute inset-0 border-2 border-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl pointer-events-none"></div>
+                    <span class="material-symbols-outlined text-slate-300 text-xl hidden sm:block">description</span>
                 </button>
 
-                <button id="btn-no-report" class="group relative flex flex-col items-center justify-center p-12 bg-white border border-apex-border/50 rounded-2xl card-shadow overflow-hidden">
-                    <div class="mb-6 text-zinc-400">
-                        <span class="material-symbols-outlined">close</span>
+                <button id="btn-no-report" class="choice-card w-full group">
+                    <div class="flex items-center gap-4">
+                        <div class="radio-circle">
+                            <div class="radio-inner"></div>
+                        </div>
+                        <div>
+                            <span class="block text-sm font-semibold text-slate-900">Non, pas encore</span>
+                            <span class="block text-xs text-text-muted mt-0.5">Je souhaite procéder sans rapport pour le moment.</span>
+                        </div>
                     </div>
-                    <span class="text-sm font-medium tracking-widest text-apex-text/80 uppercase">Non</span>
-                    <div class="absolute inset-0 border-2 border-apex-text/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl pointer-events-none"></div>
+                    <span class="material-symbols-outlined text-slate-300 text-xl hidden sm:block">close</span>
+                </button>
+            </div>
+
+            <!-- Info box (mobile) -->
+            <div class="mt-8 p-5 bg-slate-50 rounded-2xl border border-slate-100 md:hidden">
+                <div class="flex items-start gap-3">
+                    <span class="material-symbols-outlined text-slate-400 !text-xl mt-0.5">info</span>
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-700 mb-1">C'est quoi un rapport ?</h4>
+                        <p class="text-[11px] leading-relaxed text-slate-500">Le rapport de caractérisation identifie les matériaux contenant de l'amiante dans votre bâtiment.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="mt-8 sm:mt-10 flex flex-col md:flex-row items-center justify-between gap-4">
+                <button class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors hidden md:block">
+                    Besoin d'aide ?
+                </button>
+                <button id="btn-continue" class="w-full md:w-auto px-8 py-3 bg-primary text-white text-sm font-semibold rounded-xl shadow-sm hover:bg-primary-dark transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    Continuer
                 </button>
             </div>
         </section>
 
         <!-- Step 1b: Upload Report (hidden by default) -->
-        <section id="step-1b" class="step-content hidden">
-            <div class="max-w-2xl w-full text-center mb-12">
-                <h1 class="text-apex-text text-3xl md:text-4xl font-normal tracking-tight leading-tight">
+        <section id="step-1b" class="step-content max-w-xl w-full hidden">
+            <div class="mb-8 sm:mb-10 text-center md:text-left">
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 mb-3">
                     Téléchargez votre rapport
                 </h1>
+                <p class="text-text-muted text-sm md:text-base leading-relaxed">
+                    Glissez votre fichier PDF ou cliquez pour parcourir.
+                </p>
             </div>
 
-            <div id="drop-zone" class="w-full max-w-md p-12 bg-white border-2 border-dashed border-apex-border/50 rounded-2xl card-shadow cursor-pointer transition-all hover:border-primary/50">
+            <div id="drop-zone" class="w-full p-8 sm:p-12 bg-white border-2 border-dashed border-card-border rounded-2xl cursor-pointer transition-all hover:border-primary/50 hover:bg-blue-50/20">
                 <div id="upload-default" class="flex flex-col items-center">
-                    <div class="mb-6 text-primary/60">
-                        <span class="material-symbols-outlined">cloud_upload</span>
+                    <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4">
+                        <span class="material-symbols-outlined !text-3xl">cloud_upload</span>
                     </div>
-                    <p class="text-sm font-medium text-apex-text/60 mb-2">Glissez votre PDF ici</p>
-                    <p class="text-xs text-zinc-400">ou cliquez pour parcourir</p>
+                    <p class="text-sm font-semibold text-slate-900 mb-1">Glissez votre PDF ici</p>
+                    <p class="text-xs text-text-muted">ou cliquez pour parcourir</p>
+                    <p class="text-[10px] text-slate-400 mt-4">PDF uniquement • Max 25MB</p>
                 </div>
 
                 <div id="upload-success" class="hidden flex flex-col items-center">
-                    <div class="mb-6 text-emerald-500">
-                        <span class="material-symbols-outlined">check_circle</span>
+                    <div class="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-4">
+                        <span class="material-symbols-outlined !text-3xl">check_circle</span>
                     </div>
-                    <p id="file-name" class="text-sm font-medium text-apex-text mb-2"></p>
+                    <p id="file-name" class="text-sm font-semibold text-slate-900 mb-1"></p>
                     <p class="text-xs text-primary cursor-pointer hover:underline" id="btn-change-file">Changer de fichier</p>
                 </div>
 
                 <input type="file" id="file-input" accept=".pdf" class="hidden"/>
             </div>
 
-            <button id="btn-back-to-choice" class="mt-8 text-xs text-zinc-400 hover:text-primary transition-colors">
-                ← Retour
-            </button>
+            <div class="mt-8 sm:mt-10 flex flex-col md:flex-row items-center justify-between gap-4">
+                <button id="btn-back-to-choice" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                    <span class="material-symbols-outlined !text-lg">arrow_back</span>
+                    Retour
+                </button>
+                <button id="btn-continue-upload" class="w-full md:w-auto px-8 py-3 bg-primary text-white text-sm font-semibold rounded-xl shadow-sm hover:bg-primary-dark transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    Continuer
+                </button>
+            </div>
         </section>
 
     </main>
 
     <!-- Footer -->
-    <footer class="py-10 w-full flex flex-col items-center justify-center">
-        <div class="h-[1px] w-12 bg-apex-border/40 mb-6"></div>
-        <p class="text-[10px] tracking-[0.2em] text-zinc-400 uppercase font-medium">Apex Soumissions</p>
+    <footer class="py-6 sm:py-8 w-full border-t border-slate-200 bg-white mt-auto">
+        <div class="max-w-5xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.15em]">Apex Soumissions</p>
+            <div class="flex gap-6 hidden md:flex">
+                <a class="text-xs text-text-muted hover:underline" href="#">Confidentialité</a>
+                <a class="text-xs text-text-muted hover:underline" href="#">Support</a>
+            </div>
+        </div>
     </footer>
 
     <!-- JavaScript -->

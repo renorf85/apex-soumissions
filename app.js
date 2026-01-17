@@ -54,6 +54,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 function setupStep1Events() {
     const btnHasReport = document.getElementById('btn-has-report');
     const btnNoReport = document.getElementById('btn-no-report');
+    const btnContinue = document.getElementById('btn-continue');
+    const btnContinueUpload = document.getElementById('btn-continue-upload');
     const btnBackToChoice = document.getElementById('btn-back-to-choice');
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
@@ -62,14 +64,31 @@ function setupStep1Events() {
     // "Oui" - Has report
     btnHasReport?.addEventListener('click', () => {
         state.hasReport = true;
-        showUploadSection();
+        selectCard(btnHasReport, btnNoReport);
+        btnContinue.disabled = false;
     });
 
     // "Non" - No report
     btnNoReport?.addEventListener('click', () => {
         state.hasReport = false;
-        state.rapport = null;
-        goToStep(2);
+        selectCard(btnNoReport, btnHasReport);
+        btnContinue.disabled = false;
+    });
+
+    // Continue button (step 1)
+    btnContinue?.addEventListener('click', () => {
+        if (state.hasReport === true) {
+            showUploadSection();
+        } else if (state.hasReport === false) {
+            goToStep(2);
+        }
+    });
+
+    // Continue button (upload step)
+    btnContinueUpload?.addEventListener('click', () => {
+        if (state.rapport) {
+            goToStep(2);
+        }
     });
 
     // Back to choice
@@ -93,17 +112,17 @@ function setupStep1Events() {
     // Drag and drop
     dropZone?.addEventListener('dragover', (e) => {
         e.preventDefault();
-        dropZone.classList.add('border-primary', 'bg-primary/5');
+        dropZone.classList.add('border-primary', 'bg-blue-50/30');
     });
 
     dropZone?.addEventListener('dragleave', (e) => {
         e.preventDefault();
-        dropZone.classList.remove('border-primary', 'bg-primary/5');
+        dropZone.classList.remove('border-primary', 'bg-blue-50/30');
     });
 
     dropZone?.addEventListener('drop', (e) => {
         e.preventDefault();
-        dropZone.classList.remove('border-primary', 'bg-primary/5');
+        dropZone.classList.remove('border-primary', 'bg-blue-50/30');
 
         const files = e.dataTransfer.files;
         if (files.length > 0) {
@@ -119,6 +138,14 @@ function setupStep1Events() {
     });
 }
 
+function selectCard(activeCard, inactiveCard) {
+    // Remove active state from inactive card
+    inactiveCard?.classList.remove('active');
+
+    // Add active state to active card
+    activeCard?.classList.add('active');
+}
+
 function showUploadSection() {
     document.getElementById('step-1').classList.add('hidden');
     document.getElementById('step-1b').classList.remove('hidden');
@@ -131,6 +158,7 @@ function showChoiceSection() {
     // Reset upload state
     document.getElementById('upload-default').classList.remove('hidden');
     document.getElementById('upload-success').classList.add('hidden');
+    document.getElementById('btn-continue-upload').disabled = true;
     state.rapport = null;
 }
 
@@ -154,13 +182,9 @@ function handleFileSelected(file) {
     document.getElementById('upload-default').classList.add('hidden');
     document.getElementById('upload-success').classList.remove('hidden');
     document.getElementById('file-name').textContent = file.name;
+    document.getElementById('btn-continue-upload').disabled = false;
 
     console.log('Fichier sélectionné:', file.name);
-
-    // Auto-advance to next step after a short delay
-    setTimeout(() => {
-        goToStep(2);
-    }, 800);
 }
 
 // =====================================================
@@ -196,6 +220,8 @@ function updateProgressBar(step) {
                 segment.classList.add('w-1/5');
             } else {
                 segment.classList.remove('bg-primary');
+                segment.classList.remove('w-1/5');
+                segment.classList.add('flex-1');
             }
         }
     }
