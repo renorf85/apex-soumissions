@@ -505,46 +505,87 @@ function hideSuggestions() {
     suggestionsContainer?.classList.add('hidden');
 }
 
-function selectAddress(feature) {
+async function selectAddress(feature) {
     const adresseInput = document.getElementById('client-adresse');
     const distanceInput = document.getElementById('client-distance');
+    const loadingSpinner = document.getElementById('adresse-loading');
 
     // Set the address in input
     if (adresseInput) {
         adresseInput.value = feature.place_name;
     }
 
-    // Calculate distance from Apex base
+    // Hide suggestions immediately
+    hideSuggestions();
+
+    // Get chantier coordinates
     const chantierLng = feature.center[0];
     const chantierLat = feature.center[1];
 
-    const distance = calculateDistance(
-        APEX_BASE_LOCATION.lat,
-        APEX_BASE_LOCATION.lng,
-        chantierLat,
-        chantierLng
-    );
-
-    // Round to nearest km
-    const distanceKm = Math.round(distance);
-
-    // Set distance input
-    if (distanceInput) {
-        distanceInput.value = distanceKm;
-        updateTransportCost(distanceKm);
-    }
-
-    console.log(`📍 Adresse sélectionnée: ${feature.place_name}`);
-    console.log(`📏 Distance calculée: ${distanceKm} km`);
-
-    // Hide suggestions
-    hideSuggestions();
-
-    // Store coordinates in state for potential future use
+    // Store coordinates in state
     state.client.coordinates = {
         lng: chantierLng,
         lat: chantierLat
     };
+
+    // Show loading while calculating route distance
+    loadingSpinner?.classList.remove('hidden');
+
+    try {
+        // Use Mapbox Directions API for real driving distance
+        const distanceKm = await calculateDrivingDistance(
+            APEX_BASE_LOCATION.lng,
+            APEX_BASE_LOCATION.lat,
+            chantierLng,
+            chantierLat
+        );
+
+        // Set distance input
+        if (distanceInput) {
+            distanceInput.value = distanceKm;
+            updateTransportCost(distanceKm);
+        }
+
+        console.log(`📍 Adresse sélectionnée: ${feature.place_name}`);
+        console.log(`📏 Distance routière: ${distanceKm} km (depuis Québec)`);
+
+    } catch (error) {
+        console.error('Erreur calcul distance routière:', error);
+        
+        // Fallback: use Haversine (straight line) distance
+        const straightDistance = calculateDistance(
+            APEX_BASE_LOCATION.lat,
+            APEX_BASE_LOCATION.lng,
+            chantierLat,
+            chantierLng
+        );
+        const distanceKm = Math.round(straightDistance * 1.3); // +30% pour approximer route
+
+        if (distanceInput) {
+            distanceInput.value = distanceKm;
+            updateTransportCost(distanceKm);
+        }
+
+        console.log(`📏 Distance estimée (fallback): ${distanceKm} km`);
+    } finally {
+        loadingSpinner?.classList.add('hidden');
+    }
+}
+
+// Calculate real driving distance using Mapbox Directions API
+async function calculateDrivingDistance(fromLng, fromLat, toLng, toLat) {
+    const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=false&access_token=${MAPBOX_ACCESS_TOKEN}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.routes && data.routes.length > 0) {
+        // Distance is in meters, convert to km
+        const distanceMeters = data.routes[0].distance;
+        return Math.round(distanceMeters / 1000);
+    }
+
+    throw new Error('No route found');
 }
 
 // Haversine formula to calculate distance between two points
