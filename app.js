@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Setup event listeners
     setupStep1Events();
+    setupStep2Events();
 
     console.log('Apex Soumissions - Prêt!');
 });
@@ -88,9 +89,13 @@ function setupStep1Events() {
         showChoiceSection();
     });
 
-    // Back button (mobile) - same as btnBackToChoice for now
+    // Back button (mobile) - handles navigation based on current step
     btnBackMobile?.addEventListener('click', () => {
-        showChoiceSection();
+        if (state.currentStep === 2) {
+            goToStep(1);
+        } else {
+            showChoiceSection();
+        }
     });
 
     // Drop zone click
@@ -201,20 +206,110 @@ function handleFileSelected(file) {
 }
 
 // =====================================================
+// STEP 2: CLIENT INFORMATION
+// =====================================================
+
+function setupStep2Events() {
+    const form = document.getElementById('client-form');
+    const btnBack = document.getElementById('btn-back-step2');
+    const distanceInput = document.getElementById('client-distance');
+
+    // Back button
+    btnBack?.addEventListener('click', () => {
+        goToStep(1);
+    });
+
+    // Distance change - update transport cost display
+    distanceInput?.addEventListener('input', (e) => {
+        updateTransportCost(parseInt(e.target.value) || 0);
+    });
+
+    // Form submission
+    form?.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        // Validate and save to state
+        const nom = document.getElementById('client-nom').value.trim();
+        const telephone = document.getElementById('client-telephone').value.trim();
+        const courriel = document.getElementById('client-courriel').value.trim();
+        const adresse = document.getElementById('client-adresse').value.trim();
+        const distance = parseInt(document.getElementById('client-distance').value) || 0;
+
+        if (!nom || !telephone || !courriel || !adresse) {
+            alert('Veuillez remplir tous les champs.');
+            return;
+        }
+
+        // Save to state
+        state.client = {
+            nom,
+            telephone,
+            courriel,
+            adresseChantier: adresse,
+            distanceKm: distance
+        };
+
+        console.log('Client info saved:', state.client);
+
+        // Go to next step
+        goToStep(3);
+    });
+}
+
+function updateTransportCost(distance) {
+    const transportCostEl = document.getElementById('transport-cost');
+    if (!transportCostEl) return;
+
+    let cost = 55; // Default 0-50km
+    let message = '';
+
+    if (distance > 100) {
+        cost = 75;
+        message = `Frais de transport : ${cost} $ <span class="text-amber-600 font-medium">(+ prévoir pension)</span>`;
+    } else if (distance > 50) {
+        cost = 75;
+        message = `Frais de transport : ${cost} $`;
+    } else {
+        message = `Frais de transport : ${cost} $`;
+    }
+
+    transportCostEl.innerHTML = message;
+}
+
+// =====================================================
 // NAVIGATION
 // =====================================================
 
 function goToStep(step) {
     console.log(`Navigation vers étape ${step}`);
 
+    // Hide all steps
+    document.querySelectorAll('.step-content').forEach(el => {
+        el.classList.add('hidden');
+    });
+
+    // Show the target step
+    if (step === 1) {
+        // Check if we need to show upload or choice
+        if (state.hasReport === true && state.rapport) {
+            document.getElementById('step-1b').classList.remove('hidden');
+        } else {
+            document.getElementById('step-1').classList.remove('hidden');
+            // Reset mobile back button
+            document.getElementById('btn-back-mobile')?.classList.add('invisible');
+        }
+    } else if (step === 2) {
+        document.getElementById('step-2').classList.remove('hidden');
+        // Show mobile back button
+        document.getElementById('btn-back-mobile')?.classList.remove('invisible');
+    } else if (step === 3) {
+        // TODO: Navigate to step 3 (Zones)
+        alert('Étape 3 (Zones) - À implémenter');
+        return;
+    }
+
     // Update progress bar (desktop + mobile)
     updateProgressBar(step);
-
-    // For now, just log - we'll implement full navigation when we have all steps
-    if (step === 2) {
-        // TODO: Navigate to step 2 (Client)
-        alert('Étape 2 (Client) - À implémenter');
-    }
 
     state.currentStep = step;
 }

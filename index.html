@@ -206,6 +206,72 @@
             </div>
         </section>
 
+        <!-- Step 2: Client Information -->
+        <section id="step-2" class="step-content max-w-xl w-full hidden">
+            <div class="mb-6 md:mb-10">
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
+                    Informations du client
+                </h1>
+            </div>
+
+            <form id="client-form" class="space-y-5">
+                <!-- Nom -->
+                <div>
+                    <label for="client-nom" class="block text-sm font-medium text-slate-700 mb-2">Nom complet</label>
+                    <input type="text" id="client-nom" name="nom" required
+                        class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                        placeholder="Jean Tremblay">
+                </div>
+
+                <!-- Téléphone -->
+                <div>
+                    <label for="client-telephone" class="block text-sm font-medium text-slate-700 mb-2">Téléphone</label>
+                    <input type="tel" id="client-telephone" name="telephone" required
+                        class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                        placeholder="(514) 555-1234">
+                </div>
+
+                <!-- Courriel -->
+                <div>
+                    <label for="client-courriel" class="block text-sm font-medium text-slate-700 mb-2">Courriel</label>
+                    <input type="email" id="client-courriel" name="courriel" required
+                        class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                        placeholder="jean@exemple.com">
+                </div>
+
+                <!-- Adresse du chantier -->
+                <div>
+                    <label for="client-adresse" class="block text-sm font-medium text-slate-700 mb-2">Adresse du chantier</label>
+                    <input type="text" id="client-adresse" name="adresse" required
+                        class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                        placeholder="123 rue Principale, Montréal">
+                </div>
+
+                <!-- Distance -->
+                <div>
+                    <label for="client-distance" class="block text-sm font-medium text-slate-700 mb-2">Distance du chantier (km)</label>
+                    <div class="relative">
+                        <input type="number" id="client-distance" name="distance" min="0" max="500" step="1" value="0"
+                            class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all pr-16">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">km</span>
+                    </div>
+                    <p id="transport-cost" class="text-xs text-slate-500 mt-2">Frais de transport : 55 $</p>
+                </div>
+
+                <!-- Navigation buttons -->
+                <div class="flex items-center justify-between pt-4">
+                    <button type="button" id="btn-back-step2" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                        <span class="material-symbols-outlined text-lg">arrow_back</span>
+                        Retour
+                    </button>
+                    <button type="submit" class="px-6 py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2">
+                        Continuer
+                        <span class="material-symbols-outlined text-lg">arrow_forward</span>
+                    </button>
+                </div>
+            </form>
+        </section>
+
     </main>
 
     <!-- Footer -->
