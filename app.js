@@ -410,16 +410,37 @@ function populateMateriauxDropdown() {
 }
 
 function setupStep3Events() {
+    // === Zone List (step-3) ===
+    const btnAddZone = document.getElementById('btn-add-zone');
+    const btnBackStep3 = document.getElementById('btn-back-step3');
+    const btnContinueStep3 = document.getElementById('btn-continue-step3');
+
+    // Add zone button → go to form
+    btnAddZone?.addEventListener('click', () => {
+        showZoneForm();
+    });
+
+    // Back button → go to step 2
+    btnBackStep3?.addEventListener('click', () => {
+        goToStep(2);
+    });
+
+    // Continue button → go to step 4
+    btnContinueStep3?.addEventListener('click', () => {
+        goToStep(4);
+    });
+
+    // === Zone Form (step-3-form) ===
     const form = document.getElementById('zone-form');
-    const btnBack = document.getElementById('btn-back-step3');
+    const btnBackToZones = document.getElementById('btn-back-to-zones');
     const materiauSelect = document.getElementById('zone-materiau');
     const longueurInput = document.getElementById('zone-longueur');
     const largeurInput = document.getElementById('zone-largeur');
     const epaisseurInput = document.getElementById('zone-epaisseur');
 
-    // Back button
-    btnBack?.addEventListener('click', () => {
-        goToStep(2);
+    // Back to zones list
+    btnBackToZones?.addEventListener('click', () => {
+        showZoneList();
     });
 
     // Material change → update friability badge + default thickness
@@ -447,6 +468,118 @@ function setupStep3Events() {
         e.preventDefault();
         addZone();
     });
+}
+
+function showZoneForm() {
+    document.getElementById('step-3').classList.add('hidden');
+    document.getElementById('step-3-form').classList.remove('hidden');
+}
+
+function showZoneList() {
+    document.getElementById('step-3-form').classList.add('hidden');
+    document.getElementById('step-3').classList.remove('hidden');
+    renderZoneCards();
+}
+
+function renderZoneCards() {
+    const grid = document.getElementById('zones-grid');
+    const emptyHint = document.getElementById('zones-empty-hint');
+    const btnContinue = document.getElementById('btn-continue-step3');
+
+    if (!grid) return;
+
+    // Remove existing zone cards (keep the add button)
+    const existingCards = grid.querySelectorAll('.zone-card');
+    existingCards.forEach(card => card.remove());
+
+    // Add zone cards
+    state.zones.forEach(zone => {
+        const card = createZoneCard(zone);
+        grid.appendChild(card);
+    });
+
+    // Show/hide empty hint
+    if (state.zones.length > 0) {
+        emptyHint?.classList.add('hidden');
+        btnContinue?.removeAttribute('disabled');
+    } else {
+        emptyHint?.classList.remove('hidden');
+        btnContinue?.setAttribute('disabled', 'true');
+    }
+}
+
+function createZoneCard(zone) {
+    const card = document.createElement('div');
+    card.className = 'zone-card';
+    card.dataset.zoneId = zone.id;
+
+    // Icon based on category
+    const iconMap = {
+        'Mur/Plafond': 'wall',
+        'Plancher': 'foundation',
+        'Isolation': 'thermostat',
+        'Revêtement extérieur': 'roofing',
+        'Panneaux thermiques': 'heat'
+    };
+    const icon = iconMap[zone.categorie] || 'square_foot';
+
+    // Risk badge
+    const isHighRisk = zone.risque === 'ÉLEVÉ';
+    const riskClass = isHighRisk ? 'risk-high' : 'risk-moderate';
+    const riskText = isHighRisk ? 'Risque élevé' : 'Risque modéré';
+
+    // Friability text
+    const friabiliteText = zone.friabilite === 'friable' ? 'Friable' : 'Non friable';
+
+    card.innerHTML = `
+        <div class="flex justify-between items-start mb-4">
+            <div class="bg-slate-50 p-3 rounded-xl">
+                <span class="material-symbols-outlined text-slate-400">${icon}</span>
+            </div>
+            <div class="flex flex-col items-end gap-2">
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${riskClass}">
+                    ${riskText}
+                </span>
+                <button class="btn-delete-zone w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 transition-colors" data-zone-id="${zone.id}">
+                    <span class="material-symbols-outlined text-xl">delete</span>
+                </button>
+            </div>
+        </div>
+        <div class="mt-auto">
+            <h3 class="text-lg font-bold text-slate-900 mb-1">${zone.nom}</h3>
+            <div class="space-y-2 pt-3 border-t border-slate-50">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs text-slate-400">Surface</span>
+                    <span class="text-xs font-semibold text-slate-700">${zone.surface.toFixed(0)} pi²</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-xs text-slate-400">Matériau</span>
+                    <span class="text-xs font-semibold text-slate-700">${zone.materiauNom?.split(' ')[0] || 'N/A'}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-xs text-slate-400">Friabilité</span>
+                    <span class="text-xs font-semibold text-slate-700">${friabiliteText}</span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Delete button listener
+    const btnDelete = card.querySelector('.btn-delete-zone');
+    btnDelete?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteZone(zone.id);
+    });
+
+    return card;
+}
+
+function deleteZone(zoneId) {
+    if (!confirm('Supprimer cette zone ?')) return;
+
+    state.zones = state.zones.filter(z => z.id !== zoneId);
+    console.log('🗑️ Zone supprimée, total:', state.zones.length);
+    renderZoneCards();
 }
 
 function updateFriabiliteBadge(friabilite) {
@@ -561,9 +694,8 @@ function addZone() {
     // Reset form
     resetZoneForm();
 
-    // Go to zone list (step 3b) - for now just show alert
-    // TODO: Navigate to step 3b when implemented
-    alert(`Zone "${nom}" ajoutée!\n\nTotal: ${state.zones.length} zone(s)\n\n(L'écran de liste des zones sera implémenté prochainement)`);
+    // Return to zone list
+    showZoneList();
 }
 
 function resetZoneForm() {
@@ -612,6 +744,9 @@ function goToStep(step) {
         document.getElementById('btn-back-mobile')?.classList.remove('invisible');
     } else if (step === 3) {
         document.getElementById('step-3').classList.remove('hidden');
+        document.getElementById('step-3-form').classList.add('hidden');
+        // Render zone cards
+        renderZoneCards();
         // Show mobile back button
         document.getElementById('btn-back-mobile')?.classList.remove('invisible');
     }

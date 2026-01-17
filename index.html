@@ -86,6 +86,23 @@
         .plan-card.active .radio-inner {
             @apply w-2.5 h-2.5 bg-primary rounded-full;
         }
+
+        /* Zone cards */
+        .zone-card {
+            @apply relative bg-white border border-gray-100 rounded-2xl p-5 flex flex-col min-h-[200px] md:min-h-[280px] transition-all duration-300;
+            box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.04);
+        }
+        .zone-card:hover {
+            @apply border-primary/20;
+        }
+
+        /* Risk badges */
+        .risk-high {
+            @apply bg-red-50 text-red-600;
+        }
+        .risk-moderate {
+            @apply bg-amber-50 text-amber-600;
+        }
     </style>
 </head>
 
@@ -333,8 +350,51 @@
             </form>
         </section>
 
-        <!-- Step 3: Add Zone Form -->
-        <section id="step-3" class="step-content max-w-xl w-full hidden">
+        <!-- Step 3: Zone Library (Liste des zones) -->
+        <section id="step-3" class="step-content max-w-4xl w-full hidden">
+            <div class="mb-8 md:mb-10">
+                <h1 class="text-2xl md:text-[32px] font-semibold tracking-tight text-slate-900">Zones de travail</h1>
+                <p class="text-slate-500 text-sm md:text-base mt-2 leading-relaxed">
+                    Identifiez les différentes zones d'intervention pour cette soumission.
+                </p>
+            </div>
+
+            <!-- Zone Cards Grid -->
+            <div id="zones-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                <!-- Add Zone Button (toujours premier) -->
+                <button id="btn-add-zone" class="group flex flex-col items-center justify-center min-h-[200px] md:min-h-[280px] bg-white border-2 border-dashed border-gray-200 rounded-2xl hover:border-primary/40 hover:bg-blue-50/30 transition-all duration-300">
+                    <div class="w-12 h-12 rounded-full border border-primary/20 flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-white transition-colors">
+                        <span class="material-symbols-outlined text-primary group-hover:text-white">add</span>
+                    </div>
+                    <span class="text-[15px] font-medium text-slate-600 group-hover:text-primary transition-colors">Ajouter une zone</span>
+                </button>
+
+                <!-- Zone cards will be dynamically inserted here -->
+            </div>
+
+            <!-- Empty state message (shown when no zones) -->
+            <div id="zones-empty-hint" class="mt-6 p-4 bg-blue-50/50 rounded-xl border border-blue-100/50 flex gap-3 items-start">
+                <span class="material-symbols-outlined text-primary text-xl">info</span>
+                <p class="text-sm text-slate-600 leading-relaxed">
+                    Commencez par ajouter au moins une zone de travail pour continuer.
+                </p>
+            </div>
+
+            <!-- Navigation buttons -->
+            <div class="flex items-center justify-between pt-8 mt-8 border-t border-slate-100">
+                <button type="button" id="btn-back-step3" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                    <span class="material-symbols-outlined text-lg">arrow_back</span>
+                    Retour
+                </button>
+                <button type="button" id="btn-continue-step3" class="px-6 py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    Continuer
+                    <span class="material-symbols-outlined text-lg">arrow_forward</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Step 3 Form: Add/Edit Zone -->
+        <section id="step-3-form" class="step-content max-w-xl w-full hidden">
             <div class="mb-6 md:mb-8">
                 <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">Ajouter une zone</h1>
                 <p class="text-slate-500 text-sm mt-2">Définissez la zone à désamianter.</p>
@@ -430,9 +490,9 @@
 
                 <!-- Back link -->
                 <div class="flex justify-start pt-2">
-                    <button type="button" id="btn-back-step3" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                    <button type="button" id="btn-back-to-zones" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
                         <span class="material-symbols-outlined text-lg">arrow_back</span>
-                        Retour
+                        Retour aux zones
                     </button>
                 </div>
             </form>
