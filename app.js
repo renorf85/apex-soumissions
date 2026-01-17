@@ -71,7 +71,19 @@ const state = {
     materiaux: [],
     config: {},
     risqueGlobal: null,
-    prix: {}
+    prix: {
+        zones: 0,
+        demolition: 0,
+        douches: 0,
+        tests: 0,
+        perteTemps: 0,
+        transport: 0,
+        disposition: 0,
+        assurance: 0,
+        sousTotal: 0,
+        marge: 0,
+        total: 0
+    }
 };
 
 // =====================================================
@@ -83,11 +95,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Load data from Supabase
     await loadMateriaux();
+    await loadConfig();
 
     // Setup event listeners
     setupStep1Events();
     setupStep2Events();
     setupStep3Events();
+    setupStep4Events();
 
     // Setup dev mode shortcuts
     if (DEV_MODE) {
@@ -927,6 +941,250 @@ function resetZoneForm() {
 }
 
 // =====================================================
+// STEP 4: RÉCAPITULATIF & PRIX
+// =====================================================
+
+async function loadConfig() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('config_prix')
+            .select('*');
+
+        if (error) throw error;
+
+        // Convert array to object for easy lookup
+        data.forEach(item => {
+            state.config[item.cle] = item.valeur;
+        });
+
+        console.log(`✅ ${data.length} paramètres de prix chargés`);
+    } catch (err) {
+        console.error('Erreur chargement config:', err);
+        // Fallback defaults
+        state.config = {
+            taux_horaire: 92,
+            marge_profit: 20,
+            prix_demo_palier1: 8,
+            prix_demo_palier2: 6.5,
+            prix_demo_palier3: 4.5,
+            transport_0_50km: 55,
+            transport_50_100km: 75,
+            zone1_modere: 736,
+            zone_supp_modere: 368,
+            zone1_eleve: 1472,
+            zone_supp_eleve: 736,
+            douche_zone1: 800,
+            douche_zone_supp: 600,
+            test_zone1: 600,
+            test_zone_supp: 400,
+            perte_temps_heures_par_jour: 2,
+            disposition_par_1000pi2: 600,
+            assurance_petit: 250,
+            assurance_grand: 500
+        };
+    }
+}
+
+function setupStep4Events() {
+    const btnBack = document.getElementById('btn-back-step4');
+    const btnContinue = document.getElementById('btn-continue-step4');
+
+    btnBack?.addEventListener('click', () => {
+        goToStep(3);
+    });
+
+    btnContinue?.addEventListener('click', () => {
+        goToStep(5);
+    });
+}
+
+function calculatePrix() {
+    const config = state.config;
+    const zones = state.zones;
+    const distance = state.client.distanceKm || 0;
+
+    // Séparer zones par risque
+    const zonesModere = zones.filter(z => z.risque === 'MODÉRÉ');
+    const zonesEleve = zones.filter(z => z.risque === 'ÉLEVÉ');
+
+    // Surface totale
+    const surfaceTotal = zones.reduce((sum, z) => sum + (z.surface || 0), 0);
+
+    // Déterminer risque global
+    state.risqueGlobal = zonesEleve.length > 0 ? 'ÉLEVÉ' : 'MODÉRÉ';
+
+    // 1. Coûts des zones
+    let prixZones = 0;
+    
+    // Zones modérées
+    if (zonesModere.length > 0) {
+        prixZones += config.zone1_modere || 736;
+        if (zonesModere.length > 1) {
+            prixZones += (zonesModere.length - 1) * (config.zone_supp_modere || 368);
+        }
+    }
+    
+    // Zones élevées
+    if (zonesEleve.length > 0) {
+        prixZones += config.zone1_eleve || 1472;
+        if (zonesEleve.length > 1) {
+            prixZones += (zonesEleve.length - 1) * (config.zone_supp_eleve || 736);
+        }
+    }
+
+    // 2. Prix démolition (selon surface totale)
+    let prixDemo = 0;
+    if (surfaceTotal <= 500) {
+        prixDemo = surfaceTotal * (config.prix_demo_palier1 || 8);
+    } else if (surfaceTotal <= 1500) {
+        prixDemo = 500 * (config.prix_demo_palier1 || 8);
+        prixDemo += (surfaceTotal - 500) * (config.prix_demo_palier2 || 6.5);
+    } else {
+        prixDemo = 500 * (config.prix_demo_palier1 || 8);
+        prixDemo += 1000 * (config.prix_demo_palier2 || 6.5);
+        prixDemo += (surfaceTotal - 1500) * (config.prix_demo_palier3 || 4.5);
+    }
+
+    // 3. Frais risque élevé (seulement si zones élevées)
+    let prixDouches = 0;
+    let prixTests = 0;
+    let prixPerteTemps = 0;
+
+    if (zonesEleve.length > 0) {
+        // Douches
+        prixDouches = config.douche_zone1 || 800;
+        if (zonesEleve.length > 1) {
+            prixDouches += (zonesEleve.length - 1) * (config.douche_zone_supp || 600);
+        }
+
+        // Tests d'air
+        prixTests = config.test_zone1 || 600;
+        if (zonesEleve.length > 1) {
+            prixTests += (zonesEleve.length - 1) * (config.test_zone_supp || 400);
+        }
+
+        // Perte de temps (estimation: 1 jour par 500 pi² de zones élevées)
+        const surfaceEleve = zonesEleve.reduce((sum, z) => sum + (z.surface || 0), 0);
+        const joursEstimes = Math.ceil(surfaceEleve / 500);
+        const heuresPerteParJour = config.perte_temps_heures_par_jour || 2;
+        const tauxHoraire = config.taux_horaire || 92;
+        prixPerteTemps = joursEstimes * heuresPerteParJour * tauxHoraire * 2; // x2 pour 2 travailleurs
+    }
+
+    // 4. Transport
+    let prixTransport = 0;
+    if (distance <= 50) {
+        prixTransport = config.transport_0_50km || 55;
+    } else {
+        prixTransport = config.transport_50_100km || 75;
+    }
+
+    // 5. Disposition (par 1000 pi², minimum 600$)
+    let prixDisposition = Math.ceil(surfaceTotal / 1000) * (config.disposition_par_1000pi2 || 600);
+    prixDisposition = Math.max(prixDisposition, config.disposition_par_1000pi2 || 600);
+
+    // 6. Assurance
+    let prixAssurance = 0;
+    if (surfaceTotal <= 500) {
+        prixAssurance = config.assurance_petit || 250;
+    } else {
+        prixAssurance = config.assurance_grand || 500;
+    }
+
+    // Sous-total
+    const sousTotal = prixZones + prixDemo + prixDouches + prixTests + prixPerteTemps + prixTransport + prixDisposition + prixAssurance;
+
+    // Marge de profit
+    const margePourcent = config.marge_profit || 20;
+    const marge = sousTotal * (margePourcent / 100);
+
+    // Total
+    const total = sousTotal + marge;
+
+    // Sauvegarder dans state
+    state.prix = {
+        zones: prixZones,
+        demolition: prixDemo,
+        douches: prixDouches,
+        tests: prixTests,
+        perteTemps: prixPerteTemps,
+        transport: prixTransport,
+        disposition: prixDisposition,
+        assurance: prixAssurance,
+        sousTotal: sousTotal,
+        marge: marge,
+        total: total,
+        surfaceTotal: surfaceTotal,
+        margePourcent: margePourcent
+    };
+
+    console.log('💰 Prix calculés:', state.prix);
+    return state.prix;
+}
+
+function renderRecap() {
+    // Client info
+    document.getElementById('recap-client-nom').textContent = state.client.nom || '—';
+    document.getElementById('recap-client-contact').textContent = `${state.client.telephone} • ${state.client.courriel}`;
+    document.getElementById('recap-client-adresse').textContent = state.client.adresseChantier || '—';
+    document.getElementById('recap-client-distance').textContent = state.client.distanceKm || 0;
+
+    // Zones count
+    document.getElementById('recap-zones-count').textContent = `${state.zones.length} zone(s)`;
+
+    // Zones list
+    const zonesList = document.getElementById('recap-zones-list');
+    zonesList.innerHTML = '';
+    
+    state.zones.forEach(zone => {
+        const isEleve = zone.risque === 'ÉLEVÉ';
+        const riskClass = isEleve ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600';
+        
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between p-3 bg-slate-50 rounded-xl';
+        div.innerHTML = `
+            <div class="flex items-center gap-3">
+                <span class="font-medium text-slate-800">${zone.nom}</span>
+                <span class="text-sm text-slate-500">${zone.surface?.toFixed(0) || 0} pi²</span>
+            </div>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${riskClass}">${zone.risque}</span>
+        `;
+        zonesList.appendChild(div);
+    });
+
+    // Surface totale
+    document.getElementById('recap-surface-total').textContent = state.prix.surfaceTotal?.toFixed(0) || 0;
+
+    // Risque global
+    const risqueEl = document.getElementById('recap-risque-global');
+    if (state.risqueGlobal === 'ÉLEVÉ') {
+        risqueEl.textContent = 'ÉLEVÉ';
+        risqueEl.className = 'inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase bg-red-100 text-red-600';
+        document.getElementById('recap-warning-eleve')?.classList.remove('hidden');
+        document.getElementById('prix-risque-eleve-section')?.classList.remove('hidden');
+    } else {
+        risqueEl.textContent = 'MODÉRÉ';
+        risqueEl.className = 'inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase bg-amber-100 text-amber-600';
+        document.getElementById('recap-warning-eleve')?.classList.add('hidden');
+        document.getElementById('prix-risque-eleve-section')?.classList.add('hidden');
+    }
+
+    // Prix details
+    document.getElementById('prix-zones').textContent = formatCurrency(state.prix.zones);
+    document.getElementById('prix-demolition').textContent = formatCurrency(state.prix.demolition);
+    document.getElementById('prix-douches').textContent = formatCurrency(state.prix.douches);
+    document.getElementById('prix-tests').textContent = formatCurrency(state.prix.tests);
+    document.getElementById('prix-perte-temps').textContent = formatCurrency(state.prix.perteTemps);
+    document.getElementById('prix-transport').textContent = formatCurrency(state.prix.transport);
+    document.getElementById('prix-disposition').textContent = formatCurrency(state.prix.disposition);
+    document.getElementById('prix-assurance').textContent = formatCurrency(state.prix.assurance);
+    document.getElementById('prix-sous-total').textContent = formatCurrency(state.prix.sousTotal);
+    document.getElementById('marge-percent').textContent = state.prix.margePourcent || 20;
+    document.getElementById('prix-marge').textContent = formatCurrency(state.prix.marge);
+    document.getElementById('prix-total').textContent = formatCurrency(state.prix.total);
+}
+
+// =====================================================
 // NAVIGATION
 // =====================================================
 
@@ -957,6 +1215,13 @@ function goToStep(step) {
         document.getElementById('step-3-form').classList.add('hidden');
         // Render zone cards
         renderZoneCards();
+        // Show mobile back button
+        document.getElementById('btn-back-mobile')?.classList.remove('invisible');
+    } else if (step === 4) {
+        document.getElementById('step-4').classList.remove('hidden');
+        // Calculate prices and render recap
+        calculatePrix();
+        renderRecap();
         // Show mobile back button
         document.getElementById('btn-back-mobile')?.classList.remove('invisible');
     }
@@ -1113,6 +1378,12 @@ function devGoToStep(step) {
     if (step >= 3) {
         state.zones = DEV_DATA.zones;
     }
+    if (step >= 4) {
+        // S'assurer qu'on a des zones pour l'étape 4
+        if (state.zones.length === 0) {
+            state.zones = DEV_DATA.zones;
+        }
+    }
 
     // Forcer la navigation
     console.log(`🚀 DEV: Saut vers étape ${step}`);
@@ -1130,6 +1401,14 @@ function devGoToStep(step) {
         console.warn(`Étape ${step} pas encore implémentée`);
         alert(`Étape ${step} pas encore implémentée`);
         return;
+    }
+
+    // Actions spécifiques par étape
+    if (step === 3) {
+        renderZoneCards();
+    } else if (step === 4) {
+        calculatePrix();
+        renderRecap();
     }
 
     // Mettre à jour le state et la progress bar

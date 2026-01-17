@@ -519,6 +519,160 @@
             </form>
         </section>
 
+        <!-- Step 4: Récapitulatif & Prix -->
+        <section id="step-4" class="step-content max-w-2xl w-full hidden">
+            <div class="mb-8">
+                <h1 class="text-2xl md:text-[32px] font-semibold tracking-tight text-slate-900">Récapitulatif</h1>
+                <p class="text-slate-500 text-sm md:text-base mt-2">Vérifiez les informations et le prix estimé.</p>
+            </div>
+
+            <!-- Client Summary -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 mb-4 shadow-sm">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-primary text-xl">person</span>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-900" id="recap-client-nom">—</h3>
+                        <p class="text-sm text-slate-500" id="recap-client-contact">—</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-2 text-sm text-slate-600 bg-slate-50 rounded-xl p-3">
+                    <span class="material-symbols-outlined text-slate-400 text-lg">location_on</span>
+                    <div>
+                        <p id="recap-client-adresse">—</p>
+                        <p class="text-xs text-slate-400 mt-1"><span id="recap-client-distance">0</span> km du bureau</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Zones Summary -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 mb-4 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-slate-500 text-xl">layers</span>
+                        </div>
+                        <h3 class="font-semibold text-slate-900">Zones de travail</h3>
+                    </div>
+                    <span class="text-sm font-medium text-slate-500" id="recap-zones-count">0 zone(s)</span>
+                </div>
+                <div id="recap-zones-list" class="space-y-2">
+                    <!-- Zones will be inserted here -->
+                </div>
+                <div class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-4 text-center">
+                    <div>
+                        <span class="block text-xs text-slate-400 uppercase tracking-wider">Surface totale</span>
+                        <span class="text-lg font-bold text-slate-900"><span id="recap-surface-total">0</span> pi²</span>
+                    </div>
+                    <div>
+                        <span class="block text-xs text-slate-400 uppercase tracking-wider">Risque global</span>
+                        <span id="recap-risque-global" class="inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prix Breakdown -->
+            <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm mb-6">
+                <div class="bg-slate-50 px-5 py-4 border-b border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-primary text-xl">calculate</span>
+                        </div>
+                        <h3 class="font-semibold text-slate-900">Détail des coûts</h3>
+                    </div>
+                </div>
+                
+                <div class="p-5 space-y-3" id="prix-details">
+                    <!-- Coûts zones -->
+                    <div class="flex justify-between items-center py-2">
+                        <span class="text-slate-600">Coûts des zones</span>
+                        <span class="font-semibold text-slate-900" id="prix-zones">0 $</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2">
+                        <span class="text-slate-600">Démolition</span>
+                        <span class="font-semibold text-slate-900" id="prix-demolition">0 $</span>
+                    </div>
+                    
+                    <!-- Frais risque élevé (conditionnels) -->
+                    <div id="prix-risque-eleve-section" class="hidden">
+                        <div class="my-3 border-t border-dashed border-slate-200"></div>
+                        <p class="text-xs font-bold text-red-500 uppercase tracking-wider mb-3">Frais risque élevé</p>
+                        <div class="flex justify-between items-center py-2">
+                            <span class="text-slate-600">Douches de décontamination</span>
+                            <span class="font-semibold text-slate-900" id="prix-douches">0 $</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2">
+                            <span class="text-slate-600">Tests d'air</span>
+                            <span class="font-semibold text-slate-900" id="prix-tests">0 $</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2">
+                            <span class="text-slate-600">Perte de temps</span>
+                            <span class="font-semibold text-slate-900" id="prix-perte-temps">0 $</span>
+                        </div>
+                    </div>
+
+                    <div class="my-3 border-t border-dashed border-slate-200"></div>
+                    
+                    <div class="flex justify-between items-center py-2">
+                        <span class="text-slate-600">Transport</span>
+                        <span class="font-semibold text-slate-900" id="prix-transport">0 $</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2">
+                        <span class="text-slate-600">Disposition des matériaux</span>
+                        <span class="font-semibold text-slate-900" id="prix-disposition">0 $</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2">
+                        <span class="text-slate-600">Assurance</span>
+                        <span class="font-semibold text-slate-900" id="prix-assurance">0 $</span>
+                    </div>
+                </div>
+
+                <!-- Sous-total et marge -->
+                <div class="bg-slate-50 px-5 py-4 border-t border-slate-200">
+                    <div class="flex justify-between items-center py-2">
+                        <span class="text-slate-600">Sous-total</span>
+                        <span class="font-semibold text-slate-900" id="prix-sous-total">0 $</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2">
+                        <span class="text-slate-600">Marge de profit (<span id="marge-percent">20</span>%)</span>
+                        <span class="font-semibold text-slate-900" id="prix-marge">0 $</span>
+                    </div>
+                </div>
+
+                <!-- Total -->
+                <div class="bg-primary px-5 py-5">
+                    <div class="flex justify-between items-center">
+                        <span class="text-white font-bold text-lg">TOTAL ESTIMÉ</span>
+                        <span class="text-white font-bold text-2xl" id="prix-total">0 $</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Warning if high risk -->
+            <div id="recap-warning-eleve" class="hidden mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+                <div class="flex gap-3">
+                    <span class="material-symbols-outlined text-red-500">warning</span>
+                    <div>
+                        <p class="text-sm font-semibold text-red-700">Attention : Risque élevé détecté</p>
+                        <p class="text-xs text-red-600 mt-1">Ce projet nécessite des douches de décontamination et des tests d'air obligatoires.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation buttons -->
+            <div class="flex items-center justify-between pt-4">
+                <button type="button" id="btn-back-step4" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                    <span class="material-symbols-outlined text-lg">arrow_back</span>
+                    Modifier les zones
+                </button>
+                <button type="button" id="btn-continue-step4" class="px-6 py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2">
+                    Générer la soumission
+                    <span class="material-symbols-outlined text-lg">description</span>
+                </button>
+            </div>
+        </section>
+
     </main>
 
     <!-- Footer -->
