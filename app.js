@@ -3,6 +3,36 @@
    ===================================================== */
 
 // =====================================================
+// MODE DÉVELOPPEMENT
+// =====================================================
+
+const DEV_MODE = true; // Mettre à false en production
+
+const DEV_DATA = {
+    client: {
+        nom: 'Jean Tremblay',
+        telephone: '514-555-1234',
+        courriel: 'jean.tremblay@test.com',
+        adresseChantier: '123 rue Test, Montréal',
+        distanceKm: 35
+    },
+    zones: [
+        {
+            nom: 'Cuisine',
+            categorie: 'Mur/Plafond',
+            materiau: 'Gypse (panneau 1/2")',
+            friabilite: 'non_friable',
+            longueur: 12,
+            largeur: 10,
+            epaisseur: 0.5,
+            volume: 5,
+            surface: 120,
+            risque: 'MODÉRÉ'
+        }
+    ]
+};
+
+// =====================================================
 // CONFIGURATION SUPABASE
 // =====================================================
 
@@ -44,6 +74,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Setup event listeners
     setupStep1Events();
     setupStep2Events();
+
+    // Setup dev mode shortcuts
+    if (DEV_MODE) {
+        setupDevMode();
+        console.log('🛠️ MODE DEV ACTIVÉ - Raccourcis:');
+        console.log('  D = Remplir formulaire client');
+        console.log('  1-5 = Aller à l\'étape X');
+    }
 
     console.log('Apex Soumissions - Prêt!');
 });
@@ -385,6 +423,99 @@ function updateProgressBar(step) {
                 segment.classList.add('flex-1');
             }
         }
+    }
+}
+
+// =====================================================
+// DEV MODE
+// =====================================================
+
+function setupDevMode() {
+    document.addEventListener('keydown', (e) => {
+        // Ignorer si on est dans un input/textarea
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            return;
+        }
+
+        // D = Remplir le formulaire client
+        if (e.key.toLowerCase() === 'd') {
+            fillDevClientData();
+        }
+
+        // 1-5 = Navigation directe vers étape
+        if (['1', '2', '3', '4', '5'].includes(e.key)) {
+            const step = parseInt(e.key);
+            devGoToStep(step);
+        }
+    });
+
+    // Afficher indicateur DEV
+    const devBadge = document.createElement('div');
+    devBadge.innerHTML = '🛠️ DEV';
+    devBadge.style.cssText = 'position: fixed; bottom: 10px; right: 10px; background: #f59e0b; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; z-index: 9999;';
+    document.body.appendChild(devBadge);
+}
+
+function fillDevClientData() {
+    const data = DEV_DATA.client;
+
+    // Remplir les champs
+    const nomInput = document.getElementById('client-nom');
+    const telInput = document.getElementById('client-telephone');
+    const emailInput = document.getElementById('client-courriel');
+    const adresseInput = document.getElementById('client-adresse');
+    const distanceInput = document.getElementById('client-distance');
+
+    if (nomInput) nomInput.value = data.nom;
+    if (telInput) telInput.value = data.telephone;
+    if (emailInput) emailInput.value = data.courriel;
+    if (adresseInput) adresseInput.value = data.adresseChantier;
+    if (distanceInput) {
+        distanceInput.value = data.distanceKm;
+        updateTransportCost(data.distanceKm);
+    }
+
+    console.log('📝 Données client pré-remplies');
+}
+
+function devGoToStep(step) {
+    // Pré-remplir le state si nécessaire
+    if (step >= 2) {
+        state.hasReport = false;
+        state.client = DEV_DATA.client;
+    }
+    if (step >= 3) {
+        state.zones = DEV_DATA.zones;
+    }
+
+    // Forcer la navigation
+    console.log(`🚀 DEV: Saut vers étape ${step}`);
+
+    // Cacher toutes les étapes
+    document.querySelectorAll('.step-content').forEach(el => {
+        el.classList.add('hidden');
+    });
+
+    // Afficher l'étape demandée
+    const stepEl = document.getElementById(`step-${step}`);
+    if (stepEl) {
+        stepEl.classList.remove('hidden');
+    } else {
+        console.warn(`Étape ${step} pas encore implémentée`);
+        alert(`Étape ${step} pas encore implémentée`);
+        return;
+    }
+
+    // Mettre à jour le state et la progress bar
+    state.currentStep = step;
+    updateProgressBar(step);
+
+    // Afficher le bouton retour sur mobile
+    const btnBackMobile = document.getElementById('btn-back-mobile');
+    if (step > 1) {
+        btnBackMobile?.classList.remove('invisible');
+    } else {
+        btnBackMobile?.classList.add('invisible');
     }
 }
 
