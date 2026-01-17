@@ -1063,12 +1063,13 @@ function calculatePrix() {
             prixTests += (zonesEleve.length - 1) * (config.test_zone_supp || 400);
         }
 
-        // Perte de temps (estimation: 1 jour par 500 pi² de zones élevées)
-        const surfaceEleve = zonesEleve.reduce((sum, z) => sum + (z.surface || 0), 0);
-        const joursEstimes = Math.ceil(surfaceEleve / 500);
-        const heuresPerteParJour = config.perte_temps_heures_par_jour || 2;
+        // Perte de temps (basée sur le prix de démolition - REGLES_METIER_MASTER.md)
+        // heures = prix_demo / 92, jours = ceil(heures/8), perte = jours × 2h × 92$
         const tauxHoraire = config.taux_horaire || 92;
-        prixPerteTemps = joursEstimes * heuresPerteParJour * tauxHoraire * 2; // x2 pour 2 travailleurs
+        const heuresPerteParJour = config.perte_temps_heures_par_jour || 2;
+        const heuresTotales = prixDemo / tauxHoraire;
+        const joursHommes = Math.ceil(heuresTotales / 8);
+        prixPerteTemps = joursHommes * heuresPerteParJour * tauxHoraire;
     }
 
     // 4. Transport
