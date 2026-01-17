@@ -86,6 +86,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('  D = Remplir formulaire client');
         console.log('  Z = Remplir formulaire zone');
         console.log('  1-5 = Aller à l\'étape X');
+        console.log('  ← / → = Étape précédente / suivante');
     }
 
     console.log('Apex Soumissions - Prêt!');
@@ -664,9 +665,12 @@ function updateProgressBar(step) {
 function setupDevMode() {
     document.addEventListener('keydown', (e) => {
         // Ignorer si on est dans un input/textarea
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
             return;
         }
+
+        // Debug: log toutes les touches
+        console.log(`🔑 Touche: "${e.key}" | Étape actuelle: ${state.currentStep}`);
 
         // D = Remplir le formulaire client
         if (e.key.toLowerCase() === 'd') {
@@ -682,6 +686,22 @@ function setupDevMode() {
         if (['1', '2', '3', '4', '5'].includes(e.key)) {
             const step = parseInt(e.key);
             devGoToStep(step);
+        }
+
+        // Flèches gauche/droite = Navigation étape précédente/suivante
+        if (e.key === 'ArrowLeft') {
+            if (state.currentStep > 1) {
+                devGoToStep(state.currentStep - 1);
+            } else {
+                console.log('⚠️ Déjà à l\'étape 1');
+            }
+        }
+        if (e.key === 'ArrowRight') {
+            if (state.currentStep < 5) {
+                devGoToStep(state.currentStep + 1);
+            } else {
+                console.log('⚠️ Déjà à l\'étape 5');
+            }
         }
     });
 
