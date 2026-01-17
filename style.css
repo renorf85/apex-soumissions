@@ -1,0 +1,213 @@
+/* =====================================================
+   APEX SOUMISSIONS AMIANTE - Custom Styles
+   ===================================================== */
+
+/* Focus styles */
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+}
+
+/* Step progress animation */
+.step-circle {
+    transition: all 0.3s ease;
+}
+
+.step-line {
+    transition: background-color 0.3s ease;
+}
+
+/* Step states */
+.step.completed .step-circle {
+    background-color: #22c55e; /* green-500 */
+    color: white;
+}
+
+.step.active .step-circle {
+    background-color: #f97316; /* apex-orange */
+    color: white;
+    box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.2);
+}
+
+.step.inactive .step-circle {
+    background-color: #d1d5db; /* gray-300 */
+    color: #6b7280; /* gray-500 */
+}
+
+.step-line.completed {
+    background-color: #22c55e; /* green-500 */
+}
+
+/* Drop zone */
+#drop-zone {
+    transition: all 0.3s ease;
+}
+
+#drop-zone.dragover {
+    border-color: #f97316;
+    background-color: #fff7ed;
+}
+
+#drop-zone.has-file {
+    border-color: #22c55e;
+    background-color: #f0fdf4;
+}
+
+/* Risk badges */
+.risque-modere {
+    background-color: #fef3c7; /* amber-100 */
+    color: #92400e; /* amber-800 */
+}
+
+.risque-eleve {
+    background-color: #fee2e2; /* red-100 */
+    color: #991b1b; /* red-800 */
+}
+
+/* Zone cards */
+.zone-card {
+    transition: all 0.2s ease;
+}
+
+.zone-card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Price lines animation */
+.price-line {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Button loading state */
+.btn-loading {
+    position: relative;
+    color: transparent !important;
+}
+
+.btn-loading::after {
+    content: "";
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    top: 50%;
+    left: 50%;
+    margin-left: -10px;
+    margin-top: -10px;
+    border: 2px solid #ffffff;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+    .step span {
+        display: none;
+    }
+
+    .step-circle {
+        width: 2rem;
+        height: 2rem;
+        font-size: 0.875rem;
+    }
+
+    main {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
+
+/* Tablet optimizations (for Gab's iPad) */
+@media (min-width: 641px) and (max-width: 1024px) {
+    body {
+        font-size: 1.1rem;
+    }
+
+    input,
+    select,
+    textarea {
+        font-size: 1rem;
+        padding: 0.75rem 1rem;
+    }
+
+    button {
+        padding: 1rem 1.5rem;
+    }
+
+    .step-circle {
+        width: 3rem;
+        height: 3rem;
+        font-size: 1.25rem;
+    }
+}
+
+/* Print styles */
+@media print {
+    header,
+    nav,
+    footer,
+    button {
+        display: none !important;
+    }
+
+    main {
+        max-width: 100%;
+        padding: 0;
+    }
+
+    .bg-white {
+        box-shadow: none !important;
+    }
+}
+
+/* Status indicator */
+#status-indicator.connected {
+    color: #22c55e;
+}
+
+#status-indicator.error {
+    color: #ef4444;
+}
+
+/* Number input - hide spinners on some browsers */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    opacity: 1;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
