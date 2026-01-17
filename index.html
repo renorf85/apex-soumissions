@@ -171,39 +171,91 @@
 
         <!-- Step 1b: Upload Report (hidden by default) -->
         <section id="step-1b" class="step-content max-w-xl w-full hidden">
-            <div class="mb-6 md:mb-10">
-                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
-                    Téléchargez votre rapport
-                </h1>
-            </div>
 
-            <div id="drop-zone" class="w-full p-8 sm:p-12 bg-white border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer transition-all hover:border-primary/50 hover:bg-blue-50/20">
-                <div id="upload-default" class="flex flex-col items-center">
-                    <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4">
-                        <span class="material-symbols-outlined text-3xl">cloud_upload</span>
-                    </div>
-                    <p class="text-sm font-semibold text-slate-900 mb-1">Glissez votre PDF ici</p>
-                    <p class="text-xs text-text-muted">ou cliquez pour parcourir</p>
-                    <p class="text-[10px] text-slate-400 mt-4">PDF uniquement • Max 25MB</p>
+            <!-- Mobile Upload View -->
+            <div class="md:hidden flex flex-col items-center text-center">
+                <div class="mb-10">
+                    <h1 class="text-2xl font-bold text-slate-800 mb-4">Rapport de caractérisation</h1>
+                    <p class="text-slate-500 text-sm leading-relaxed">
+                        Veuillez nous transmettre votre rapport de caractérisation de l'amiante pour une estimation plus précise de vos travaux.
+                    </p>
                 </div>
 
-                <div id="upload-success" class="hidden flex flex-col items-center">
-                    <div class="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-4">
+                <div class="w-full space-y-6">
+                    <!-- Upload Button (Mobile) -->
+                    <button id="btn-upload-mobile" class="w-full bg-primary hover:bg-primary-dark text-white py-5 px-6 rounded-2xl shadow-lg shadow-blue-500/10 flex flex-col items-center gap-3 transition-all active:scale-[0.98]">
+                        <span class="material-symbols-outlined text-3xl">upload_file</span>
+                        <span class="font-bold text-lg">Télécharger le rapport (PDF)</span>
+                        <span class="text-xs opacity-80 font-medium italic">Taille max. 25 Mo</span>
+                    </button>
+
+                    <!-- Upload Success (Mobile) -->
+                    <div id="upload-success-mobile" class="hidden w-full bg-emerald-50 border-2 border-emerald-200 text-emerald-700 py-5 px-6 rounded-2xl flex flex-col items-center gap-3">
                         <span class="material-symbols-outlined text-3xl">check_circle</span>
+                        <span id="file-name-mobile" class="font-bold text-lg"></span>
+                        <button id="btn-change-file-mobile" class="text-sm text-emerald-600 underline">Changer de fichier</button>
                     </div>
-                    <p id="file-name" class="text-sm font-semibold text-slate-900 mb-1"></p>
-                    <p class="text-xs text-primary cursor-pointer hover:underline" id="btn-change-file">Changer de fichier</p>
                 </div>
 
-                <input type="file" id="file-input" accept=".pdf" class="hidden"/>
+                <div class="mt-12 p-5 bg-blue-50/50 rounded-2xl border border-blue-100/50 flex gap-4 text-left">
+                    <span class="material-symbols-outlined text-primary">info</span>
+                    <p class="text-xs text-slate-600 leading-relaxed italic">
+                        Un rapport est fortement recommandé pour identifier précisément les zones contaminées et garantir la conformité de l'intervention.
+                    </p>
+                </div>
             </div>
 
-            <div class="mt-6 flex justify-start">
-                <button id="btn-back-to-choice" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
-                    <span class="material-symbols-outlined text-lg">arrow_back</span>
-                    Retour
-                </button>
+            <!-- Desktop Upload View -->
+            <div class="hidden md:block">
+                <div class="mb-8">
+                    <h1 class="text-3xl font-bold tracking-tight text-slate-900 md:whitespace-nowrap">Rapport de caractérisation</h1>
+                    <p class="text-sm text-slate-500 mt-2">Téléchargez votre document pour obtenir des prix plus précis.</p>
+                </div>
+
+                <!-- Drop Zone (Desktop) -->
+                <div id="drop-zone" class="w-full p-12 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer transition-all hover:border-primary hover:bg-blue-50/30">
+                    <div id="upload-default-desktop" class="flex flex-col items-center">
+                        <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4">
+                            <span class="material-symbols-outlined text-3xl">cloud_upload</span>
+                        </div>
+                        <p class="text-base font-semibold text-slate-900 mb-1">Glissez votre PDF ici</p>
+                        <p class="text-sm text-text-muted">ou cliquez pour parcourir</p>
+                        <p class="text-xs text-slate-400 mt-4">PDF uniquement • Max 25MB</p>
+                    </div>
+
+                    <div id="upload-success-desktop" class="hidden flex flex-col items-center">
+                        <div class="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-4">
+                            <span class="material-symbols-outlined text-3xl">check_circle</span>
+                        </div>
+                        <p id="file-name-desktop" class="text-base font-semibold text-slate-900 mb-1"></p>
+                        <p class="text-sm text-primary cursor-pointer hover:underline" id="btn-change-file-desktop">Changer de fichier</p>
+                    </div>
+                </div>
+
+                <!-- Info Box (Desktop) -->
+                <div class="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div class="flex items-start gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm shrink-0">
+                            <span class="material-symbols-outlined text-slate-400">help_outline</span>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold text-slate-800 mb-1.5">C'est quoi un rapport ?</h4>
+                            <p class="text-sm leading-relaxed text-slate-500">
+                                C'est un document légal rédigé par un professionnel certifié qui identifie la présence, le type et la concentration d'amiante dans les matériaux de votre bâtiment.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-start">
+                    <button id="btn-back-to-choice" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                        <span class="material-symbols-outlined text-lg">arrow_back</span>
+                        Retour
+                    </button>
+                </div>
             </div>
+
+            <input type="file" id="file-input" accept=".pdf" class="hidden"/>
         </section>
 
         <!-- Step 2: Client Information -->

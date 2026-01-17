@@ -59,7 +59,13 @@ function setupStep1Events() {
     const btnBackMobile = document.getElementById('btn-back-mobile');
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
-    const btnChangeFile = document.getElementById('btn-change-file');
+
+    // Mobile upload elements
+    const btnUploadMobile = document.getElementById('btn-upload-mobile');
+    const btnChangeFileMobile = document.getElementById('btn-change-file-mobile');
+
+    // Desktop upload elements
+    const btnChangeFileDesktop = document.getElementById('btn-change-file-desktop');
 
     // "Oui" - Has report → Go to upload
     btnHasReport?.addEventListener('click', () => {
@@ -93,25 +99,35 @@ function setupStep1Events() {
     btnBackMobile?.addEventListener('click', () => {
         if (state.currentStep === 2) {
             goToStep(1);
-        } else {
+        } else if (document.getElementById('step-1b')?.classList.contains('hidden') === false) {
             showChoiceSection();
         }
     });
 
-    // Drop zone click
+    // Mobile upload button click
+    btnUploadMobile?.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // Mobile change file click
+    btnChangeFileMobile?.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // Desktop drop zone click
     dropZone?.addEventListener('click', (e) => {
-        if (e.target.id !== 'btn-change-file') {
+        if (e.target.id !== 'btn-change-file-desktop') {
             fileInput.click();
         }
     });
 
-    // Change file click
-    btnChangeFile?.addEventListener('click', (e) => {
+    // Desktop change file click
+    btnChangeFileDesktop?.addEventListener('click', (e) => {
         e.stopPropagation();
         fileInput.click();
     });
 
-    // Drag and drop
+    // Drag and drop (desktop)
     dropZone?.addEventListener('dragover', (e) => {
         e.preventDefault();
         dropZone.classList.add('border-primary', 'bg-blue-50/30');
@@ -169,9 +185,18 @@ function showChoiceSection() {
     document.getElementById('btn-has-report')?.classList.remove('active');
     document.getElementById('btn-no-report')?.classList.remove('active');
 
-    // Reset upload state
-    document.getElementById('upload-default').classList.remove('hidden');
-    document.getElementById('upload-success').classList.add('hidden');
+    // Reset upload state - Mobile
+    document.getElementById('btn-upload-mobile')?.classList.remove('hidden');
+    document.getElementById('upload-success-mobile')?.classList.add('hidden');
+
+    // Reset upload state - Desktop
+    document.getElementById('upload-default-desktop')?.classList.remove('hidden');
+    document.getElementById('upload-success-desktop')?.classList.add('hidden');
+
+    // Reset file input
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) fileInput.value = '';
+
     state.rapport = null;
     state.hasReport = null;
 }
@@ -192,10 +217,23 @@ function handleFileSelected(file) {
     // Save to state
     state.rapport = file;
 
-    // Update UI
-    document.getElementById('upload-default').classList.add('hidden');
-    document.getElementById('upload-success').classList.remove('hidden');
-    document.getElementById('file-name').textContent = file.name;
+    // Update UI - Mobile
+    const btnUploadMobile = document.getElementById('btn-upload-mobile');
+    const uploadSuccessMobile = document.getElementById('upload-success-mobile');
+    const fileNameMobile = document.getElementById('file-name-mobile');
+
+    if (btnUploadMobile) btnUploadMobile.classList.add('hidden');
+    if (uploadSuccessMobile) uploadSuccessMobile.classList.remove('hidden');
+    if (fileNameMobile) fileNameMobile.textContent = file.name;
+
+    // Update UI - Desktop
+    const uploadDefaultDesktop = document.getElementById('upload-default-desktop');
+    const uploadSuccessDesktop = document.getElementById('upload-success-desktop');
+    const fileNameDesktop = document.getElementById('file-name-desktop');
+
+    if (uploadDefaultDesktop) uploadDefaultDesktop.classList.add('hidden');
+    if (uploadSuccessDesktop) uploadSuccessDesktop.classList.remove('hidden');
+    if (fileNameDesktop) fileNameDesktop.textContent = file.name;
 
     console.log('Fichier sélectionné:', file.name);
 
