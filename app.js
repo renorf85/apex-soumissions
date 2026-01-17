@@ -55,6 +55,7 @@ function setupStep1Events() {
     const btnHasReport = document.getElementById('btn-has-report');
     const btnNoReport = document.getElementById('btn-no-report');
     const btnBackToChoice = document.getElementById('btn-back-to-choice');
+    const btnBackMobile = document.getElementById('btn-back-mobile');
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     const btnChangeFile = document.getElementById('btn-change-file');
@@ -82,8 +83,13 @@ function setupStep1Events() {
         }, 200);
     });
 
-    // Back to choice
+    // Back to choice (desktop)
     btnBackToChoice?.addEventListener('click', () => {
+        showChoiceSection();
+    });
+
+    // Back button (mobile) - same as btnBackToChoice for now
+    btnBackMobile?.addEventListener('click', () => {
         showChoiceSection();
     });
 
@@ -140,11 +146,19 @@ function selectCard(activeCard, inactiveCard) {
 function showUploadSection() {
     document.getElementById('step-1').classList.add('hidden');
     document.getElementById('step-1b').classList.remove('hidden');
+
+    // Show back button on mobile
+    const btnBackMobile = document.getElementById('btn-back-mobile');
+    btnBackMobile?.classList.remove('invisible');
 }
 
 function showChoiceSection() {
     document.getElementById('step-1b').classList.add('hidden');
     document.getElementById('step-1').classList.remove('hidden');
+
+    // Hide back button on mobile
+    const btnBackMobile = document.getElementById('btn-back-mobile');
+    btnBackMobile?.classList.add('invisible');
 
     // Reset selection state
     document.getElementById('btn-has-report')?.classList.remove('active');
@@ -193,7 +207,7 @@ function handleFileSelected(file) {
 function goToStep(step) {
     console.log(`Navigation vers étape ${step}`);
 
-    // Update progress bar
+    // Update progress bar (desktop + mobile)
     updateProgressBar(step);
 
     // For now, just log - we'll implement full navigation when we have all steps
@@ -206,10 +220,25 @@ function goToStep(step) {
 }
 
 function updateProgressBar(step) {
-    // Update step label
-    document.getElementById('step-label').textContent = `Étape ${step} sur 5`;
+    // Update step label (desktop)
+    const stepLabel = document.getElementById('step-label');
+    if (stepLabel) {
+        stepLabel.textContent = `Étape ${step} sur 5`;
+    }
 
-    // Update progress segments
+    // Update step label (mobile)
+    const stepLabelMobile = document.getElementById('step-label-mobile');
+    if (stepLabelMobile) {
+        stepLabelMobile.textContent = `Étape ${step} sur 5`;
+    }
+
+    // Update mobile progress bar
+    const progressFillMobile = document.getElementById('progress-fill-mobile');
+    if (progressFillMobile) {
+        progressFillMobile.style.width = `${step * 20}%`;
+    }
+
+    // Update desktop progress segments
     for (let i = 1; i <= 5; i++) {
         const segment = document.getElementById(`progress-${i}`);
         if (segment) {

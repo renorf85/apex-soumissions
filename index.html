@@ -25,7 +25,7 @@
                     colors: {
                         "primary": "#1E73BE",
                         "primary-dark": "#1a65a8",
-                        "surface": "#f8fafc",
+                        "surface": "#ffffff",
                         "card-border": "#e2e8f0",
                         "text-main": "#0f172a",
                         "text-muted": "#64748b",
@@ -41,42 +41,75 @@
     <style type="text/tailwindcss">
         @layer base {
             body {
-                @apply bg-[#f1f5f9] text-text-main antialiased font-sans;
+                @apply bg-white md:bg-[#f1f5f9] text-text-main antialiased font-sans;
             }
         }
         .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
-            font-size: 24px;
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
         }
+
+        /* Mobile card style */
+        .plan-card {
+            @apply flex items-center p-5 bg-white border border-slate-200 rounded-2xl transition-all duration-300 cursor-pointer relative overflow-hidden;
+        }
+        .plan-card:hover {
+            @apply border-primary/50 shadow-sm;
+        }
+        .plan-card.active {
+            @apply border-primary ring-2 ring-primary/10 bg-blue-50/20;
+        }
+
+        /* Desktop card style */
+        @media (min-width: 768px) {
+            .plan-card {
+                @apply p-5 border-card-border rounded-xl shadow-sm;
+            }
+            .plan-card.active {
+                @apply border-primary ring-1 ring-primary bg-blue-50/30;
+            }
+        }
+
+        .progress-bar {
+            @apply h-1.5 w-full bg-slate-100 rounded-full overflow-hidden;
+        }
+        .progress-fill {
+            @apply h-full bg-primary transition-all duration-500;
+        }
+
+        /* Radio circle */
         .radio-circle {
-            @apply w-5 h-5 rounded-full border border-gray-300 bg-white flex items-center justify-center transition-all duration-200;
+            @apply w-5 h-5 rounded-full border-2 border-slate-200 flex items-center justify-center transition-all duration-200;
         }
-        .choice-card:hover .radio-circle {
+        .plan-card.active .radio-circle {
             @apply border-primary;
         }
-        .choice-card.active {
-            @apply border-primary ring-1 ring-primary bg-blue-50/30;
-        }
-        .choice-card.active .radio-circle {
-            @apply border-primary;
-        }
-        .choice-card.active .radio-inner {
-            @apply w-2.5 h-2.5 rounded-full bg-primary;
-        }
-        .choice-card {
-            @apply flex items-center justify-between p-5 bg-white border border-card-border rounded-xl shadow-sm transition-all duration-200 text-left cursor-pointer;
-        }
-        .choice-card:hover {
-            @apply border-primary/50;
+        .plan-card.active .radio-inner {
+            @apply w-2.5 h-2.5 bg-primary rounded-full;
         }
     </style>
 </head>
 
 <body class="min-h-screen flex flex-col">
 
-    <!-- Header with Progress -->
-    <header class="w-full max-w-5xl mx-auto pt-8 sm:pt-12 px-6">
-        <div class="flex flex-col gap-4 max-w-xl mx-auto md:mx-0">
+    <!-- Mobile Header -->
+    <header class="md:hidden sticky top-0 z-20 bg-white/80 backdrop-blur-md px-6 pt-6 pb-4">
+        <div class="flex items-center justify-between mb-6">
+            <button id="btn-back-mobile" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 transition-colors invisible">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </button>
+            <div class="flex flex-col items-center">
+                <span id="step-label-mobile" class="text-[11px] font-bold tracking-[0.1em] text-slate-500 uppercase">Étape 1 sur 5</span>
+            </div>
+            <div class="w-10"></div>
+        </div>
+        <div class="progress-bar">
+            <div id="progress-fill-mobile" class="progress-fill" style="width: 20%;"></div>
+        </div>
+    </header>
+
+    <!-- Desktop Header -->
+    <header class="hidden md:block w-full max-w-5xl mx-auto pt-12 px-6">
+        <div class="flex flex-col gap-4 max-w-xl">
             <div class="flex items-center gap-2">
                 <span id="step-label" class="text-xs font-semibold uppercase tracking-wider text-primary">Étape 1 sur 5</span>
             </div>
@@ -91,57 +124,63 @@
     </header>
 
     <!-- Main Content -->
-    <main class="flex-1 flex flex-col items-center justify-center px-6 py-8 sm:py-12">
+    <main class="flex-1 flex flex-col md:items-center md:justify-center px-6 py-4 md:py-12">
 
         <!-- Step 1: Rapport Question -->
         <section id="step-1" class="step-content max-w-xl w-full">
-            <div class="mb-8 sm:mb-10 text-center md:text-left">
-                <h1 class="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-slate-900 whitespace-nowrap">
+            <!-- Title -->
+            <div class="mb-6 md:mb-10">
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
                     Avez-vous un rapport de caractérisation ?
                 </h1>
             </div>
 
+            <!-- Cards -->
             <div class="space-y-4">
-                <button id="btn-has-report" class="choice-card w-full group">
-                    <div class="flex items-center gap-4">
+                <button id="btn-has-report" class="plan-card w-full group text-left">
+                    <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mr-4 shrink-0">
+                        <span class="material-symbols-outlined">description</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="block font-bold text-slate-900">Oui, j'ai un rapport</span>
+                        <p class="text-[13px] text-slate-500 mt-0.5 leading-snug">J'ai un document prêt à être partagé.</p>
+                    </div>
+                    <div class="ml-3 flex items-center justify-center shrink-0">
                         <div class="radio-circle">
                             <div class="radio-inner"></div>
                         </div>
-                        <div>
-                            <span class="block text-sm font-semibold text-slate-900">Oui, j'ai un rapport</span>
-                            <span class="block text-xs text-text-muted mt-0.5">J'ai un document prêt à être partagé.</span>
-                        </div>
                     </div>
-                    <span class="material-symbols-outlined text-slate-300 text-xl hidden sm:block">description</span>
                 </button>
 
-                <button id="btn-no-report" class="choice-card w-full group">
-                    <div class="flex items-center gap-4">
+                <button id="btn-no-report" class="plan-card w-full group text-left">
+                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mr-4 shrink-0">
+                        <span class="material-symbols-outlined">close</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="block font-bold text-slate-900">Non, pas encore</span>
+                        <p class="text-[13px] text-slate-500 mt-0.5 leading-snug">Je souhaite procéder sans rapport pour le moment.</p>
+                    </div>
+                    <div class="ml-3 flex items-center justify-center shrink-0">
                         <div class="radio-circle">
                             <div class="radio-inner"></div>
                         </div>
-                        <div>
-                            <span class="block text-sm font-semibold text-slate-900">Non, pas encore</span>
-                            <span class="block text-xs text-text-muted mt-0.5">Je souhaite procéder sans rapport pour le moment.</span>
-                        </div>
                     </div>
-                    <span class="material-symbols-outlined text-slate-300 text-xl hidden sm:block">close</span>
                 </button>
             </div>
         </section>
 
         <!-- Step 1b: Upload Report (hidden by default) -->
         <section id="step-1b" class="step-content max-w-xl w-full hidden">
-            <div class="mb-8 sm:mb-10 text-center md:text-left">
-                <h1 class="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
+            <div class="mb-6 md:mb-10">
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
                     Téléchargez votre rapport
                 </h1>
             </div>
 
-            <div id="drop-zone" class="w-full p-8 sm:p-12 bg-white border-2 border-dashed border-card-border rounded-2xl cursor-pointer transition-all hover:border-primary/50 hover:bg-blue-50/20">
+            <div id="drop-zone" class="w-full p-8 sm:p-12 bg-white border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer transition-all hover:border-primary/50 hover:bg-blue-50/20">
                 <div id="upload-default" class="flex flex-col items-center">
                     <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4">
-                        <span class="material-symbols-outlined !text-3xl">cloud_upload</span>
+                        <span class="material-symbols-outlined text-3xl">cloud_upload</span>
                     </div>
                     <p class="text-sm font-semibold text-slate-900 mb-1">Glissez votre PDF ici</p>
                     <p class="text-xs text-text-muted">ou cliquez pour parcourir</p>
@@ -150,7 +189,7 @@
 
                 <div id="upload-success" class="hidden flex flex-col items-center">
                     <div class="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-4">
-                        <span class="material-symbols-outlined !text-3xl">check_circle</span>
+                        <span class="material-symbols-outlined text-3xl">check_circle</span>
                     </div>
                     <p id="file-name" class="text-sm font-semibold text-slate-900 mb-1"></p>
                     <p class="text-xs text-primary cursor-pointer hover:underline" id="btn-change-file">Changer de fichier</p>
@@ -159,9 +198,9 @@
                 <input type="file" id="file-input" accept=".pdf" class="hidden"/>
             </div>
 
-            <div class="mt-8 flex justify-start">
+            <div class="mt-6 flex justify-start">
                 <button id="btn-back-to-choice" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
-                    <span class="material-symbols-outlined !text-lg">arrow_back</span>
+                    <span class="material-symbols-outlined text-lg">arrow_back</span>
                     Retour
                 </button>
             </div>
@@ -170,9 +209,9 @@
     </main>
 
     <!-- Footer -->
-    <footer class="py-6 sm:py-8 w-full border-t border-slate-200 bg-white mt-auto">
-        <div class="max-w-5xl mx-auto px-6 flex justify-center">
-            <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.15em]">Apex Soumissions</p>
+    <footer class="py-6 w-full border-t border-slate-100 bg-white mt-auto">
+        <div class="flex justify-center">
+            <p class="text-[10px] font-extrabold tracking-[0.2em] text-slate-300 uppercase">Apex Soumissions</p>
         </div>
     </footer>
 
