@@ -18,6 +18,7 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const state = {
     currentStep: 1,
+    hasReport: null,
     rapport: null,
     client: {
         nom: '',
@@ -40,100 +41,69 @@ const state = {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('Apex Soumissions - Initialisation...');
 
-    // Test Supabase connection
-    await testConnection();
-
-    // Setup event listeners for Step 1
+    // Setup event listeners
     setupStep1Events();
 
     console.log('Apex Soumissions - Prêt!');
 });
 
 // =====================================================
-// SUPABASE CONNECTION
-// =====================================================
-
-async function testConnection() {
-    try {
-        const { data, error } = await supabase
-            .from('materiaux')
-            .select('id')
-            .limit(1);
-
-        if (error) throw error;
-
-        updateStatusIndicator(true);
-        console.log('Connexion Supabase réussie');
-    } catch (error) {
-        console.error('Erreur connexion Supabase:', error);
-        updateStatusIndicator(false);
-    }
-}
-
-function updateStatusIndicator(connected) {
-    const indicator = document.getElementById('status-indicator');
-    if (!indicator) return;
-
-    if (connected) {
-        indicator.innerHTML = `
-            <span class="size-2 bg-emerald-500 rounded-full animate-pulse"></span>
-            <span class="text-[10px] font-extrabold text-emerald-700 dark:text-emerald-400 uppercase tracking-[0.1em] font-display">Connecté</span>
-        `;
-        indicator.className = 'flex items-center gap-2 px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 rounded-full border border-emerald-100 dark:border-emerald-800/50';
-    } else {
-        indicator.innerHTML = `
-            <span class="size-2 bg-red-500 rounded-full"></span>
-            <span class="text-[10px] font-extrabold text-red-700 dark:text-red-400 uppercase tracking-[0.1em] font-display">Erreur</span>
-        `;
-        indicator.className = 'flex items-center gap-2 px-3 py-1 bg-red-50 dark:bg-red-900/20 rounded-full border border-red-100 dark:border-red-800/50';
-    }
-}
-
-// =====================================================
-// STEP 1: RAPPORT
+// STEP 1: RAPPORT QUESTION
 // =====================================================
 
 function setupStep1Events() {
+    const btnHasReport = document.getElementById('btn-has-report');
+    const btnNoReport = document.getElementById('btn-no-report');
+    const btnBackToChoice = document.getElementById('btn-back-to-choice');
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
-    const btnBrowse = document.getElementById('btn-browse');
     const btnChangeFile = document.getElementById('btn-change-file');
-    const btnNoReport = document.getElementById('btn-no-report');
-    const btnNext = document.getElementById('btn-next');
 
-    if (!dropZone) return;
+    // "Oui" - Has report
+    btnHasReport?.addEventListener('click', () => {
+        state.hasReport = true;
+        showUploadSection();
+    });
 
-    // Click on drop zone or browse button
-    dropZone.addEventListener('click', (e) => {
+    // "Non" - No report
+    btnNoReport?.addEventListener('click', () => {
+        state.hasReport = false;
+        state.rapport = null;
+        goToStep(2);
+    });
+
+    // Back to choice
+    btnBackToChoice?.addEventListener('click', () => {
+        showChoiceSection();
+    });
+
+    // Drop zone click
+    dropZone?.addEventListener('click', (e) => {
         if (e.target.id !== 'btn-change-file') {
             fileInput.click();
         }
     });
 
-    btnBrowse?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        fileInput.click();
-    });
-
+    // Change file click
     btnChangeFile?.addEventListener('click', (e) => {
         e.stopPropagation();
         fileInput.click();
     });
 
     // Drag and drop
-    dropZone.addEventListener('dragover', (e) => {
+    dropZone?.addEventListener('dragover', (e) => {
         e.preventDefault();
-        dropZone.classList.add('dragover');
+        dropZone.classList.add('border-primary', 'bg-primary/5');
     });
 
-    dropZone.addEventListener('dragleave', (e) => {
+    dropZone?.addEventListener('dragleave', (e) => {
         e.preventDefault();
-        dropZone.classList.remove('dragover');
+        dropZone.classList.remove('border-primary', 'bg-primary/5');
     });
 
-    dropZone.addEventListener('drop', (e) => {
+    dropZone?.addEventListener('drop', (e) => {
         e.preventDefault();
-        dropZone.classList.remove('dragover');
+        dropZone.classList.remove('border-primary', 'bg-primary/5');
 
         const files = e.dataTransfer.files;
         if (files.length > 0) {
@@ -147,17 +117,21 @@ function setupStep1Events() {
             handleFileSelected(e.target.files[0]);
         }
     });
+}
 
-    // No report button
-    btnNoReport?.addEventListener('click', () => {
-        state.rapport = null;
-        goToStep(2);
-    });
+function showUploadSection() {
+    document.getElementById('step-1').classList.add('hidden');
+    document.getElementById('step-1b').classList.remove('hidden');
+}
 
-    // Next button
-    btnNext?.addEventListener('click', () => {
-        goToStep(2);
-    });
+function showChoiceSection() {
+    document.getElementById('step-1b').classList.add('hidden');
+    document.getElementById('step-1').classList.remove('hidden');
+
+    // Reset upload state
+    document.getElementById('upload-default').classList.remove('hidden');
+    document.getElementById('upload-success').classList.add('hidden');
+    state.rapport = null;
 }
 
 function handleFileSelected(file) {
@@ -177,17 +151,16 @@ function handleFileSelected(file) {
     state.rapport = file;
 
     // Update UI
-    const dropZone = document.getElementById('drop-zone');
-    const uploadDefault = document.getElementById('upload-default');
-    const uploadSuccess = document.getElementById('upload-success');
-    const fileName = document.getElementById('file-name');
-
-    dropZone.classList.add('has-file');
-    uploadDefault.classList.add('hidden');
-    uploadSuccess.classList.remove('hidden');
-    fileName.textContent = file.name;
+    document.getElementById('upload-default').classList.add('hidden');
+    document.getElementById('upload-success').classList.remove('hidden');
+    document.getElementById('file-name').textContent = file.name;
 
     console.log('Fichier sélectionné:', file.name);
+
+    // Auto-advance to next step after a short delay
+    setTimeout(() => {
+        goToStep(2);
+    }, 800);
 }
 
 // =====================================================
@@ -197,6 +170,9 @@ function handleFileSelected(file) {
 function goToStep(step) {
     console.log(`Navigation vers étape ${step}`);
 
+    // Update progress bar
+    updateProgressBar(step);
+
     // For now, just log - we'll implement full navigation when we have all steps
     if (step === 2) {
         // TODO: Navigate to step 2 (Client)
@@ -204,6 +180,25 @@ function goToStep(step) {
     }
 
     state.currentStep = step;
+}
+
+function updateProgressBar(step) {
+    // Update step label
+    document.getElementById('step-label').textContent = `Étape ${step} sur 5`;
+
+    // Update progress segments
+    for (let i = 1; i <= 5; i++) {
+        const segment = document.getElementById(`progress-${i}`);
+        if (segment) {
+            if (i <= step) {
+                segment.classList.add('bg-primary');
+                segment.classList.remove('flex-1');
+                segment.classList.add('w-1/5');
+            } else {
+                segment.classList.remove('bg-primary');
+            }
+        }
+    }
 }
 
 // =====================================================
