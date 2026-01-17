@@ -39,6 +39,16 @@ const DEV_DATA = {
 const SUPABASE_URL = 'https://bmwfipxpbkofjsgdraau.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtd2ZpcHhwYmtvZmpzZ2RyYWF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2NTQ2MDgsImV4cCI6MjA4NDIzMDYwOH0.qSxu_WQlac2WBDSfxEWTqdOYaoVurwIJNqmr9MOeihw';
 
+// Mapbox Configuration
+const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1IjoicmVub3ZhdGlvbnJmIiwiYSI6ImNtamtxY2M5NzB1M3gzZG95eXYxd3EyNWwifQ.dus2yGGW12TnqPYsNq26sw';
+
+// Adresse de base Apex (pour calcul de distance)
+// Note: Remplacer par l'adresse réelle de Apex
+const APEX_BASE_LOCATION = {
+    lng: -73.5673,  // Montréal par défaut
+    lat: 45.5017
+};
+
 // Initialize Supabase client
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -308,6 +318,9 @@ function setupStep2Events() {
         updateTransportCost(parseInt(e.target.value) || 0);
     });
 
+    // Setup Mapbox address autocomplete
+    setupAddressAutocomplete();
+
     // Form submission
     form?.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -338,6 +351,203 @@ function setupStep2Events() {
         // Go to next step
         goToStep(3);
     });
+}
+
+// =====================================================
+// MAPBOX ADDRESS AUTOCOMPLETE
+// =====================================================
+
+let searchTimeout = null;
+
+function setupAddressAutocomplete() {
+    const adresseInput = document.getElementById('client-adresse');
+    const suggestionsContainer = document.getElementById('adresse-suggestions');
+    const loadingSpinner = document.getElementById('adresse-loading');
+
+    if (!adresseInput || !suggestionsContainer) return;
+
+    // Input event - search as user types
+    adresseInput.addEventListener('input', (e) => {
+        const query = e.target.value.trim();
+
+        // Clear previous timeout
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+        }
+
+        // Hide suggestions if query is too short
+        if (query.length < 3) {
+            hideSuggestions();
+            return;
+        }
+
+        // Debounce - wait 300ms after user stops typing
+        searchTimeout = setTimeout(() => {
+            searchAddresses(query);
+        }, 300);
+    });
+
+    // Hide suggestions when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!adresseInput.contains(e.target) && !suggestionsContainer.contains(e.target)) {
+            hideSuggestions();
+        }
+    });
+
+    // Keyboard navigation
+    adresseInput.addEventListener('keydown', (e) => {
+        const suggestions = suggestionsContainer.querySelectorAll('.suggestion-item');
+        const activeSuggestion = suggestionsContainer.querySelector('.suggestion-item.active');
+        let activeIndex = Array.from(suggestions).indexOf(activeSuggestion);
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (activeIndex < suggestions.length - 1) {
+                suggestions[activeIndex]?.classList.remove('active', 'bg-blue-50');
+                suggestions[activeIndex + 1]?.classList.add('active', 'bg-blue-50');
+            }
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (activeIndex > 0) {
+                suggestions[activeIndex]?.classList.remove('active', 'bg-blue-50');
+                suggestions[activeIndex - 1]?.classList.add('active', 'bg-blue-50');
+            }
+        } else if (e.key === 'Enter' && activeSuggestion) {
+            e.preventDefault();
+            activeSuggestion.click();
+        } else if (e.key === 'Escape') {
+            hideSuggestions();
+        }
+    });
+}
+
+async function searchAddresses(query) {
+    const loadingSpinner = document.getElementById('adresse-loading');
+    const suggestionsContainer = document.getElementById('adresse-suggestions');
+
+    // Show loading
+    loadingSpinner?.classList.remove('hidden');
+
+    try {
+        // Mapbox Geocoding API - search for addresses in Quebec, Canada
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${MAPBOX_ACCESS_TOKEN}&country=ca&types=address,place&language=fr&limit=5&bbox=-79.76,45.0,-57.1,62.6`;
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.features && data.features.length > 0) {
+            displaySuggestions(data.features);
+        } else {
+            hideSuggestions();
+        }
+    } catch (error) {
+        console.error('Erreur recherche adresse:', error);
+        hideSuggestions();
+    } finally {
+        // Hide loading
+        loadingSpinner?.classList.add('hidden');
+    }
+}
+
+function displaySuggestions(features) {
+    const suggestionsContainer = document.getElementById('adresse-suggestions');
+    if (!suggestionsContainer) return;
+
+    // Clear previous suggestions
+    suggestionsContainer.innerHTML = '';
+
+    features.forEach((feature, index) => {
+        const div = document.createElement('div');
+        div.className = `suggestion-item px-4 py-3 cursor-pointer hover:bg-blue-50 transition-colors ${index === 0 ? 'rounded-t-xl' : ''} ${index === features.length - 1 ? 'rounded-b-xl' : 'border-b border-slate-100'}`;
+        div.dataset.lng = feature.center[0];
+        div.dataset.lat = feature.center[1];
+        div.dataset.placeName = feature.place_name;
+
+        // Icon + text
+        div.innerHTML = `
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-slate-400 text-lg">location_on</span>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-slate-900 truncate">${feature.text || ''}</p>
+                    <p class="text-xs text-slate-500 truncate">${feature.place_name || ''}</p>
+                </div>
+            </div>
+        `;
+
+        // Click handler
+        div.addEventListener('click', () => {
+            selectAddress(feature);
+        });
+
+        suggestionsContainer.appendChild(div);
+    });
+
+    // Show container
+    suggestionsContainer.classList.remove('hidden');
+}
+
+function hideSuggestions() {
+    const suggestionsContainer = document.getElementById('adresse-suggestions');
+    suggestionsContainer?.classList.add('hidden');
+}
+
+function selectAddress(feature) {
+    const adresseInput = document.getElementById('client-adresse');
+    const distanceInput = document.getElementById('client-distance');
+
+    // Set the address in input
+    if (adresseInput) {
+        adresseInput.value = feature.place_name;
+    }
+
+    // Calculate distance from Apex base
+    const chantierLng = feature.center[0];
+    const chantierLat = feature.center[1];
+
+    const distance = calculateDistance(
+        APEX_BASE_LOCATION.lat,
+        APEX_BASE_LOCATION.lng,
+        chantierLat,
+        chantierLng
+    );
+
+    // Round to nearest km
+    const distanceKm = Math.round(distance);
+
+    // Set distance input
+    if (distanceInput) {
+        distanceInput.value = distanceKm;
+        updateTransportCost(distanceKm);
+    }
+
+    console.log(`📍 Adresse sélectionnée: ${feature.place_name}`);
+    console.log(`📏 Distance calculée: ${distanceKm} km`);
+
+    // Hide suggestions
+    hideSuggestions();
+
+    // Store coordinates in state for potential future use
+    state.client.coordinates = {
+        lng: chantierLng,
+        lat: chantierLat
+    };
+}
+
+// Haversine formula to calculate distance between two points
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Earth's radius in km
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+function toRad(deg) {
+    return deg * (Math.PI / 180);
 }
 
 function updateTransportCost(distance) {

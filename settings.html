@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html class="light" lang="fr">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Paramètres - Apex Soumissions</title>
+    <link rel="icon" type="image/png" href="assets/favicon.png"/>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1E73BE",
+                        "primary-dark": "#1a65a8",
+                    },
+                    fontFamily: {
+                        "sans": ["Inter", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer base {
+            body {
+                @apply bg-slate-50 text-slate-900 antialiased font-sans;
+            }
+        }
+        @layer utilities {
+            .pb-safe {
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+        }
+        details > summary {
+            list-style: none;
+        }
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
+        .param-input {
+            @apply block w-full rounded-lg border-slate-300 bg-slate-50/50 pl-4 pr-12 py-3.5 text-lg font-medium text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen pb-safe flex flex-col">
+
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200 shadow-[0_1px_3px_rgba(0,0,0,0.05)] h-16">
+        <div class="h-full max-w-3xl mx-auto px-4 md:px-6 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <a href="index.html" class="p-2 -ml-2 rounded-full text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors">
+                    <span class="material-symbols-outlined text-[24px]">arrow_back</span>
+                </a>
+                <h1 class="text-lg font-semibold text-slate-900 tracking-tight">Paramètres</h1>
+            </div>
+            <div class="hidden sm:block">
+                <span class="text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">Apex Soumissions v1.0</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="pt-20 pb-32 px-4 md:px-6 max-w-3xl mx-auto w-full flex flex-col gap-4">
+
+        <!-- Taux de base -->
+        <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden" open>
+            <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary">payments</span>
+                    <span class="font-medium text-slate-900">Taux de base</span>
+                </div>
+                <span class="material-symbols-outlined text-slate-400 transition-transform duration-300 group-open:rotate-180">expand_more</span>
+            </summary>
+            <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Taux horaire</label>
+                    <div class="relative">
+                        <input id="config-taux_horaire" class="param-input" type="number" step="0.01" value="92.00"/>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">$/h</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Marge de profit</label>
+                    <div class="relative">
+                        <input id="config-marge_profit" class="param-input" type="number" step="1" value="20"/>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <!-- Prix de démolition -->
+        <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary">construction</span>
+                    <span class="font-medium text-slate-900">Prix de démolition</span>
+                </div>
+                <span class="material-symbols-outlined text-slate-400 transition-transform duration-300 group-open:rotate-180">expand_more</span>
+            </summary>
+            <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">0 - 500 pi²</label>
+                    <div class="relative">
+                        <input id="config-prix_demo_palier1" class="param-input" type="number" step="0.01" value="8.00"/>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">$/pi²</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">500 - 1500 pi²</label>
+                    <div class="relative">
+                        <input id="config-prix_demo_palier2" class="param-input" type="number" step="0.01" value="6.50"/>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">$/pi²</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">1500+ pi²</label>
+                    <div class="relative">
+                        <input id="config-prix_demo_palier3" class="param-input" type="number" step="0.01" value="4.50"/>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">$/pi²</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <!-- Transport -->
+        <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary">local_shipping</span>
+                    <span class="font-medium text-slate-900">Transport</span>
+                </div>
+                <span class="material-symbols-outlined text-slate-400 transition-transform duration-300 group-open:rotate-180">expand_more</span>
+            </summary>
+            <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">0 - 50 km</label>
+                    <div class="relative">
+                        <input id="config-transport_0_50km" class="param-input" type="number" step="0.01" value="55.00"/>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">$</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">50 - 100 km</label>
+                    <div class="relative">
+                        <input id="config-transport_50_100km" class="param-input" type="number" step="0.01" value="75.00"/>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">$</span>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-500 italic">100+ km : Alerte pour prévoir pension</p>
+            </div>
+        </details>
+
+        <!-- Coûts par zone - Risque modéré -->
+        <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-amber-500">grid_view</span>
+                    <span class="font-medium text-slate-900">Zones - Risque modéré</span>
+                </div>
+                <span class="material-symbols-outlined text-slate-400 transition-transform duration-300 group-open:rotate-180">expand_more</span>
+            </summary>
+            <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
+                <div class="flex items-center gap-2 mb-1">
+                    <div class="w-1 h-4 bg-amber-400 rounded-full"></div>
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Risque modéré</span>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">1ère zone</label>
+                    <div class="relative">
+                        <input id="config-zone1_modere" class="param-input" type="number" step="1" value="736"/>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">$</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Zone supplémentaire</label>
+                    <div class="relative">
+                        <input id="config-zone_supp_modere" class="param-input" type="number" step="1" value="368"/>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">$</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <!-- Coûts par zone - Risque élevé -->
+        <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-red-500">grid_view</span>
+                    <span class="font-medium text-slate-900">Zones - Risque élevé</span>
+                </div>
+                <span class="material-symbols-outlined text-slate-400 transition-transform duration-300 group-open:rotate-180">expand_more</span>
+            </summary>
+            <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
+                <div class="flex items-center gap-2 mb-1">
+                    <div class="w-1 h-4 bg-red-500 rounded-full"></div>
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Risque élevé</span>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">1ère zone</label>
+                    <div class="relative">
+                        <input id="config-zone1_eleve" class="param-input" type="number" step="1" value="1472"/>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">$</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Zone supplémentaire</label>
+                    <div class="relative">
+                        <input id="config-zone_supp_eleve" class="param-input" type="number" step="1" value="736"/>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">$</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <!-- Frais risque élevé -->
+        <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary">warning</span>
+                    <span class="font-medium text-slate-900">Frais risque élevé</span>
+                </div>
+                <span class="material-symbols-outlined text-slate-400 transition-transform duration-300 group-open:rotate-180">expand_more</span>
+            </summary>
+            <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
+                <div class="border-b border-slate-100 pb-4">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Douches de décontamination</p>
+                    <div class="grid gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1.5">1ère zone</label>
+                            <div class="relative">
+                                <input id="config-douche_zone1" class="param-input" type="number" step="1" value="800"/>
+                                <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                                    <span class="text-slate-400 font-medium">$</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1.5">Zone supplémentaire</label>
+                            <div class="relative">
+                                <input id="config-douche_zone_supp" class="param-input" type="number" step="1" value="600"/>
+                                <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                                    <span class="text-slate-400 font-medium">$</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="border-b border-slate-100 pb-4">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Tests d'air</p>
+                    <div class="grid gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1.5">1ère zone</label>
+                            <div class="relative">
+                                <input id="config-test_zone1" class="param-input" type="number" step="1" value="600"/>
+                                <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                                    <span class="text-slate-400 font-medium">$</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1.5">Zone supplémentaire</label>
+                            <div class="relative">
+                                <input id="config-test_zone_supp" class="param-input" type="number" step="1" value="400"/>
+                                <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                                    <span class="text-slate-400 font-medium">$</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Perte de temps (h/jour)</label>
+                    <div class="relative">
+                        <input id="config-perte_temps_heures" class="param-input" type="number" step="0.5" value="2"/>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">h</span>
+                        </div>
+                    </div>
+                    <p class="mt-2 text-xs text-slate-500 italic">Temps de douche/déshabillage par jour par travailleur</p>
+                </div>
+            </div>
+        </details>
+
+        <!-- Autres frais -->
+        <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary">add_circle</span>
+                    <span class="font-medium text-slate-900">Autres frais</span>
+                </div>
+                <span class="material-symbols-outlined text-slate-400 transition-transform duration-300 group-open:rotate-180">expand_more</span>
+            </summary>
+            <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Disposition (par 1000 pi²)</label>
+                    <div class="relative">
+                        <input id="config-disposition_par_1000pi2" class="param-input" type="number" step="1" value="600"/>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">$</span>
+                        </div>
+                    </div>
+                    <p class="mt-1 text-xs text-slate-500 italic">Minimum 600$</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Assurance (≤500 pi²)</label>
+                    <div class="relative">
+                        <input id="config-assurance_petit" class="param-input" type="number" step="1" value="250"/>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">$</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Assurance (>500 pi²)</label>
+                    <div class="relative">
+                        <input id="config-assurance_grand" class="param-input" type="number" step="1" value="500"/>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">$</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </details>
+
+    </main>
+
+    <!-- Footer with Save Button -->
+    <div class="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 p-4 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <div class="max-w-3xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p id="last-saved" class="text-xs text-slate-500 hidden sm:block"></p>
+            <button id="btn-save" class="w-full sm:w-auto flex justify-center items-center py-4 px-8 border border-transparent rounded-xl shadow-sm text-base font-semibold text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all active:scale-[0.98]">
+                Enregistrer les modifications
+            </button>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="settings.js"></script>
+</body>
+</html>
