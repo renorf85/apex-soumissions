@@ -108,18 +108,31 @@
     </header>
 
     <!-- Desktop Header -->
-    <header class="hidden md:block w-full max-w-5xl mx-auto pt-12 px-6">
-        <div class="flex flex-col gap-4 max-w-xl">
-            <div class="flex items-center gap-2">
+    <header class="hidden md:block w-full pt-8 px-8">
+        <div class="flex items-center justify-between max-w-5xl mx-auto">
+            <!-- Logo à gauche -->
+            <div class="flex items-center gap-3">
+                <img src="assets/favicon.png" alt="Apex" class="w-10 h-10">
+                <div class="flex flex-col">
+                    <span class="font-bold text-slate-800 leading-none">Apex</span>
+                    <span class="text-[10px] text-slate-500 uppercase tracking-tight font-semibold">Soumissions</span>
+                </div>
+            </div>
+
+            <!-- Progress au centre -->
+            <div class="flex flex-col gap-2 items-center flex-1 max-w-md mx-8">
                 <span id="step-label" class="text-xs font-semibold uppercase tracking-wider text-primary">Étape 1 sur 5</span>
+                <div class="flex gap-1 h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                    <div id="progress-1" class="w-1/5 bg-primary rounded-full transition-all duration-300"></div>
+                    <div id="progress-2" class="flex-1 transition-all duration-300"></div>
+                    <div id="progress-3" class="flex-1 transition-all duration-300"></div>
+                    <div id="progress-4" class="flex-1 transition-all duration-300"></div>
+                    <div id="progress-5" class="flex-1 transition-all duration-300"></div>
+                </div>
             </div>
-            <div class="flex gap-2 h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
-                <div id="progress-1" class="w-1/5 bg-primary rounded-full transition-all duration-300"></div>
-                <div id="progress-2" class="flex-1 transition-all duration-300"></div>
-                <div id="progress-3" class="flex-1 transition-all duration-300"></div>
-                <div id="progress-4" class="flex-1 transition-all duration-300"></div>
-                <div id="progress-5" class="flex-1 transition-all duration-300"></div>
-            </div>
+
+            <!-- Espace à droite pour équilibrer -->
+            <div class="w-[120px]"></div>
         </div>
     </header>
 
