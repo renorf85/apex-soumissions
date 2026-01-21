@@ -810,9 +810,10 @@ function setupStep3Events() {
     const btnBackStep3 = document.getElementById('btn-back-step3');
     const btnContinueStep3 = document.getElementById('btn-continue-step3');
 
-    // Add zone button → go to form
+    // Add zone button → go to zone wizard
     btnAddZone?.addEventListener('click', () => {
-        showZoneForm();
+        resetZoneForm();
+        goToZoneStep('3a');
     });
 
     // Back button → go to step 2
@@ -825,53 +826,157 @@ function setupStep3Events() {
         goToStep(4);
     });
 
-    // === Zone Form (step-3-form) ===
-    const form = document.getElementById('zone-form');
-    const btnBackToZones = document.getElementById('btn-back-to-zones');
-    const materiauSelect = document.getElementById('zone-materiau');
-    const longueurInput = document.getElementById('zone-longueur');
-    const largeurInput = document.getElementById('zone-largeur');
-    const epaisseurInput = document.getElementById('zone-epaisseur');
+    // === Step 3a: Nom ===
+    const nomInput = document.getElementById('zone-nom');
+    const btnBackStep3a = document.getElementById('btn-back-step3a');
+    const btnNextStep3a = document.getElementById('btn-next-step3a');
 
-    // Back to zones list
-    btnBackToZones?.addEventListener('click', () => {
-        showZoneList();
+    nomInput?.addEventListener('input', () => {
+        btnNextStep3a.disabled = !nomInput.value.trim();
     });
 
-    // Material change → update friability badge + default thickness
+    nomInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && nomInput.value.trim()) {
+            e.preventDefault();
+            goToZoneStep('3b');
+        }
+    });
+
+    btnBackStep3a?.addEventListener('click', () => showZoneList());
+    btnNextStep3a?.addEventListener('click', () => goToZoneStep('3b'));
+
+    // === Step 3b: Catégorie (card selection) ===
+    const btnBackStep3b = document.getElementById('btn-back-step3b');
+    const categorieInput = document.getElementById('zone-categorie');
+
+    document.querySelectorAll('.categorie-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Remove active from all
+            document.querySelectorAll('.categorie-btn').forEach(b => b.classList.remove('active'));
+            // Add active to clicked
+            btn.classList.add('active');
+            // Set hidden input value
+            categorieInput.value = btn.dataset.categorie;
+            // Auto-advance to next step
+            setTimeout(() => goToZoneStep('3c'), 200);
+        });
+    });
+
+    btnBackStep3b?.addEventListener('click', () => goToZoneStep('3a'));
+
+    // === Step 3c: Matériau ===
+    const materiauSelect = document.getElementById('zone-materiau');
+    const btnBackStep3c = document.getElementById('btn-back-step3c');
+    const btnNextStep3c = document.getElementById('btn-next-step3c');
+    const epaisseurInput = document.getElementById('zone-epaisseur');
+
     materiauSelect?.addEventListener('change', (e) => {
         const selectedOption = e.target.options[e.target.selectedIndex];
         const friabilite = selectedOption.dataset.friabilite;
         const epaisseur = selectedOption.dataset.epaisseur;
 
         updateFriabiliteBadge(friabilite);
+        btnNextStep3c.disabled = !materiauSelect.value;
 
         // Set default thickness
         if (epaisseur && epaisseurInput) {
             epaisseurInput.value = epaisseur;
-            calculateZoneValues();
         }
     });
 
+    btnBackStep3c?.addEventListener('click', () => goToZoneStep('3b'));
+    btnNextStep3c?.addEventListener('click', () => goToZoneStep('3d'));
+
+    // === Step 3d: Dimensions ===
+    const longueurInput = document.getElementById('zone-longueur');
+    const largeurInput = document.getElementById('zone-largeur');
+    const btnBackStep3d = document.getElementById('btn-back-step3d');
+    const btnAddZoneFinal = document.getElementById('btn-add-zone-final');
+
     // Dimension inputs → recalculate
     [longueurInput, largeurInput, epaisseurInput].forEach(input => {
-        input?.addEventListener('input', calculateZoneValues);
+        input?.addEventListener('input', () => {
+            calculateZoneValues();
+            // Enable add button if all dimensions are filled
+            const hasLong = parseFloat(longueurInput?.value) > 0;
+            const hasLarg = parseFloat(largeurInput?.value) > 0;
+            const hasEpais = parseFloat(epaisseurInput?.value) > 0;
+            btnAddZoneFinal.disabled = !(hasLong && hasLarg && hasEpais);
+        });
     });
 
-    // Form submission
-    form?.addEventListener('submit', (e) => {
-        e.preventDefault();
+    btnBackStep3d?.addEventListener('click', () => goToZoneStep('3c'));
+    btnAddZoneFinal?.addEventListener('click', () => {
         addZone();
+    });
+
+    // Setup zone wizard navigation buttons
+    setupZoneWizardNavigation();
+}
+
+function goToZoneStep(subStep) {
+    // Hide all step-3 sub-sections and zone list
+    document.querySelectorAll('[id^="step-3"]').forEach(el => el.classList.add('hidden'));
+
+    // Show the target sub-step
+    const targetEl = document.getElementById(`step-${subStep}`);
+    if (targetEl) {
+        targetEl.classList.remove('hidden');
+        // Focus the input if it's a text/number input step
+        const input = targetEl.querySelector('input:not([type="hidden"]), select');
+        setTimeout(() => input?.focus(), 100);
+    }
+
+    // Update progress bar (still step 3)
+    updateProgressBar(3);
+    state.currentStep = 3;
+
+    // Show mobile back button
+    document.getElementById('btn-back-mobile')?.classList.remove('invisible');
+
+    // Update button states
+    updateZoneWizardButtonStates();
+}
+
+function updateZoneWizardButtonStates() {
+    const nom = document.getElementById('zone-nom')?.value.trim();
+    const categorie = document.getElementById('zone-categorie')?.value;
+    const materiau = document.getElementById('zone-materiau')?.value;
+    const longueur = parseFloat(document.getElementById('zone-longueur')?.value) > 0;
+    const largeur = parseFloat(document.getElementById('zone-largeur')?.value) > 0;
+    const epaisseur = parseFloat(document.getElementById('zone-epaisseur')?.value) > 0;
+
+    const btnNext3a = document.getElementById('btn-next-step3a');
+    const btnNext3c = document.getElementById('btn-next-step3c');
+    const btnAddFinal = document.getElementById('btn-add-zone-final');
+
+    if (btnNext3a) btnNext3a.disabled = !nom;
+    if (btnNext3c) btnNext3c.disabled = !materiau;
+    if (btnAddFinal) btnAddFinal.disabled = !(longueur && largeur && epaisseur);
+}
+
+function setupZoneWizardNavigation() {
+    // Add click handlers to all zone nav buttons
+    document.querySelectorAll('.zone-nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const gotoStep = btn.dataset.zoneGoto;
+            if (gotoStep) {
+                goToZoneStep(gotoStep);
+            }
+        });
     });
 }
 
 function showZoneForm() {
-    document.getElementById('step-3').classList.add('hidden');
-    document.getElementById('step-3-form').classList.remove('hidden');
+    // Hide zone list and show first step of zone wizard
+    document.querySelectorAll('[id^="step-3"]').forEach(el => el.classList.add('hidden'));
+    document.getElementById('step-3a').classList.remove('hidden');
+    setTimeout(() => document.getElementById('zone-nom')?.focus(), 100);
 }
 
 function showZoneList() {
-    document.getElementById('step-3-form').classList.add('hidden');
+    // Hide all zone wizard steps and show zone list
+    document.querySelectorAll('[id^="step-3"]').forEach(el => el.classList.add('hidden'));
     document.getElementById('step-3').classList.remove('hidden');
     renderZoneCards();
 }
@@ -980,16 +1085,19 @@ function deleteZone(zoneId) {
 function updateFriabiliteBadge(friabilite) {
     const badge = document.getElementById('friabilite-badge');
     const text = document.getElementById('friabilite-text');
+    const desc = document.getElementById('friabilite-desc');
     if (!badge || !text) return;
 
     badge.classList.remove('hidden');
 
     if (friabilite === 'friable') {
         text.textContent = 'FRIABLE';
-        text.className = 'inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase bg-red-100 text-red-600';
+        text.className = 'inline-flex items-center px-4 py-2 rounded-full text-sm font-bold tracking-wider uppercase bg-red-100 text-red-600';
+        if (desc) desc.textContent = 'Risque élevé si volume > 1 pi³';
     } else {
         text.textContent = 'NON FRIABLE';
-        text.className = 'inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase bg-slate-100 text-slate-500';
+        text.className = 'inline-flex items-center px-4 py-2 rounded-full text-sm font-bold tracking-wider uppercase bg-green-100 text-green-600';
+        if (desc) desc.textContent = 'Risque élevé si volume > 10 pi³';
     }
 }
 
@@ -1020,13 +1128,13 @@ function calculateZoneValues() {
     if (risqueEl) {
         if (risque === 'ÉLEVÉ') {
             risqueEl.textContent = 'ÉLEVÉ';
-            risqueEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-red-100 text-red-600';
+            risqueEl.className = 'inline-block mt-1 px-4 py-2 rounded-xl text-sm font-bold bg-red-100 text-red-600';
         } else if (risque === 'MODÉRÉ') {
             risqueEl.textContent = 'MODÉRÉ';
-            risqueEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-600';
+            risqueEl.className = 'inline-block mt-1 px-4 py-2 rounded-xl text-sm font-bold bg-amber-100 text-amber-600';
         } else {
             risqueEl.textContent = '--';
-            risqueEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-400';
+            risqueEl.className = 'inline-block mt-1 px-4 py-2 rounded-xl text-sm font-bold bg-slate-200 text-slate-400';
         }
     }
 
@@ -1090,25 +1198,51 @@ function addZone() {
     resetZoneForm();
 
     // Return to zone list
-    showZoneList();
+    goToStep(3);
 }
 
 function resetZoneForm() {
-    document.getElementById('zone-nom').value = '';
-    document.getElementById('zone-categorie').value = '';
-    document.getElementById('zone-materiau').value = '';
-    document.getElementById('zone-longueur').value = '';
-    document.getElementById('zone-largeur').value = '';
-    document.getElementById('zone-epaisseur').value = '';
+    // Reset all inputs
+    const nomInput = document.getElementById('zone-nom');
+    const categorieInput = document.getElementById('zone-categorie');
+    const materiauSelect = document.getElementById('zone-materiau');
+    const longueurInput = document.getElementById('zone-longueur');
+    const largeurInput = document.getElementById('zone-largeur');
+    const epaisseurInput = document.getElementById('zone-epaisseur');
+
+    if (nomInput) nomInput.value = '';
+    if (categorieInput) categorieInput.value = '';
+    if (materiauSelect) materiauSelect.value = '';
+    if (longueurInput) longueurInput.value = '';
+    if (largeurInput) largeurInput.value = '';
+    if (epaisseurInput) epaisseurInput.value = '';
+
+    // Reset category buttons
+    document.querySelectorAll('.categorie-btn').forEach(btn => btn.classList.remove('active'));
 
     // Reset calculated values
-    document.getElementById('calc-surface').textContent = '--';
-    document.getElementById('calc-volume').textContent = '--';
-    document.getElementById('calc-risque').textContent = '--';
-    document.getElementById('calc-risque').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-400';
+    const calcSurface = document.getElementById('calc-surface');
+    const calcVolume = document.getElementById('calc-volume');
+    const calcRisque = document.getElementById('calc-risque');
+
+    if (calcSurface) calcSurface.textContent = '--';
+    if (calcVolume) calcVolume.textContent = '--';
+    if (calcRisque) {
+        calcRisque.textContent = '--';
+        calcRisque.className = 'inline-block mt-1 px-4 py-2 rounded-xl text-sm font-bold bg-slate-200 text-slate-400';
+    }
 
     // Hide friability badge
     document.getElementById('friabilite-badge')?.classList.add('hidden');
+
+    // Disable continue buttons
+    const btnNext3a = document.getElementById('btn-next-step3a');
+    const btnNext3c = document.getElementById('btn-next-step3c');
+    const btnAddFinal = document.getElementById('btn-add-zone-final');
+
+    if (btnNext3a) btnNext3a.disabled = true;
+    if (btnNext3c) btnNext3c.disabled = true;
+    if (btnAddFinal) btnAddFinal.disabled = true;
 }
 
 // =====================================================
@@ -1389,8 +1523,10 @@ function goToStep(step) {
         // Show mobile back button
         document.getElementById('btn-back-mobile')?.classList.remove('invisible');
     } else if (step === 3) {
+        // Hide all step-3 sub-steps first
+        document.querySelectorAll('[id^="step-3"]').forEach(el => el.classList.add('hidden'));
+        // Show zone list
         document.getElementById('step-3').classList.remove('hidden');
-        document.getElementById('step-3-form').classList.add('hidden');
         // Render zone cards
         renderZoneCards();
         // Show mobile back button

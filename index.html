@@ -566,109 +566,323 @@
             </div>
         </section>
 
-        <!-- Step 3 Form: Add/Edit Zone -->
-        <section id="step-3-form" class="step-content max-w-xl w-full hidden">
-            <div class="mb-6 md:mb-8">
-                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">Ajouter une zone</h1>
-                <p class="text-slate-500 text-sm mt-2">Définissez la zone à désamianter.</p>
+        <!-- Step 3a: Nom de la zone -->
+        <section id="step-3a" class="step-content max-w-xl w-full hidden">
+            <!-- Mini navigation -->
+            <div class="flex items-center gap-2 mb-8 flex-wrap">
+                <button data-zone-goto="3a" class="zone-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
+                    <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">1</span>
+                    Nom
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-zone-goto="3b" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">2</span>
+                    Catégorie
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-zone-goto="3c" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">3</span>
+                    Matériau
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-zone-goto="3d" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">4</span>
+                    Dimensions
+                </button>
             </div>
 
-            <form id="zone-form" class="space-y-5">
-                <!-- Nom de la zone -->
-                <div>
-                    <label for="zone-nom" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Nom de la zone</label>
-                    <input type="text" id="zone-nom" name="nom" required
-                        class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                        placeholder="Ex: Cuisine, Sous-sol, Chambre...">
-                </div>
+            <div class="mb-6">
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
+                    Nom de la zone ?
+                </h1>
+                <p class="text-slate-500 text-sm mt-2">Donnez un nom pour identifier cette zone.</p>
+            </div>
 
-                <!-- Catégorie -->
-                <div>
-                    <label for="zone-categorie" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Catégorie</label>
-                    <select id="zone-categorie" name="categorie" required
-                        class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all appearance-none">
-                        <option value="">Sélectionner une catégorie</option>
-                        <option value="Mur/Plafond">Mur / Plafond</option>
-                        <option value="Plancher">Plancher</option>
-                        <option value="Isolation">Isolation (entretoit, mur)</option>
-                        <option value="Revêtement extérieur">Revêtement extérieur / Toiture</option>
-                        <option value="Panneaux thermiques">Panneaux thermiques</option>
-                    </select>
-                </div>
+            <div class="space-y-6">
+                <input type="text" id="zone-nom" name="nom" required autofocus
+                    class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                    placeholder="Ex: Cuisine, Sous-sol, Chambre...">
 
-                <!-- Matériau -->
-                <div>
-                    <label for="zone-materiau" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Matériau</label>
-                    <select id="zone-materiau" name="materiau" required
-                        class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all appearance-none">
-                        <option value="">Sélectionner un matériau</option>
-                        <!-- Options loaded from Supabase -->
-                    </select>
-                    <!-- Friabilité badge -->
-                    <div id="friabilite-badge" class="mt-2 hidden">
-                        <span id="friabilite-text" class="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase"></span>
-                    </div>
-                </div>
-
-                <!-- Dimensions -->
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Dimensions</label>
-                    <div class="grid grid-cols-3 gap-3">
-                        <div>
-                            <input type="number" id="zone-longueur" name="longueur" min="0" step="0.1" required
-                                class="w-full px-3 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 text-center focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                                placeholder="Long.">
-                            <span class="block text-[10px] text-slate-400 text-center mt-1">Longueur (pi)</span>
-                        </div>
-                        <div>
-                            <input type="number" id="zone-largeur" name="largeur" min="0" step="0.1" required
-                                class="w-full px-3 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 text-center focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                                placeholder="Larg.">
-                            <span class="block text-[10px] text-slate-400 text-center mt-1">Largeur (pi)</span>
-                        </div>
-                        <div>
-                            <input type="number" id="zone-epaisseur" name="epaisseur" min="0" step="0.0625" required
-                                class="w-full px-3 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 text-center focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                                placeholder="Épais.">
-                            <span class="block text-[10px] text-slate-400 text-center mt-1">Épaisseur (po)</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Calculated values -->
-                <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
-                    <div class="flex items-center justify-between">
-                        <div class="flex gap-6">
-                            <div>
-                                <span class="block text-[10px] font-bold text-slate-400 uppercase">Surface</span>
-                                <span class="text-lg font-bold text-slate-800"><span id="calc-surface">--</span> <span class="text-sm font-medium text-slate-500">pi²</span></span>
-                            </div>
-                            <div>
-                                <span class="block text-[10px] font-bold text-slate-400 uppercase">Volume</span>
-                                <span class="text-lg font-bold text-slate-800"><span id="calc-volume">--</span> <span class="text-sm font-medium text-slate-500">pi³</span></span>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <span class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Risque</span>
-                            <span id="calc-risque" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-400">--</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Submit button -->
-                <button type="submit" class="w-full bg-primary hover:bg-primary-dark text-white py-4 px-6 rounded-xl font-bold text-lg shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
-                    <span class="material-symbols-outlined">add_circle</span>
-                    Ajouter cette zone
-                </button>
-
-                <!-- Back link -->
-                <div class="flex justify-start pt-2">
-                    <button type="button" id="btn-back-to-zones" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                <div class="flex items-center justify-between pt-4">
+                    <button type="button" id="btn-back-step3a" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
                         <span class="material-symbols-outlined text-lg">arrow_back</span>
                         Retour aux zones
                     </button>
+                    <button type="button" id="btn-next-step3a" class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Continuer
+                        <span class="material-symbols-outlined text-lg">arrow_forward</span>
+                    </button>
                 </div>
-            </form>
+            </div>
+        </section>
+
+        <!-- Step 3b: Catégorie -->
+        <section id="step-3b" class="step-content max-w-xl w-full hidden">
+            <!-- Mini navigation -->
+            <div class="flex items-center gap-2 mb-8 flex-wrap">
+                <button data-zone-goto="3a" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                    <span class="material-symbols-outlined text-sm">check</span>
+                    Nom
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-zone-goto="3b" class="zone-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
+                    <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">2</span>
+                    Catégorie
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-zone-goto="3c" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">3</span>
+                    Matériau
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-zone-goto="3d" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">4</span>
+                    Dimensions
+                </button>
+            </div>
+
+            <div class="mb-6">
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
+                    Type de travaux ?
+                </h1>
+                <p class="text-slate-500 text-sm mt-2">Sélectionnez la catégorie de cette zone.</p>
+            </div>
+
+            <div class="space-y-4">
+                <button type="button" data-categorie="Mur/Plafond" class="categorie-btn plan-card w-full group text-left">
+                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
+                        <span class="material-symbols-outlined">wall</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="block font-bold text-slate-900">Mur / Plafond</span>
+                        <p class="text-[13px] text-slate-500 mt-0.5">Gypse, plâtre, crépi...</p>
+                    </div>
+                    <div class="ml-3 flex items-center justify-center shrink-0">
+                        <div class="radio-circle"><div class="radio-inner"></div></div>
+                    </div>
+                </button>
+
+                <button type="button" data-categorie="Plancher" class="categorie-btn plan-card w-full group text-left">
+                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
+                        <span class="material-symbols-outlined">foundation</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="block font-bold text-slate-900">Plancher</span>
+                        <p class="text-[13px] text-slate-500 mt-0.5">Tuiles vinyle, colle...</p>
+                    </div>
+                    <div class="ml-3 flex items-center justify-center shrink-0">
+                        <div class="radio-circle"><div class="radio-inner"></div></div>
+                    </div>
+                </button>
+
+                <button type="button" data-categorie="Isolation" class="categorie-btn plan-card w-full group text-left">
+                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
+                        <span class="material-symbols-outlined">thermostat</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="block font-bold text-slate-900">Isolation</span>
+                        <p class="text-[13px] text-slate-500 mt-0.5">Vermiculite, entretoit, mur...</p>
+                    </div>
+                    <div class="ml-3 flex items-center justify-center shrink-0">
+                        <div class="radio-circle"><div class="radio-inner"></div></div>
+                    </div>
+                </button>
+
+                <button type="button" data-categorie="Revêtement extérieur" class="categorie-btn plan-card w-full group text-left">
+                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
+                        <span class="material-symbols-outlined">roofing</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="block font-bold text-slate-900">Revêtement extérieur / Toiture</span>
+                        <p class="text-[13px] text-slate-500 mt-0.5">Bardeaux, fibrociment...</p>
+                    </div>
+                    <div class="ml-3 flex items-center justify-center shrink-0">
+                        <div class="radio-circle"><div class="radio-inner"></div></div>
+                    </div>
+                </button>
+
+                <button type="button" data-categorie="Panneaux thermiques" class="categorie-btn plan-card w-full group text-left">
+                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
+                        <span class="material-symbols-outlined">heat</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="block font-bold text-slate-900">Panneaux thermiques</span>
+                        <p class="text-[13px] text-slate-500 mt-0.5">Calorifuge, panneaux...</p>
+                    </div>
+                    <div class="ml-3 flex items-center justify-center shrink-0">
+                        <div class="radio-circle"><div class="radio-inner"></div></div>
+                    </div>
+                </button>
+            </div>
+
+            <!-- Hidden input for selected category -->
+            <input type="hidden" id="zone-categorie" name="categorie" value="">
+
+            <div class="flex items-center justify-between pt-6">
+                <button type="button" id="btn-back-step3b" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                    <span class="material-symbols-outlined text-lg">arrow_back</span>
+                    Retour
+                </button>
+            </div>
+        </section>
+
+        <!-- Step 3c: Matériau -->
+        <section id="step-3c" class="step-content max-w-xl w-full hidden">
+            <!-- Mini navigation -->
+            <div class="flex items-center gap-2 mb-8 flex-wrap">
+                <button data-zone-goto="3a" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                    <span class="material-symbols-outlined text-sm">check</span>
+                    Nom
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-zone-goto="3b" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                    <span class="material-symbols-outlined text-sm">check</span>
+                    Catégorie
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-zone-goto="3c" class="zone-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
+                    <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">3</span>
+                    Matériau
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-zone-goto="3d" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">4</span>
+                    Dimensions
+                </button>
+            </div>
+
+            <div class="mb-6">
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
+                    Quel matériau ?
+                </h1>
+                <p class="text-slate-500 text-sm mt-2">Le matériau détermine la friabilité et l'épaisseur par défaut.</p>
+            </div>
+
+            <div class="space-y-6">
+                <select id="zone-materiau" name="materiau" required
+                    class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all appearance-none">
+                    <option value="">Sélectionner un matériau</option>
+                    <!-- Options loaded from Supabase -->
+                </select>
+
+                <!-- Friabilité badge -->
+                <div id="friabilite-badge" class="hidden">
+                    <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                        <div class="flex items-center gap-4">
+                            <span id="friabilite-text" class="inline-flex items-center px-4 py-2 rounded-full text-sm font-bold tracking-wider uppercase"></span>
+                            <p id="friabilite-desc" class="text-sm text-slate-600"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-4">
+                    <button type="button" id="btn-back-step3c" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                        <span class="material-symbols-outlined text-lg">arrow_back</span>
+                        Retour
+                    </button>
+                    <button type="button" id="btn-next-step3c" class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Continuer
+                        <span class="material-symbols-outlined text-lg">arrow_forward</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 3d: Dimensions -->
+        <section id="step-3d" class="step-content max-w-xl w-full hidden">
+            <!-- Mini navigation -->
+            <div class="flex items-center gap-2 mb-8 flex-wrap">
+                <button data-zone-goto="3a" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                    <span class="material-symbols-outlined text-sm">check</span>
+                    Nom
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-zone-goto="3b" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                    <span class="material-symbols-outlined text-sm">check</span>
+                    Catégorie
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-zone-goto="3c" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                    <span class="material-symbols-outlined text-sm">check</span>
+                    Matériau
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-zone-goto="3d" class="zone-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
+                    <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">4</span>
+                    Dimensions
+                </button>
+            </div>
+
+            <div class="mb-6">
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
+                    Dimensions de la zone
+                </h1>
+                <p class="text-slate-500 text-sm mt-2">Entrez les mesures pour calculer le volume et le risque.</p>
+            </div>
+
+            <div class="space-y-6">
+                <!-- Dimensions inputs -->
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Longueur</label>
+                        <div class="relative">
+                            <input type="number" id="zone-longueur" name="longueur" min="0" step="0.1" required
+                                class="w-full px-4 py-4 bg-white border-2 border-slate-200 rounded-xl text-lg text-slate-900 text-center focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                                placeholder="0">
+                            <span class="absolute -bottom-5 left-0 right-0 text-[10px] text-slate-400 text-center">pieds</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Largeur</label>
+                        <div class="relative">
+                            <input type="number" id="zone-largeur" name="largeur" min="0" step="0.1" required
+                                class="w-full px-4 py-4 bg-white border-2 border-slate-200 rounded-xl text-lg text-slate-900 text-center focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                                placeholder="0">
+                            <span class="absolute -bottom-5 left-0 right-0 text-[10px] text-slate-400 text-center">pieds</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Épaisseur</label>
+                        <div class="relative">
+                            <input type="number" id="zone-epaisseur" name="epaisseur" min="0" step="0.0625" required
+                                class="w-full px-4 py-4 bg-white border-2 border-slate-200 rounded-xl text-lg text-slate-900 text-center focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                                placeholder="0">
+                            <span class="absolute -bottom-5 left-0 right-0 text-[10px] text-slate-400 text-center">pouces</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Calculated values card -->
+                <div class="bg-slate-50 rounded-2xl p-6 border border-slate-100 mt-8">
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <span class="block text-xs font-bold text-slate-400 uppercase mb-1">Surface</span>
+                            <span class="text-2xl font-bold text-slate-800"><span id="calc-surface">--</span></span>
+                            <span class="block text-sm text-slate-500">pi²</span>
+                        </div>
+                        <div>
+                            <span class="block text-xs font-bold text-slate-400 uppercase mb-1">Volume</span>
+                            <span class="text-2xl font-bold text-slate-800"><span id="calc-volume">--</span></span>
+                            <span class="block text-sm text-slate-500">pi³</span>
+                        </div>
+                        <div>
+                            <span class="block text-xs font-bold text-slate-400 uppercase mb-1">Risque</span>
+                            <span id="calc-risque" class="inline-block mt-1 px-4 py-2 rounded-xl text-sm font-bold bg-slate-200 text-slate-400">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-4">
+                    <button type="button" id="btn-back-step3d" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                        <span class="material-symbols-outlined text-lg">arrow_back</span>
+                        Retour
+                    </button>
+                    <button type="button" id="btn-add-zone-final" class="px-8 py-4 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <span class="material-symbols-outlined">add_circle</span>
+                        Ajouter cette zone
+                    </button>
+                </div>
+            </div>
         </section>
 
         <!-- Step 4: Récapitulatif & Prix -->
