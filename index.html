@@ -209,6 +209,63 @@
         .wizard-nav-compact .nav-btn.pending .nav-num {
             background-color: #e2e8f0;
         }
+
+        /* Custom Dropdown Styles */
+        .custom-dropdown-panel.hidden {
+            display: none;
+        }
+        
+        .custom-dropdown-option {
+            @apply flex items-center gap-4 px-4 py-3.5 rounded-xl cursor-pointer transition-all duration-150;
+        }
+        .custom-dropdown-option:hover {
+            @apply bg-blue-50;
+        }
+        .custom-dropdown-option.selected {
+            @apply bg-primary/10;
+        }
+        .custom-dropdown-option .option-icon {
+            @apply w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 flex-shrink-0;
+        }
+        .custom-dropdown-option.selected .option-icon {
+            @apply bg-primary/20 text-primary;
+        }
+        .custom-dropdown-option .option-text {
+            @apply flex-1 text-left;
+        }
+        .custom-dropdown-option .option-name {
+            @apply text-base font-medium text-slate-900;
+        }
+        .custom-dropdown-option .option-meta {
+            @apply text-xs text-slate-500 mt-0.5;
+        }
+        .custom-dropdown-option .option-check {
+            @apply w-6 h-6 rounded-full flex items-center justify-center opacity-0 transition-opacity;
+        }
+        .custom-dropdown-option.selected .option-check {
+            @apply opacity-100 bg-primary text-white;
+        }
+        
+        /* Dropdown trigger active state */
+        .custom-dropdown.open #materiau-dropdown-trigger {
+            @apply border-primary ring-4 ring-primary/10;
+        }
+        .custom-dropdown.open #materiau-dropdown-arrow {
+            transform: rotate(180deg);
+        }
+        
+        /* Safe area for iOS */
+        .safe-area-inset-bottom {
+            padding-bottom: max(1rem, env(safe-area-inset-bottom));
+        }
+        
+        /* No results message */
+        .dropdown-no-results {
+            @apply text-center py-8 text-slate-400;
+        }
+        .dropdown-no-results .material-symbols-outlined {
+            @apply text-4xl mb-2 opacity-50;
+        }
     </style>
 </head>
 
@@ -755,6 +812,46 @@
                     class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
                     placeholder="Ex: Cuisine, Sous-sol, Chambre...">
 
+                <!-- Photo de la zone -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">
+                        Photo de la zone <span class="text-slate-400 font-normal">(optionnel)</span>
+                    </label>
+                    
+                    <!-- Upload zone -->
+                    <div id="zone-photo-upload" class="relative">
+                        <!-- Drag & Drop zone (desktop) / Click zone (mobile) -->
+                        <div id="zone-photo-dropzone" 
+                            class="w-full p-6 md:p-8 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer transition-all hover:border-primary hover:bg-blue-50/30 group">
+                            <div id="zone-photo-placeholder" class="flex flex-col items-center text-center">
+                                <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-3 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                                    <span class="material-symbols-outlined text-2xl">add_photo_alternate</span>
+                                </div>
+                                <p class="text-sm font-medium text-slate-600 group-hover:text-primary transition-colors">
+                                    <span class="hidden md:inline">Glissez une photo ou </span>cliquez pour ajouter
+                                </p>
+                                <p class="text-xs text-slate-400 mt-1">JPG, PNG • Max 5 MB</p>
+                            </div>
+                            
+                            <!-- Preview container (hidden by default) -->
+                            <div id="zone-photo-preview" class="hidden">
+                                <div class="relative inline-block">
+                                    <img id="zone-photo-img" src="" alt="Preview" 
+                                        class="max-h-32 md:max-h-40 rounded-xl object-cover cursor-pointer hover:opacity-90 transition-opacity">
+                                    <button type="button" id="zone-photo-remove" 
+                                        class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-colors">
+                                        <span class="material-symbols-outlined text-sm">close</span>
+                                    </button>
+                                </div>
+                                <p id="zone-photo-name" class="text-xs text-slate-500 mt-2 truncate max-w-full"></p>
+                            </div>
+                        </div>
+                        
+                        <!-- Hidden file input -->
+                        <input type="file" id="zone-photo-input" accept="image/*" class="hidden">
+                    </div>
+                </div>
+
                 <div class="mobile-sticky-footer flex items-center justify-between pt-4">
                     <button type="button" id="btn-back-step3a"
                         class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
@@ -935,11 +1032,53 @@
             </div>
 
             <div class="space-y-6">
-                <select id="zone-materiau" name="materiau" required
-                    class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all appearance-none">
-                    <option value="">Sélectionner un matériau</option>
-                    <!-- Options loaded from Supabase -->
-                </select>
+                <!-- Custom Dropdown for Material Selection -->
+                <div id="materiau-dropdown" class="custom-dropdown relative">
+                    <!-- Trigger Button -->
+                    <button type="button" id="materiau-dropdown-trigger"
+                        class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-left flex items-center justify-between focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all">
+                        <span id="materiau-dropdown-text" class="text-slate-400">Sélectionner un matériau</span>
+                        <span class="material-symbols-outlined text-slate-400 transition-transform" id="materiau-dropdown-arrow">expand_more</span>
+                    </button>
+                    
+                    <!-- Hidden input for form value -->
+                    <input type="hidden" id="zone-materiau" name="materiau" value="">
+                </div>
+
+                <!-- Custom Dropdown Modal/Panel -->
+                <div id="materiau-dropdown-panel" class="custom-dropdown-panel hidden">
+                    <!-- Backdrop -->
+                    <div id="materiau-dropdown-backdrop" class="fixed inset-0 bg-black/50 z-[60] md:hidden"></div>
+                    
+                    <!-- Panel Content -->
+                    <div class="custom-dropdown-content fixed md:absolute inset-x-0 bottom-0 md:inset-auto md:top-full md:left-0 md:right-0 md:mt-2 bg-white rounded-t-3xl md:rounded-2xl shadow-2xl z-[70] max-h-[80vh] md:max-h-[400px] flex flex-col overflow-hidden">
+                        <!-- Header with Search -->
+                        <div class="sticky top-0 bg-white border-b border-slate-100 p-4 md:p-3">
+                            <!-- Mobile drag handle -->
+                            <div class="w-12 h-1 bg-slate-200 rounded-full mx-auto mb-4 md:hidden"></div>
+                            
+                            <div class="relative">
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+                                <input type="text" id="materiau-search-input" 
+                                    class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-base placeholder-slate-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+                                    placeholder="Rechercher un matériau...">
+                            </div>
+                        </div>
+                        
+                        <!-- Options List -->
+                        <div id="materiau-options-list" class="flex-1 overflow-y-auto p-2 md:p-1">
+                            <!-- Options will be inserted here -->
+                        </div>
+                        
+                        <!-- Mobile Close Button -->
+                        <div class="md:hidden sticky bottom-0 bg-white border-t border-slate-100 p-4 safe-area-inset-bottom">
+                            <button type="button" id="materiau-dropdown-close"
+                                class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors">
+                                Fermer
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Friabilité badge -->
                 <div id="friabilite-badge" class="hidden">
@@ -1236,6 +1375,30 @@
         </section>
 
     </main>
+
+    <!-- Lightbox Modal for Photo Preview -->
+    <div id="photo-lightbox" class="fixed inset-0 z-[100] hidden">
+        <!-- Backdrop -->
+        <div id="lightbox-backdrop" class="absolute inset-0 bg-black/90 backdrop-blur-sm"></div>
+        
+        <!-- Content -->
+        <div class="relative w-full h-full flex items-center justify-center p-4">
+            <!-- Close button -->
+            <button id="lightbox-close" class="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors z-10">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+            
+            <!-- Image container -->
+            <div class="max-w-full max-h-full overflow-auto">
+                <img id="lightbox-img" src="" alt="Full preview" class="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl">
+            </div>
+            
+            <!-- Image name -->
+            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 px-4 py-2 rounded-full">
+                <p id="lightbox-name" class="text-white text-sm"></p>
+            </div>
+        </div>
+    </div>
 
     <!-- Footer -->
     <footer class="py-6 w-full border-t border-slate-100 bg-white mt-auto">

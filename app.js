@@ -845,6 +845,9 @@ function setupStep3Events() {
     btnBackStep3a?.addEventListener('click', () => showZoneList());
     btnNextStep3a?.addEventListener('click', () => goToZoneStep('3b'));
 
+    // === Photo Upload for Zone ===
+    setupZonePhotoUpload();
+
     // === Step 3b: Catégorie (card selection) ===
     const btnBackStep3b = document.getElementById('btn-back-step3b');
     const categorieInput = document.getElementById('zone-categorie');
@@ -1015,7 +1018,7 @@ function createZoneCard(zone) {
 
     // Icon based on category
     const iconMap = {
-        'Mur/Plafond': 'wall',
+        'Mur/Plafond': 'dashboard',
         'Plancher': 'foundation',
         'Isolation': 'thermostat',
         'Revêtement extérieur': 'roofing',
@@ -1031,11 +1034,27 @@ function createZoneCard(zone) {
     // Friability text
     const friabiliteText = zone.friabilite === 'friable' ? 'Friable' : 'Non friable';
 
+    // Photo section
+    const hasPhoto = zone.photo && zone.photo.dataUrl;
+    const photoHtml = hasPhoto 
+        ? `<div class="zone-card-photo absolute inset-0 rounded-2xl overflow-hidden">
+               <img src="${zone.photo.dataUrl}" alt="${zone.nom}" class="w-full h-full object-cover opacity-20">
+           </div>`
+        : '';
+
+    // Photo thumbnail for top left (instead of icon when photo exists)
+    const topLeftHtml = hasPhoto
+        ? `<div class="zone-photo-thumb w-12 h-12 rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all" data-photo-url="${zone.photo.dataUrl}" data-photo-name="${zone.photo.name}">
+               <img src="${zone.photo.dataUrl}" alt="${zone.nom}" class="w-full h-full object-cover">
+           </div>`
+        : `<div class="bg-slate-50 p-3 rounded-xl">
+               <span class="material-symbols-outlined text-slate-400">${icon}</span>
+           </div>`;
+
     card.innerHTML = `
-        <div class="flex justify-between items-start mb-4">
-            <div class="bg-slate-50 p-3 rounded-xl">
-                <span class="material-symbols-outlined text-slate-400">${icon}</span>
-            </div>
+        ${photoHtml}
+        <div class="relative z-10 flex justify-between items-start mb-4">
+            ${topLeftHtml}
             <div class="flex flex-col items-end gap-2">
                 <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${riskClass}">
                     ${riskText}
@@ -1045,7 +1064,7 @@ function createZoneCard(zone) {
                 </button>
             </div>
         </div>
-        <div class="mt-auto">
+        <div class="relative z-10 mt-auto">
             <h3 class="text-lg font-bold text-slate-900 mb-1">${zone.nom}</h3>
             <div class="space-y-2 pt-3 border-t border-slate-50">
                 <div class="flex justify-between items-center">
@@ -1063,6 +1082,15 @@ function createZoneCard(zone) {
             </div>
         </div>
     `;
+
+    // Photo thumbnail click → open lightbox
+    const photoThumb = card.querySelector('.zone-photo-thumb');
+    if (photoThumb) {
+        photoThumb.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openLightbox(photoThumb.dataset.photoUrl, photoThumb.dataset.photoName);
+        });
+    }
 
     // Delete button listener
     const btnDelete = card.querySelector('.btn-delete-zone');
@@ -1173,6 +1201,9 @@ function addZone() {
     // Calculate values
     const { surface, volume, risque, friabilite } = calculateZoneValues();
 
+    // Get photo data if any
+    const photo = getZonePhoto();
+
     // Create zone object
     const zone = {
         id: Date.now(), // Unique ID
@@ -1186,7 +1217,11 @@ function addZone() {
         epaisseur,
         surface,
         volume,
-        risque
+        risque,
+        photo: photo ? {
+            name: photo.name,
+            dataUrl: photo.dataUrl
+        } : null
     };
 
     // Add to state
@@ -1243,6 +1278,185 @@ function resetZoneForm() {
     if (btnNext3a) btnNext3a.disabled = true;
     if (btnNext3c) btnNext3c.disabled = true;
     if (btnAddFinal) btnAddFinal.disabled = true;
+
+    // Reset photo
+    clearZonePhoto();
+}
+
+// =====================================================
+// ZONE PHOTO UPLOAD
+// =====================================================
+
+// Store current zone photo data
+let currentZonePhoto = null;
+
+function setupZonePhotoUpload() {
+    const dropzone = document.getElementById('zone-photo-dropzone');
+    const fileInput = document.getElementById('zone-photo-input');
+    const placeholder = document.getElementById('zone-photo-placeholder');
+    const preview = document.getElementById('zone-photo-preview');
+    const previewImg = document.getElementById('zone-photo-img');
+    const photoName = document.getElementById('zone-photo-name');
+    const removeBtn = document.getElementById('zone-photo-remove');
+
+    if (!dropzone || !fileInput) return;
+
+    // Click to upload
+    dropzone.addEventListener('click', (e) => {
+        // Don't trigger if clicking on the remove button or the preview image (for lightbox)
+        if (e.target.closest('#zone-photo-remove')) return;
+        if (e.target.closest('#zone-photo-img') && currentZonePhoto) {
+            openLightbox(currentZonePhoto.dataUrl, currentZonePhoto.name);
+            return;
+        }
+        fileInput.click();
+    });
+
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) handleZonePhotoFile(file);
+    });
+
+    // Drag & drop events (desktop)
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('border-primary', 'bg-blue-50/50');
+    });
+
+    dropzone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('border-primary', 'bg-blue-50/50');
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('border-primary', 'bg-blue-50/50');
+        
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) {
+            handleZonePhotoFile(file);
+        }
+    });
+
+    // Remove photo button
+    removeBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearZonePhoto();
+    });
+
+    // Setup lightbox
+    setupLightbox();
+}
+
+function handleZonePhotoFile(file) {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+        alert('Veuillez sélectionner une image (JPG, PNG, etc.)');
+        return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+        alert('L\'image est trop grande. Maximum 5 MB.');
+        return;
+    }
+
+    // Read file and create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const dataUrl = e.target.result;
+        
+        // Store photo data
+        currentZonePhoto = {
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            dataUrl: dataUrl
+        };
+
+        // Update UI
+        const placeholder = document.getElementById('zone-photo-placeholder');
+        const preview = document.getElementById('zone-photo-preview');
+        const previewImg = document.getElementById('zone-photo-img');
+        const photoName = document.getElementById('zone-photo-name');
+
+        if (placeholder) placeholder.classList.add('hidden');
+        if (preview) preview.classList.remove('hidden');
+        if (previewImg) previewImg.src = dataUrl;
+        if (photoName) photoName.textContent = file.name;
+
+        console.log('📷 Photo ajoutée:', file.name);
+    };
+
+    reader.readAsDataURL(file);
+}
+
+function clearZonePhoto() {
+    currentZonePhoto = null;
+
+    const placeholder = document.getElementById('zone-photo-placeholder');
+    const preview = document.getElementById('zone-photo-preview');
+    const previewImg = document.getElementById('zone-photo-img');
+    const photoName = document.getElementById('zone-photo-name');
+    const fileInput = document.getElementById('zone-photo-input');
+
+    if (placeholder) placeholder.classList.remove('hidden');
+    if (preview) preview.classList.add('hidden');
+    if (previewImg) previewImg.src = '';
+    if (photoName) photoName.textContent = '';
+    if (fileInput) fileInput.value = '';
+}
+
+function getZonePhoto() {
+    return currentZonePhoto;
+}
+
+// =====================================================
+// LIGHTBOX (Full Image Preview)
+// =====================================================
+
+function setupLightbox() {
+    const lightbox = document.getElementById('photo-lightbox');
+    const backdrop = document.getElementById('lightbox-backdrop');
+    const closeBtn = document.getElementById('lightbox-close');
+
+    if (!lightbox) return;
+
+    // Close on backdrop click
+    backdrop?.addEventListener('click', closeLightbox);
+
+    // Close on button click
+    closeBtn?.addEventListener('click', closeLightbox);
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !lightbox.classList.contains('hidden')) {
+            closeLightbox();
+        }
+    });
+}
+
+function openLightbox(imageUrl, imageName) {
+    const lightbox = document.getElementById('photo-lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+    const lightboxName = document.getElementById('lightbox-name');
+
+    if (!lightbox || !lightboxImg) return;
+
+    lightboxImg.src = imageUrl;
+    if (lightboxName) lightboxName.textContent = imageName || 'Image';
+
+    lightbox.classList.remove('hidden');
+    document.body.style.overflow = 'hidden'; // Prevent scrolling
+}
+
+function closeLightbox() {
+    const lightbox = document.getElementById('photo-lightbox');
+    if (!lightbox) return;
+
+    lightbox.classList.add('hidden');
+    document.body.style.overflow = ''; // Restore scrolling
 }
 
 // =====================================================
