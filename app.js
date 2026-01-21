@@ -102,6 +102,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupStep2Events();
     setupStep3Events();
     setupStep4Events();
+    setupWizardNavigation();
 
     // Setup dev mode shortcuts
     if (DEV_MODE) {
@@ -407,7 +408,7 @@ function goToClientStep(subStep) {
     if (targetEl) {
         targetEl.classList.remove('hidden');
         // Focus the input
-        const input = targetEl.querySelector('input');
+        const input = targetEl.querySelector('input:not([type="hidden"])');
         setTimeout(() => input?.focus(), 100);
     }
 
@@ -417,6 +418,38 @@ function goToClientStep(subStep) {
 
     // Show mobile back button
     document.getElementById('btn-back-mobile')?.classList.remove('invisible');
+
+    // Update continue button states based on current values
+    updateWizardButtonStates();
+}
+
+function updateWizardButtonStates() {
+    const nom = document.getElementById('client-nom')?.value.trim();
+    const tel = document.getElementById('client-telephone')?.value.trim();
+    const email = document.getElementById('client-courriel')?.value.trim();
+    const adresse = document.getElementById('client-adresse')?.value.trim();
+
+    const btnNext2a = document.getElementById('btn-next-step2a');
+    const btnNext2b = document.getElementById('btn-next-step2b');
+    const btnNext2c = document.getElementById('btn-next-step2c');
+    const btnNext2d = document.getElementById('btn-next-step2d');
+
+    if (btnNext2a) btnNext2a.disabled = !nom;
+    if (btnNext2b) btnNext2b.disabled = !tel;
+    if (btnNext2c) btnNext2c.disabled = !email;
+    if (btnNext2d) btnNext2d.disabled = !adresse;
+}
+
+function setupWizardNavigation() {
+    // Add click handlers to all wizard nav buttons
+    document.querySelectorAll('.wizard-nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const gotoStep = btn.dataset.goto;
+            if (gotoStep) {
+                goToClientStep(gotoStep);
+            }
+        });
+    });
 }
 
 // =====================================================

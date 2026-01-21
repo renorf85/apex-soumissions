@@ -295,8 +295,30 @@
 
         <!-- Step 2a: Nom du client -->
         <section id="step-2a" class="step-content max-w-xl w-full hidden">
-            <div class="mb-8 md:mb-12">
-                <p class="text-xs font-bold text-primary uppercase tracking-widest mb-3">Client</p>
+            <!-- Mini navigation -->
+            <div class="flex items-center gap-2 mb-8">
+                <button data-goto="2a" class="wizard-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
+                    <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">1</span>
+                    Nom
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-goto="2b" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">2</span>
+                    Tél
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-goto="2c" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">3</span>
+                    Courriel
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-goto="2d" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">4</span>
+                    Adresse
+                </button>
+            </div>
+
+            <div class="mb-6">
                 <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
                     Quel est le nom du client ?
                 </h1>
@@ -322,8 +344,30 @@
 
         <!-- Step 2b: Téléphone -->
         <section id="step-2b" class="step-content max-w-xl w-full hidden">
-            <div class="mb-8 md:mb-12">
-                <p class="text-xs font-bold text-primary uppercase tracking-widest mb-3">Client</p>
+            <!-- Mini navigation -->
+            <div class="flex items-center gap-2 mb-8">
+                <button data-goto="2a" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                    <span class="material-symbols-outlined text-sm">check</span>
+                    Nom
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-goto="2b" class="wizard-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
+                    <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">2</span>
+                    Tél
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-goto="2c" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">3</span>
+                    Courriel
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-goto="2d" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">4</span>
+                    Adresse
+                </button>
+            </div>
+
+            <div class="mb-6">
                 <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
                     Numéro de téléphone ?
                 </h1>
@@ -349,8 +393,30 @@
 
         <!-- Step 2c: Courriel -->
         <section id="step-2c" class="step-content max-w-xl w-full hidden">
-            <div class="mb-8 md:mb-12">
-                <p class="text-xs font-bold text-primary uppercase tracking-widest mb-3">Client</p>
+            <!-- Mini navigation -->
+            <div class="flex items-center gap-2 mb-8">
+                <button data-goto="2a" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                    <span class="material-symbols-outlined text-sm">check</span>
+                    Nom
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-goto="2b" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                    <span class="material-symbols-outlined text-sm">check</span>
+                    Tél
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-goto="2c" class="wizard-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
+                    <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">3</span>
+                    Courriel
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-goto="2d" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">4</span>
+                    Adresse
+                </button>
+            </div>
+
+            <div class="mb-6">
                 <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
                     Adresse courriel ?
                 </h1>
@@ -376,8 +442,30 @@
 
         <!-- Step 2d: Adresse du chantier -->
         <section id="step-2d" class="step-content max-w-xl w-full hidden">
-            <div class="mb-8 md:mb-12">
-                <p class="text-xs font-bold text-primary uppercase tracking-widest mb-3">Chantier</p>
+            <!-- Mini navigation -->
+            <div class="flex items-center gap-2 mb-8">
+                <button data-goto="2a" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                    <span class="material-symbols-outlined text-sm">check</span>
+                    Nom
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-goto="2b" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                    <span class="material-symbols-outlined text-sm">check</span>
+                    Tél
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-goto="2c" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                    <span class="material-symbols-outlined text-sm">check</span>
+                    Courriel
+                </button>
+                <span class="text-slate-300">→</span>
+                <button data-goto="2d" class="wizard-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
+                    <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">4</span>
+                    Adresse
+                </button>
+            </div>
+
+            <div class="mb-6">
                 <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
                     Où est situé le chantier ?
                 </h1>
