@@ -2365,7 +2365,12 @@ function calculatePrix() {
     const sousTotal = prixZones + prixDemo + prixDouches + prixTests + prixPerteTemps + prixTransport + prixDisposition + prixAssurance;
 
     // Marge de profit
-    const margePourcent = config.marge_profit || 20;
+    // Handle both formats: 20 (percentage) or 0.2 (decimal)
+    let margePourcent = config.marge_profit || 20;
+    if (margePourcent < 1) {
+        // Value is in decimal format (0.2), convert to percentage (20)
+        margePourcent = margePourcent * 100;
+    }
     const marge = sousTotal * (margePourcent / 100);
 
     // Total

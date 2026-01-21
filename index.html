@@ -1344,9 +1344,13 @@
                         <span class="text-slate-600">Sous-total</span>
                         <span class="font-semibold text-slate-900" id="prix-sous-total">0 $</span>
                     </div>
-                    <div class="flex justify-between items-center py-2">
-                        <span class="text-slate-600">Marge de profit (<span id="marge-percent">20</span>%)</span>
-                        <span class="font-semibold text-slate-900" id="prix-marge">0 $</span>
+                    <!-- CONFIDENTIEL: Ne PAS inclure sur la soumission client -->
+                    <div id="marge-section" class="flex justify-between items-center py-2 internal-only" data-internal-only="true">
+                        <span class="text-slate-500 text-sm flex items-center gap-1">
+                            <span class="material-symbols-outlined text-amber-500 text-sm">visibility_off</span>
+                            Marge (<span id="marge-percent">20</span>%)
+                        </span>
+                        <span class="font-semibold text-slate-400 text-sm" id="prix-marge">0 $</span>
                     </div>
                 </div>
 
