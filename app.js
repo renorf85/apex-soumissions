@@ -1566,22 +1566,30 @@ function createZoneCard(zone) {
     // Friability text
     const friabiliteText = zone.friabilite === 'friable' ? 'Friable' : 'Non friable';
 
-    // Photo section
+    // Photo section with glassmorphism effect
     const hasPhoto = zone.photo && zone.photo.dataUrl;
     const photoHtml = hasPhoto 
         ? `<div class="zone-card-photo absolute inset-0 rounded-2xl overflow-hidden">
-               <img src="${zone.photo.dataUrl}" alt="${zone.nom}" class="w-full h-full object-cover opacity-20">
+               <img src="${zone.photo.dataUrl}" alt="${zone.nom}" class="w-full h-full object-cover">
+               <div class="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/40 to-slate-900/20"></div>
            </div>`
         : '';
 
     // Photo thumbnail for top left (instead of icon when photo exists)
     const topLeftHtml = hasPhoto
-        ? `<div class="zone-photo-thumb w-12 h-12 rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all" data-photo-url="${zone.photo.dataUrl}" data-photo-name="${zone.photo.name}">
+        ? `<div class="zone-photo-thumb w-14 h-14 rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-white/50 transition-all shadow-lg border-2 border-white/30" data-photo-url="${zone.photo.dataUrl}" data-photo-name="${zone.photo.name}">
                <img src="${zone.photo.dataUrl}" alt="${zone.nom}" class="w-full h-full object-cover">
            </div>`
         : `<div class="bg-slate-50 p-3 rounded-xl">
                <span class="material-symbols-outlined text-slate-400">${icon}</span>
            </div>`;
+
+    // Different text colors for photo vs no photo
+    const textColorMain = hasPhoto ? 'text-white' : 'text-slate-900';
+    const textColorSecondary = hasPhoto ? 'text-white/70' : 'text-slate-400';
+    const textColorValue = hasPhoto ? 'text-white' : 'text-slate-700';
+    const borderColor = hasPhoto ? 'border-white/20' : 'border-slate-50';
+    const deleteIconColor = hasPhoto ? 'text-white/50 hover:text-red-400' : 'text-slate-300 hover:text-red-500';
 
     card.innerHTML = `
         ${photoHtml}
@@ -1591,25 +1599,25 @@ function createZoneCard(zone) {
                 <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${riskClass}">
                     ${riskText}
                 </span>
-                <button class="btn-delete-zone w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 transition-colors" data-zone-id="${zone.id}">
+                <button class="btn-delete-zone w-8 h-8 flex items-center justify-center ${deleteIconColor} transition-colors" data-zone-id="${zone.id}">
                     <span class="material-symbols-outlined text-xl">delete</span>
                 </button>
             </div>
         </div>
         <div class="relative z-10 mt-auto">
-            <h3 class="text-lg font-bold text-slate-900 mb-1">${zone.nom}</h3>
-            <div class="space-y-2 pt-3 border-t border-slate-50">
+            <h3 class="text-lg font-bold ${textColorMain} mb-1">${zone.nom}</h3>
+            <div class="space-y-2 pt-3 border-t ${borderColor}">
                 <div class="flex justify-between items-center">
-                    <span class="text-xs text-slate-400">Surface</span>
-                    <span class="text-xs font-semibold text-slate-700">${zone.surface.toFixed(0)} pi²</span>
+                    <span class="text-xs ${textColorSecondary}">Surface</span>
+                    <span class="text-xs font-semibold ${textColorValue}">${zone.surface.toFixed(0)} pi²</span>
                 </div>
                 <div class="flex justify-between items-center">
-                    <span class="text-xs text-slate-400">Matériau</span>
-                    <span class="text-xs font-semibold text-slate-700">${zone.materiauNom?.split(' ')[0] || 'N/A'}</span>
+                    <span class="text-xs ${textColorSecondary}">Matériau</span>
+                    <span class="text-xs font-semibold ${textColorValue}">${zone.materiauNom?.split(' ')[0] || 'N/A'}</span>
                 </div>
                 <div class="flex justify-between items-center">
-                    <span class="text-xs text-slate-400">Friabilité</span>
-                    <span class="text-xs font-semibold text-slate-700">${friabiliteText}</span>
+                    <span class="text-xs ${textColorSecondary}">Friabilité</span>
+                    <span class="text-xs font-semibold ${textColorValue}">${friabiliteText}</span>
                 </div>
             </div>
         </div>
