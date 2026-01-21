@@ -1010,12 +1010,28 @@ async function loadMateriaux() {
         populateMateriauxDropdown();
     } catch (err) {
         console.error('Erreur chargement matériaux:', err);
-        // Fallback: use hardcoded list if Supabase fails
+        // Fallback: use hardcoded list based on MATERIAUX_REFERENCE.md
         state.materiaux = [
-            { id: 1, nom: 'Gypse (panneau 1/2")', friabilite: 'non_friable', epaisseur_defaut: 0.5 },
-            { id: 2, nom: 'Plâtre sur lattes', friabilite: 'friable', epaisseur_defaut: 0.875 },
-            { id: 3, nom: 'Tuile vinyle 9x9', friabilite: 'non_friable', epaisseur_defaut: 0.0625 },
-            { id: 4, nom: 'Vermiculite (Zonolite)', friabilite: 'friable', epaisseur_defaut: 4.0 }
+            // Mur/Plafond
+            { id: 1, nom: 'Gypse (panneau 1/2")', friabilite: 'non_friable', epaisseur_defaut: 0.5, categorie: 'Mur/Plafond' },
+            { id: 2, nom: 'Gypse 3/8"', friabilite: 'non_friable', epaisseur_defaut: 0.375, categorie: 'Mur/Plafond' },
+            { id: 3, nom: 'Gypse 5/8"', friabilite: 'non_friable', epaisseur_defaut: 0.625, categorie: 'Mur/Plafond' },
+            { id: 4, nom: 'Composé à joints', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Mur/Plafond' },
+            { id: 5, nom: 'Plâtre sur lattes', friabilite: 'friable', epaisseur_defaut: 0.875, categorie: 'Mur/Plafond' },
+            { id: 6, nom: 'Crépi cimentaire', friabilite: 'friable', epaisseur_defaut: 0.5, categorie: 'Mur/Plafond' },
+            // Plancher
+            { id: 7, nom: 'Tuile vinyle 9x9', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Plancher' },
+            { id: 8, nom: 'Tuile vinyle 12x12', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Plancher' },
+            // Isolation
+            { id: 9, nom: 'Vermiculite (Zonolite)', friabilite: 'friable', epaisseur_defaut: 4.0, categorie: 'Isolation' },
+            { id: 10, nom: 'Calorifuge tuyaux', friabilite: 'friable', epaisseur_defaut: 1.0, categorie: 'Isolation' },
+            { id: 11, nom: 'Flocage (projection)', friabilite: 'friable', epaisseur_defaut: 1.0, categorie: 'Isolation' },
+            // Revêtement extérieur / Toiture
+            { id: 12, nom: 'Bardeaux asphalte', friabilite: 'non_friable', epaisseur_defaut: 0.125, categorie: 'Revêtement extérieur' },
+            { id: 13, nom: 'Panneau fibrociment', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Revêtement extérieur' },
+            { id: 14, nom: 'Mastic fenêtre', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Revêtement extérieur' },
+            // Panneaux thermiques
+            { id: 15, nom: 'Panneau isolant rigide', friabilite: 'non_friable', epaisseur_defaut: 1.0, categorie: 'Panneaux thermiques' },
         ];
         populateMateriauxDropdown();
     }
@@ -1182,6 +1198,102 @@ function filterMateriauxOptions(query) {
     }
 }
 
+function filterMateriauxByCategorie(categorie) {
+    const optionsList = document.getElementById('materiau-options-list');
+    if (!optionsList) return;
+    
+    // Clear existing options
+    optionsList.innerHTML = '';
+    
+    // Filter materials by category
+    const filteredMateriaux = state.materiaux.filter(mat => {
+        // If no category filter, show all
+        if (!categorie) return true;
+        
+        // Check if material has a category that matches
+        if (!mat.categorie) return true; // Show materials without category defined
+        
+        return mat.categorie === categorie;
+    });
+    
+    // Populate dropdown with filtered materials
+    filteredMateriaux.forEach(mat => {
+        const option = document.createElement('div');
+        option.className = 'custom-dropdown-option';
+        option.dataset.value = mat.id;
+        option.dataset.nom = mat.nom;
+        option.dataset.friabilite = mat.friabilite;
+        option.dataset.epaisseur = mat.epaisseur_defaut;
+        
+        // Determine icon based on material type
+        let icon = 'category';
+        const nomLower = mat.nom.toLowerCase();
+        if (nomLower.includes('gypse') || nomLower.includes('plâtre') || nomLower.includes('platre')) icon = 'dashboard';
+        else if (nomLower.includes('tuile') || nomLower.includes('vinyl')) icon = 'grid_view';
+        else if (nomLower.includes('vermiculite') || nomLower.includes('isolant') || nomLower.includes('calorifuge') || nomLower.includes('flocage')) icon = 'thermostat';
+        else if (nomLower.includes('bardeau') || nomLower.includes('fibrociment')) icon = 'roofing';
+        else if (nomLower.includes('composé') || nomLower.includes('compose') || nomLower.includes('joint')) icon = 'format_paint';
+        else if (nomLower.includes('crépi') || nomLower.includes('crepi') || nomLower.includes('ciment')) icon = 'texture';
+        else if (nomLower.includes('mastic') || nomLower.includes('fenêtre') || nomLower.includes('fenetre')) icon = 'window';
+        else if (nomLower.includes('panneau')) icon = 'view_module';
+        
+        const friabiliteText = mat.friabilite === 'friable' ? 'Friable' : 'Non friable';
+        const friabiliteClass = mat.friabilite === 'friable' ? 'text-red-500' : 'text-green-600';
+        
+        option.innerHTML = `
+            <div class="option-icon">
+                <span class="material-symbols-outlined">${icon}</span>
+            </div>
+            <div class="option-text">
+                <p class="option-name">${mat.nom}</p>
+                <p class="option-meta"><span class="${friabiliteClass}">${friabiliteText}</span> • Épaisseur: ${mat.epaisseur_defaut}"</p>
+            </div>
+            <div class="option-check">
+                <span class="material-symbols-outlined text-sm">check</span>
+            </div>
+        `;
+        
+        // Click handler
+        option.addEventListener('click', () => selectMateriauOption(mat));
+        
+        optionsList.appendChild(option);
+    });
+    
+    // Show message if no materials for this category
+    if (filteredMateriaux.length === 0) {
+        const noResults = document.createElement('div');
+        noResults.className = 'dropdown-no-results';
+        noResults.innerHTML = `
+            <span class="material-symbols-outlined">info</span>
+            <p class="text-sm">Aucun matériau pour cette catégorie</p>
+        `;
+        optionsList.appendChild(noResults);
+    }
+    
+    // Reset the dropdown selection
+    const hiddenInput = document.getElementById('zone-materiau');
+    const triggerText = document.getElementById('materiau-dropdown-text');
+    if (hiddenInput) {
+        hiddenInput.value = '';
+        delete hiddenInput.dataset.friabilite;
+        delete hiddenInput.dataset.epaisseur;
+    }
+    if (triggerText) {
+        triggerText.textContent = 'Sélectionner un matériau';
+        triggerText.classList.add('text-slate-400');
+        triggerText.classList.remove('text-slate-900');
+    }
+    
+    // Hide friability badge
+    document.getElementById('friabilite-badge')?.classList.add('hidden');
+    
+    // Disable continue button
+    const btnNextStep3c = document.getElementById('btn-next-step3c');
+    if (btnNextStep3c) btnNextStep3c.disabled = true;
+    
+    console.log(`🔍 Matériaux filtrés pour "${categorie}": ${filteredMateriaux.length} trouvés`);
+}
+
 function selectMateriauOption(mat) {
     const hiddenInput = document.getElementById('zone-materiau');
     const triggerText = document.getElementById('materiau-dropdown-text');
@@ -1341,6 +1453,12 @@ function goToZoneStep(subStep) {
         // Focus the input if it's a text/number input step
         const input = targetEl.querySelector('input:not([type="hidden"]), select');
         setTimeout(() => input?.focus(), 100);
+    }
+
+    // If going to step 3c (matériau), filter materials by selected category
+    if (subStep === '3c') {
+        const selectedCategorie = document.getElementById('zone-categorie')?.value;
+        filterMateriauxByCategorie(selectedCategorie);
     }
 
     // Update progress bar (still step 3)
