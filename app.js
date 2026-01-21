@@ -2506,7 +2506,9 @@ function recalculerTotaux() {
     const transport = parseFloat(document.getElementById('prix-transport')?.value) || 0;
     const disposition = parseFloat(document.getElementById('prix-disposition')?.value) || 0;
     const assurance = parseFloat(document.getElementById('prix-assurance')?.value) || 0;
-    const margePourcent = parseFloat(document.getElementById('marge-percent')?.value) || 20;
+    // Allow 0 as valid marge value (don't use || which treats 0 as falsy)
+    const margeValue = document.getElementById('marge-percent')?.value;
+    const margePourcent = margeValue !== '' && !isNaN(parseFloat(margeValue)) ? parseFloat(margeValue) : 20;
 
     // Calculate sous-total
     const sousTotal = zones + demolition + douches + tests + perteTemps + transport + disposition + assurance;
