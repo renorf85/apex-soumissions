@@ -65,7 +65,8 @@ const state = {
         telephone: '',
         courriel: '',
         adresseChantier: '',
-        distanceKm: 0
+        distanceKm: 0,
+        coordinates: null
     },
     zones: [],
     materiaux: [],
@@ -87,6 +88,208 @@ const state = {
 };
 
 // =====================================================
+// LOCAL STORAGE - SAVE & RESTORE PROGRESS
+// =====================================================
+
+const STORAGE_KEY = 'apex_soumission_draft';
+
+function saveStateToStorage() {
+    try {
+        // Only save user-entered data, not loaded config/materiaux
+        const dataToSave = {
+            currentStep: state.currentStep,
+            hasReport: state.hasReport,
+            rapport: state.rapport,
+            client: state.client,
+            zones: state.zones,
+            savedAt: new Date().toISOString()
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+        console.log('💾 Progression sauvegardée');
+    } catch (e) {
+        console.warn('Impossible de sauvegarder:', e);
+    }
+}
+
+function loadStateFromStorage() {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            return JSON.parse(saved);
+        }
+    } catch (e) {
+        console.warn('Impossible de charger:', e);
+    }
+    return null;
+}
+
+function clearSavedState() {
+    try {
+        localStorage.removeItem(STORAGE_KEY);
+        console.log('🗑️ Progression effacée');
+    } catch (e) {
+        console.warn('Impossible d\'effacer:', e);
+    }
+}
+
+function hasSavedProgress() {
+    const saved = loadStateFromStorage();
+    // Consider it valid progress if there's at least some client info or zones
+    return saved && (
+        saved.client?.nom || 
+        saved.client?.adresseChantier || 
+        saved.zones?.length > 0 ||
+        saved.currentStep > 1
+    );
+}
+
+function restoreSavedState() {
+    const saved = loadStateFromStorage();
+    if (!saved) return false;
+
+    // Restore state
+    state.currentStep = saved.currentStep || 1;
+    state.hasReport = saved.hasReport;
+    state.rapport = saved.rapport;
+    state.client = { ...state.client, ...saved.client };
+    state.zones = saved.zones || [];
+
+    console.log('✅ Progression restaurée:', saved);
+    return true;
+}
+
+function applyRestoredStateToUI() {
+    // Apply client info to form fields
+    const nomInput = document.getElementById('client-nom');
+    const telInput = document.getElementById('client-telephone');
+    const emailInput = document.getElementById('client-courriel');
+    const adresseInput = document.getElementById('client-adresse');
+
+    if (nomInput && state.client.nom) nomInput.value = state.client.nom;
+    if (telInput && state.client.telephone) telInput.value = state.client.telephone;
+    if (emailInput && state.client.courriel) emailInput.value = state.client.courriel;
+    if (adresseInput && state.client.adresseChantier) adresseInput.value = state.client.adresseChantier;
+
+    // Navigate to saved step
+    if (state.currentStep > 1) {
+        goToStep(state.currentStep);
+    }
+
+    // Render zones if any
+    if (state.zones.length > 0) {
+        renderZoneCards();
+    }
+}
+
+function showRestoreModal() {
+    const saved = loadStateFromStorage();
+    if (!saved) return;
+
+    const savedDate = new Date(saved.savedAt);
+    const timeAgo = getTimeAgo(savedDate);
+    const clientName = saved.client?.nom || 'Sans nom';
+    const zonesCount = saved.zones?.length || 0;
+
+    const modal = document.createElement('div');
+    modal.id = 'restore-modal';
+    modal.className = 'fixed inset-0 z-[200] flex items-center justify-center p-4';
+    modal.innerHTML = `
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span class="material-symbols-outlined text-3xl text-primary">restore</span>
+                </div>
+                <h2 class="text-xl font-bold text-slate-900 mb-2">Reprendre votre soumission ?</h2>
+                <p class="text-sm text-slate-500">Vous avez une soumission en cours.</p>
+            </div>
+            
+            <div class="bg-slate-50 rounded-xl p-4 mb-6">
+                <div class="flex items-center gap-3 text-sm">
+                    <span class="material-symbols-outlined text-slate-400">person</span>
+                    <span class="text-slate-700 font-medium">${clientName}</span>
+                </div>
+                <div class="flex items-center gap-3 text-sm mt-2">
+                    <span class="material-symbols-outlined text-slate-400">location_on</span>
+                    <span class="text-slate-600">${zonesCount} zone${zonesCount !== 1 ? 's' : ''} ajoutée${zonesCount !== 1 ? 's' : ''}</span>
+                </div>
+                <div class="flex items-center gap-3 text-sm mt-2">
+                    <span class="material-symbols-outlined text-slate-400">schedule</span>
+                    <span class="text-slate-500">${timeAgo}</span>
+                </div>
+            </div>
+            
+            <div class="flex flex-col gap-3">
+                <button id="btn-restore-continue" class="w-full py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined">play_arrow</span>
+                    Continuer
+                </button>
+                <button id="btn-restore-new" class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-colors">
+                    Nouvelle soumission
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Event listeners
+    document.getElementById('btn-restore-continue')?.addEventListener('click', () => {
+        restoreSavedState();
+        applyRestoredStateToUI();
+        modal.remove();
+    });
+
+    document.getElementById('btn-restore-new')?.addEventListener('click', () => {
+        clearSavedState();
+        resetAllState();
+        modal.remove();
+    });
+}
+
+function getTimeAgo(date) {
+    const now = new Date();
+    const diff = now - date;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'À l\'instant';
+    if (minutes < 60) return `Il y a ${minutes} minute${minutes > 1 ? 's' : ''}`;
+    if (hours < 24) return `Il y a ${hours} heure${hours > 1 ? 's' : ''}`;
+    return `Il y a ${days} jour${days > 1 ? 's' : ''}`;
+}
+
+function resetAllState() {
+    state.currentStep = 1;
+    state.hasReport = null;
+    state.rapport = null;
+    state.client = {
+        nom: '',
+        telephone: '',
+        courriel: '',
+        adresseChantier: '',
+        distanceKm: 0,
+        coordinates: null
+    };
+    state.zones = [];
+    
+    // Reset all form fields
+    document.querySelectorAll('input:not([type="hidden"]):not([type="file"])').forEach(input => {
+        input.value = '';
+    });
+    document.querySelectorAll('select').forEach(select => {
+        select.selectedIndex = 0;
+    });
+    
+    // Reset UI
+    goToStep(1);
+    renderZoneCards();
+    
+    console.log('🔄 État réinitialisé');
+}
+
+// =====================================================
 // INITIALIZATION
 // =====================================================
 
@@ -103,6 +306,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupStep3Events();
     setupStep4Events();
     setupWizardNavigation();
+    setupNewSubmissionButton();
+
+    // Check for saved progress
+    if (hasSavedProgress()) {
+        showRestoreModal();
+    }
 
     // Setup dev mode shortcuts
     if (DEV_MODE) {
@@ -450,6 +659,27 @@ function setupWizardNavigation() {
             }
         });
     });
+}
+
+function setupNewSubmissionButton() {
+    const btnNewMobile = document.getElementById('btn-new-soumission-mobile');
+    const btnNewDesktop = document.getElementById('btn-new-soumission-desktop');
+
+    const handleNewSubmission = () => {
+        if (state.zones.length > 0 || state.client.nom || state.client.adresseChantier) {
+            // Show confirmation if there's data
+            if (confirm('Voulez-vous vraiment recommencer ? Toutes les données seront perdues.')) {
+                clearSavedState();
+                resetAllState();
+            }
+        } else {
+            clearSavedState();
+            resetAllState();
+        }
+    };
+
+    btnNewMobile?.addEventListener('click', handleNewSubmission);
+    btnNewDesktop?.addEventListener('click', handleNewSubmission);
 }
 
 // =====================================================
@@ -802,12 +1032,17 @@ function populateMateriauxDropdown() {
         option.dataset.friabilite = mat.friabilite;
         option.dataset.epaisseur = mat.epaisseur_defaut;
         
-        // Determine icon based on material type
-        let icon = 'texture';
-        if (mat.nom.toLowerCase().includes('gypse') || mat.nom.toLowerCase().includes('plâtre')) icon = 'wall';
-        else if (mat.nom.toLowerCase().includes('tuile') || mat.nom.toLowerCase().includes('vinyl')) icon = 'grid_view';
-        else if (mat.nom.toLowerCase().includes('vermiculite') || mat.nom.toLowerCase().includes('isolant')) icon = 'thermostat';
-        else if (mat.nom.toLowerCase().includes('bardeau') || mat.nom.toLowerCase().includes('fibrociment')) icon = 'roofing';
+        // Determine icon based on material type (using valid Material Symbols icons)
+        let icon = 'category';
+        const nomLower = mat.nom.toLowerCase();
+        if (nomLower.includes('gypse') || nomLower.includes('plâtre') || nomLower.includes('platre')) icon = 'dashboard';
+        else if (nomLower.includes('tuile') || nomLower.includes('vinyl')) icon = 'grid_view';
+        else if (nomLower.includes('vermiculite') || nomLower.includes('isolant')) icon = 'thermostat';
+        else if (nomLower.includes('bardeau') || nomLower.includes('fibrociment')) icon = 'roofing';
+        else if (nomLower.includes('composé') || nomLower.includes('compose') || nomLower.includes('joint')) icon = 'format_paint';
+        else if (nomLower.includes('crépi') || nomLower.includes('crepi') || nomLower.includes('ciment')) icon = 'texture';
+        else if (nomLower.includes('mastic') || nomLower.includes('fenêtre') || nomLower.includes('fenetre')) icon = 'window';
+        else if (nomLower.includes('panneau')) icon = 'view_module';
         
         const friabiliteText = mat.friabilite === 'friable' ? 'Friable' : 'Non friable';
         const friabiliteClass = mat.friabilite === 'friable' ? 'text-red-500' : 'text-green-600';
@@ -1281,6 +1516,9 @@ function deleteZone(zoneId) {
     state.zones = state.zones.filter(z => z.id !== zoneId);
     console.log('🗑️ Zone supprimée, total:', state.zones.length);
     renderZoneCards();
+    
+    // Save progress
+    saveStateToStorage();
 }
 
 function updateFriabiliteBadge(friabilite) {
@@ -1401,6 +1639,9 @@ function addZone() {
     state.zones.push(zone);
     console.log('✅ Zone ajoutée:', zone);
     console.log('📋 Total zones:', state.zones.length);
+
+    // Save progress
+    saveStateToStorage();
 
     // Reset form
     resetZoneForm();
