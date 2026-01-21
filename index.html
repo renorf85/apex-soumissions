@@ -1294,14 +1294,26 @@
                 </div>
 
                 <div class="p-5 space-y-3" id="prix-details">
+                    <!-- Info: valeurs modifiables -->
+                    <div class="flex items-center gap-2 mb-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                        <span class="material-symbols-outlined text-primary text-lg">edit</span>
+                        <p class="text-xs text-slate-600">Les montants sont des suggestions. Vous pouvez les modifier.</p>
+                    </div>
+                    
                     <!-- Coûts zones -->
                     <div class="flex justify-between items-center py-2">
                         <span class="text-slate-600">Coûts des zones</span>
-                        <span class="font-semibold text-slate-900" id="prix-zones">0 $</span>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="prix-zones" class="prix-input w-24 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0" min="0" step="1">
+                            <span class="text-slate-400">$</span>
+                        </div>
                     </div>
                     <div class="flex justify-between items-center py-2">
                         <span class="text-slate-600">Démolition</span>
-                        <span class="font-semibold text-slate-900" id="prix-demolition">0 $</span>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="prix-demolition" class="prix-input w-24 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0" min="0" step="1">
+                            <span class="text-slate-400">$</span>
+                        </div>
                     </div>
 
                     <!-- Frais risque élevé (conditionnels) -->
@@ -1310,15 +1322,24 @@
                         <p class="text-xs font-bold text-red-500 uppercase tracking-wider mb-3">Frais risque élevé</p>
                         <div class="flex justify-between items-center py-2">
                             <span class="text-slate-600">Douches de décontamination</span>
-                            <span class="font-semibold text-slate-900" id="prix-douches">0 $</span>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="prix-douches" class="prix-input w-24 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0" min="0" step="1">
+                                <span class="text-slate-400">$</span>
+                            </div>
                         </div>
                         <div class="flex justify-between items-center py-2">
                             <span class="text-slate-600">Tests d'air</span>
-                            <span class="font-semibold text-slate-900" id="prix-tests">0 $</span>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="prix-tests" class="prix-input w-24 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0" min="0" step="1">
+                                <span class="text-slate-400">$</span>
+                            </div>
                         </div>
                         <div class="flex justify-between items-center py-2">
                             <span class="text-slate-600">Perte de temps</span>
-                            <span class="font-semibold text-slate-900" id="prix-perte-temps">0 $</span>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="prix-perte-temps" class="prix-input w-24 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0" min="0" step="1">
+                                <span class="text-slate-400">$</span>
+                            </div>
                         </div>
                     </div>
 
@@ -1326,15 +1347,24 @@
 
                     <div class="flex justify-between items-center py-2">
                         <span class="text-slate-600">Transport</span>
-                        <span class="font-semibold text-slate-900" id="prix-transport">0 $</span>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="prix-transport" class="prix-input w-24 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0" min="0" step="1">
+                            <span class="text-slate-400">$</span>
+                        </div>
                     </div>
                     <div class="flex justify-between items-center py-2">
                         <span class="text-slate-600">Disposition des matériaux</span>
-                        <span class="font-semibold text-slate-900" id="prix-disposition">0 $</span>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="prix-disposition" class="prix-input w-24 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0" min="0" step="1">
+                            <span class="text-slate-400">$</span>
+                        </div>
                     </div>
                     <div class="flex justify-between items-center py-2">
                         <span class="text-slate-600">Assurance</span>
-                        <span class="font-semibold text-slate-900" id="prix-assurance">0 $</span>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="prix-assurance" class="prix-input w-24 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0" min="0" step="1">
+                            <span class="text-slate-400">$</span>
+                        </div>
                     </div>
                 </div>
 
@@ -1348,7 +1378,9 @@
                     <div id="marge-section" class="flex justify-between items-center py-2 internal-only" data-internal-only="true">
                         <span class="text-slate-500 text-sm flex items-center gap-1">
                             <span class="material-symbols-outlined text-amber-500 text-sm">visibility_off</span>
-                            Marge (<span id="marge-percent">20</span>%)
+                            Marge
+                            <input type="number" id="marge-percent" class="w-12 text-center font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded px-1 py-0.5 text-sm focus:border-amber-400 focus:outline-none" value="20" min="0" max="100" step="1">
+                            %
                         </span>
                         <span class="font-semibold text-slate-400 text-sm" id="prix-marge">0 $</span>
                     </div>
@@ -1358,8 +1390,15 @@
                 <div class="bg-primary px-5 py-5">
                     <div class="flex justify-between items-center">
                         <span class="text-white font-bold text-lg">TOTAL ESTIMÉ</span>
-                        <span class="text-white font-bold text-2xl" id="prix-total">0 $</span>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="prix-total" class="w-32 text-right font-bold text-2xl text-white bg-transparent border-b-2 border-white/30 hover:border-white/50 focus:border-white focus:outline-none transition-colors" value="0" min="0" step="1">
+                            <span class="text-white font-bold text-2xl">$</span>
+                        </div>
                     </div>
+                    <p class="text-white/60 text-xs mt-2 flex items-center gap-1">
+                        <span class="material-symbols-outlined text-xs">info</span>
+                        Modifiez le total directement ou ajustez les lignes ci-dessus
+                    </p>
                 </div>
             </div>
 

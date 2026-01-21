@@ -2444,19 +2444,132 @@ function renderRecap() {
         document.getElementById('prix-risque-eleve-section')?.classList.add('hidden');
     }
 
-    // Prix details
-    document.getElementById('prix-zones').textContent = formatCurrency(state.prix.zones);
-    document.getElementById('prix-demolition').textContent = formatCurrency(state.prix.demolition);
-    document.getElementById('prix-douches').textContent = formatCurrency(state.prix.douches);
-    document.getElementById('prix-tests').textContent = formatCurrency(state.prix.tests);
-    document.getElementById('prix-perte-temps').textContent = formatCurrency(state.prix.perteTemps);
-    document.getElementById('prix-transport').textContent = formatCurrency(state.prix.transport);
-    document.getElementById('prix-disposition').textContent = formatCurrency(state.prix.disposition);
-    document.getElementById('prix-assurance').textContent = formatCurrency(state.prix.assurance);
+    // Prix details - Set values in inputs (raw numbers, not formatted)
+    document.getElementById('prix-zones').value = Math.round(state.prix.zones) || 0;
+    document.getElementById('prix-demolition').value = Math.round(state.prix.demolition) || 0;
+    document.getElementById('prix-douches').value = Math.round(state.prix.douches) || 0;
+    document.getElementById('prix-tests').value = Math.round(state.prix.tests) || 0;
+    document.getElementById('prix-perte-temps').value = Math.round(state.prix.perteTemps) || 0;
+    document.getElementById('prix-transport').value = Math.round(state.prix.transport) || 0;
+    document.getElementById('prix-disposition').value = Math.round(state.prix.disposition) || 0;
+    document.getElementById('prix-assurance').value = Math.round(state.prix.assurance) || 0;
     document.getElementById('prix-sous-total').textContent = formatCurrency(state.prix.sousTotal);
-    document.getElementById('marge-percent').textContent = state.prix.margePourcent || 20;
+    document.getElementById('marge-percent').value = state.prix.margePourcent || 20;
     document.getElementById('prix-marge').textContent = formatCurrency(state.prix.marge);
-    document.getElementById('prix-total').textContent = formatCurrency(state.prix.total);
+    document.getElementById('prix-total').value = Math.round(state.prix.total) || 0;
+
+    // Setup event listeners for editable inputs (only once)
+    setupPrixInputListeners();
+}
+
+// =====================================================
+// EDITABLE PRICE INPUTS
+// =====================================================
+
+let prixListenersSetup = false;
+
+function setupPrixInputListeners() {
+    // Only setup once
+    if (prixListenersSetup) return;
+    prixListenersSetup = true;
+
+    // All editable price inputs
+    const prixInputIds = [
+        'prix-zones', 'prix-demolition', 'prix-douches', 'prix-tests',
+        'prix-perte-temps', 'prix-transport', 'prix-disposition', 'prix-assurance'
+    ];
+
+    // Add listeners to recalculate when any price changes
+    prixInputIds.forEach(id => {
+        const input = document.getElementById(id);
+        input?.addEventListener('input', recalculerTotaux);
+    });
+
+    // Marge percent listener
+    const margeInput = document.getElementById('marge-percent');
+    margeInput?.addEventListener('input', recalculerTotaux);
+
+    // Total direct edit listener (recalculates marge backwards)
+    const totalInput = document.getElementById('prix-total');
+    totalInput?.addEventListener('input', onTotalDirectEdit);
+
+    console.log('✅ Prix input listeners configurés');
+}
+
+function recalculerTotaux() {
+    // Get all current values from inputs
+    const zones = parseFloat(document.getElementById('prix-zones')?.value) || 0;
+    const demolition = parseFloat(document.getElementById('prix-demolition')?.value) || 0;
+    const douches = parseFloat(document.getElementById('prix-douches')?.value) || 0;
+    const tests = parseFloat(document.getElementById('prix-tests')?.value) || 0;
+    const perteTemps = parseFloat(document.getElementById('prix-perte-temps')?.value) || 0;
+    const transport = parseFloat(document.getElementById('prix-transport')?.value) || 0;
+    const disposition = parseFloat(document.getElementById('prix-disposition')?.value) || 0;
+    const assurance = parseFloat(document.getElementById('prix-assurance')?.value) || 0;
+    const margePourcent = parseFloat(document.getElementById('marge-percent')?.value) || 20;
+
+    // Calculate sous-total
+    const sousTotal = zones + demolition + douches + tests + perteTemps + transport + disposition + assurance;
+
+    // Calculate marge
+    const marge = sousTotal * (margePourcent / 100);
+
+    // Calculate total
+    const total = sousTotal + marge;
+
+    // Update displays
+    document.getElementById('prix-sous-total').textContent = formatCurrency(sousTotal);
+    document.getElementById('prix-marge').textContent = formatCurrency(marge);
+    document.getElementById('prix-total').value = Math.round(total);
+
+    // Update state
+    state.prix.zones = zones;
+    state.prix.demolition = demolition;
+    state.prix.douches = douches;
+    state.prix.tests = tests;
+    state.prix.perteTemps = perteTemps;
+    state.prix.transport = transport;
+    state.prix.disposition = disposition;
+    state.prix.assurance = assurance;
+    state.prix.sousTotal = sousTotal;
+    state.prix.margePourcent = margePourcent;
+    state.prix.marge = marge;
+    state.prix.total = total;
+
+    console.log('💰 Totaux recalculés:', { sousTotal, marge, total });
+}
+
+function onTotalDirectEdit() {
+    // When user edits total directly, we recalculate the marge backwards
+    const totalInput = document.getElementById('prix-total');
+    const newTotal = parseFloat(totalInput?.value) || 0;
+
+    // Get sous-total
+    const zones = parseFloat(document.getElementById('prix-zones')?.value) || 0;
+    const demolition = parseFloat(document.getElementById('prix-demolition')?.value) || 0;
+    const douches = parseFloat(document.getElementById('prix-douches')?.value) || 0;
+    const tests = parseFloat(document.getElementById('prix-tests')?.value) || 0;
+    const perteTemps = parseFloat(document.getElementById('prix-perte-temps')?.value) || 0;
+    const transport = parseFloat(document.getElementById('prix-transport')?.value) || 0;
+    const disposition = parseFloat(document.getElementById('prix-disposition')?.value) || 0;
+    const assurance = parseFloat(document.getElementById('prix-assurance')?.value) || 0;
+
+    const sousTotal = zones + demolition + douches + tests + perteTemps + transport + disposition + assurance;
+
+    // Calculate implied marge
+    const marge = newTotal - sousTotal;
+    const margePourcent = sousTotal > 0 ? (marge / sousTotal) * 100 : 0;
+
+    // Update marge display
+    document.getElementById('marge-percent').value = Math.round(margePourcent);
+    document.getElementById('prix-marge').textContent = formatCurrency(marge);
+
+    // Update state
+    state.prix.total = newTotal;
+    state.prix.marge = marge;
+    state.prix.margePourcent = Math.round(margePourcent);
+
+    console.log('💰 Total modifié directement:', { newTotal, marge, margePourcent: Math.round(margePourcent) });
 }
 
 // =====================================================
