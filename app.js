@@ -1418,6 +1418,7 @@ function setupStep3Events() {
     // === Step 3d: Dimensions ===
     const longueurInput = document.getElementById('zone-longueur');
     const largeurInput = document.getElementById('zone-largeur');
+    const epaisseurInput = document.getElementById('zone-epaisseur');
     const btnBackStep3d = document.getElementById('btn-back-step3d');
     const btnAddZoneFinal = document.getElementById('btn-add-zone-final');
 
