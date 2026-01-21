@@ -282,11 +282,18 @@
                 <span id="step-label-mobile"
                     class="text-[11px] font-bold tracking-[0.1em] text-slate-500 uppercase">Étape 1 sur 5</span>
             </div>
-            <a href="settings.html"
-                class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-primary transition-colors"
-                title="Paramètres">
-                <span class="material-symbols-outlined">settings</span>
-            </a>
+            <div class="flex items-center gap-1">
+                <button id="btn-new-soumission-mobile"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-primary transition-colors"
+                    title="Nouvelle soumission">
+                    <span class="material-symbols-outlined">add_circle</span>
+                </button>
+                <a href="settings.html"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-primary transition-colors"
+                    title="Paramètres">
+                    <span class="material-symbols-outlined">settings</span>
+                </a>
+            </div>
         </div>
         <div class="progress-bar">
             <div id="progress-fill-mobile" class="progress-fill" style="width: 20%;"></div>
@@ -314,8 +321,13 @@
                 </div>
             </div>
 
-            <!-- Bouton paramètres à droite -->
-            <div class="w-[120px] flex justify-end">
+            <!-- Boutons à droite -->
+            <div class="w-[160px] flex justify-end gap-2">
+                <button id="btn-new-soumission-desktop"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-primary transition-colors"
+                    title="Nouvelle soumission">
+                    <span class="material-symbols-outlined">add_circle</span>
+                </button>
                 <a href="settings.html"
                     class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-primary transition-colors"
                     title="Paramètres">

@@ -594,6 +594,7 @@ function setupStep2Events() {
     btnNextStep2d?.addEventListener('click', () => {
         // Save all client data to state
         state.client = {
+            ...state.client,
             nom: document.getElementById('client-nom').value.trim(),
             telephone: document.getElementById('client-telephone').value.trim(),
             courriel: document.getElementById('client-courriel').value.trim(),
@@ -601,6 +602,10 @@ function setupStep2Events() {
             distanceKm: parseInt(document.getElementById('client-distance').value) || 0
         };
         console.log('Client info saved:', state.client);
+        
+        // Save progress to localStorage
+        saveStateToStorage();
+        
         goToStep(3);
     });
 
@@ -2376,6 +2381,11 @@ function goToStep(step) {
     updateProgressBar(step);
 
     state.currentStep = step;
+    
+    // Auto-save progress (except step 1)
+    if (step > 1) {
+        saveStateToStorage();
+    }
 }
 
 function updateProgressBar(step) {
