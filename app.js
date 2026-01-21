@@ -2444,19 +2444,19 @@ function renderRecap() {
         document.getElementById('prix-risque-eleve-section')?.classList.add('hidden');
     }
 
-    // Prix details - Set values in inputs (raw numbers, not formatted)
-    document.getElementById('prix-zones').value = Math.round(state.prix.zones) || 0;
-    document.getElementById('prix-demolition').value = Math.round(state.prix.demolition) || 0;
-    document.getElementById('prix-douches').value = Math.round(state.prix.douches) || 0;
-    document.getElementById('prix-tests').value = Math.round(state.prix.tests) || 0;
-    document.getElementById('prix-perte-temps').value = Math.round(state.prix.perteTemps) || 0;
-    document.getElementById('prix-transport').value = Math.round(state.prix.transport) || 0;
-    document.getElementById('prix-disposition').value = Math.round(state.prix.disposition) || 0;
-    document.getElementById('prix-assurance').value = Math.round(state.prix.assurance) || 0;
+    // Prix details - Set values in inputs with 2 decimal places
+    document.getElementById('prix-zones').value = (state.prix.zones || 0).toFixed(2);
+    document.getElementById('prix-demolition').value = (state.prix.demolition || 0).toFixed(2);
+    document.getElementById('prix-douches').value = (state.prix.douches || 0).toFixed(2);
+    document.getElementById('prix-tests').value = (state.prix.tests || 0).toFixed(2);
+    document.getElementById('prix-perte-temps').value = (state.prix.perteTemps || 0).toFixed(2);
+    document.getElementById('prix-transport').value = (state.prix.transport || 0).toFixed(2);
+    document.getElementById('prix-disposition').value = (state.prix.disposition || 0).toFixed(2);
+    document.getElementById('prix-assurance').value = (state.prix.assurance || 0).toFixed(2);
     document.getElementById('prix-sous-total').textContent = formatCurrency(state.prix.sousTotal);
     document.getElementById('marge-percent').value = state.prix.margePourcent || 20;
     document.getElementById('prix-marge').textContent = formatCurrency(state.prix.marge);
-    document.getElementById('prix-total').value = Math.round(state.prix.total) || 0;
+    document.getElementById('prix-total').value = (state.prix.total || 0).toFixed(2);
 
     // Setup event listeners for editable inputs (only once)
     setupPrixInputListeners();
@@ -2522,7 +2522,7 @@ function recalculerTotaux() {
     // Update displays
     document.getElementById('prix-sous-total').textContent = formatCurrency(sousTotal);
     document.getElementById('prix-marge').textContent = formatCurrency(marge);
-    document.getElementById('prix-total').value = Math.round(total);
+    document.getElementById('prix-total').value = total.toFixed(2);
 
     // Update state
     state.prix.zones = zones;
