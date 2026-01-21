@@ -787,21 +787,209 @@ async function loadMateriaux() {
 }
 
 function populateMateriauxDropdown() {
-    const select = document.getElementById('zone-materiau');
-    if (!select) return;
+    const optionsList = document.getElementById('materiau-options-list');
+    if (!optionsList) return;
 
-    // Clear existing options (keep first placeholder)
-    select.innerHTML = '<option value="">Sélectionner un matériau</option>';
+    // Clear existing options
+    optionsList.innerHTML = '';
 
-    // Add materiaux
+    // Add materiaux options
     state.materiaux.forEach(mat => {
-        const option = document.createElement('option');
-        option.value = mat.id;
-        option.textContent = mat.nom;
+        const option = document.createElement('div');
+        option.className = 'custom-dropdown-option';
+        option.dataset.value = mat.id;
+        option.dataset.nom = mat.nom;
         option.dataset.friabilite = mat.friabilite;
         option.dataset.epaisseur = mat.epaisseur_defaut;
-        select.appendChild(option);
+        
+        // Determine icon based on material type
+        let icon = 'texture';
+        if (mat.nom.toLowerCase().includes('gypse') || mat.nom.toLowerCase().includes('plâtre')) icon = 'wall';
+        else if (mat.nom.toLowerCase().includes('tuile') || mat.nom.toLowerCase().includes('vinyl')) icon = 'grid_view';
+        else if (mat.nom.toLowerCase().includes('vermiculite') || mat.nom.toLowerCase().includes('isolant')) icon = 'thermostat';
+        else if (mat.nom.toLowerCase().includes('bardeau') || mat.nom.toLowerCase().includes('fibrociment')) icon = 'roofing';
+        
+        const friabiliteText = mat.friabilite === 'friable' ? 'Friable' : 'Non friable';
+        const friabiliteClass = mat.friabilite === 'friable' ? 'text-red-500' : 'text-green-600';
+        
+        option.innerHTML = `
+            <div class="option-icon">
+                <span class="material-symbols-outlined">${icon}</span>
+            </div>
+            <div class="option-text">
+                <p class="option-name">${mat.nom}</p>
+                <p class="option-meta"><span class="${friabiliteClass}">${friabiliteText}</span> • Épaisseur: ${mat.epaisseur_defaut}"</p>
+            </div>
+            <div class="option-check">
+                <span class="material-symbols-outlined text-sm">check</span>
+            </div>
+        `;
+        
+        // Click handler
+        option.addEventListener('click', () => selectMateriauOption(mat));
+        
+        optionsList.appendChild(option);
     });
+
+    // Setup custom dropdown events
+    setupCustomDropdown();
+}
+
+// =====================================================
+// CUSTOM DROPDOWN FUNCTIONALITY
+// =====================================================
+
+function setupCustomDropdown() {
+    const trigger = document.getElementById('materiau-dropdown-trigger');
+    const panel = document.getElementById('materiau-dropdown-panel');
+    const backdrop = document.getElementById('materiau-dropdown-backdrop');
+    const closeBtn = document.getElementById('materiau-dropdown-close');
+    const searchInput = document.getElementById('materiau-search-input');
+    const dropdown = document.getElementById('materiau-dropdown');
+    
+    if (!trigger || !panel) return;
+
+    // Open dropdown
+    trigger.addEventListener('click', () => {
+        openMateriauxDropdown();
+    });
+
+    // Close on backdrop click
+    backdrop?.addEventListener('click', () => {
+        closeMateriauxDropdown();
+    });
+
+    // Close button (mobile)
+    closeBtn?.addEventListener('click', () => {
+        closeMateriauxDropdown();
+    });
+
+    // Search functionality
+    searchInput?.addEventListener('input', (e) => {
+        filterMateriauxOptions(e.target.value);
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !panel.classList.contains('hidden')) {
+            closeMateriauxDropdown();
+        }
+    });
+}
+
+function openMateriauxDropdown() {
+    const panel = document.getElementById('materiau-dropdown-panel');
+    const dropdown = document.getElementById('materiau-dropdown');
+    const searchInput = document.getElementById('materiau-search-input');
+    
+    panel?.classList.remove('hidden');
+    dropdown?.classList.add('open');
+    
+    // Focus search input after a small delay (for animation)
+    setTimeout(() => {
+        searchInput?.focus();
+    }, 100);
+    
+    // Clear previous search
+    if (searchInput) searchInput.value = '';
+    filterMateriauxOptions('');
+    
+    // Prevent body scroll on mobile
+    document.body.style.overflow = 'hidden';
+}
+
+function closeMateriauxDropdown() {
+    const panel = document.getElementById('materiau-dropdown-panel');
+    const dropdown = document.getElementById('materiau-dropdown');
+    
+    panel?.classList.add('hidden');
+    dropdown?.classList.remove('open');
+    
+    // Restore body scroll
+    document.body.style.overflow = '';
+}
+
+function filterMateriauxOptions(query) {
+    const optionsList = document.getElementById('materiau-options-list');
+    if (!optionsList) return;
+    
+    const normalizedQuery = query.toLowerCase().trim();
+    const options = optionsList.querySelectorAll('.custom-dropdown-option');
+    let visibleCount = 0;
+    
+    options.forEach(option => {
+        const name = option.dataset.nom.toLowerCase();
+        const matches = name.includes(normalizedQuery);
+        option.style.display = matches ? '' : 'none';
+        if (matches) visibleCount++;
+    });
+    
+    // Show/hide no results message
+    let noResults = optionsList.querySelector('.dropdown-no-results');
+    if (visibleCount === 0) {
+        if (!noResults) {
+            noResults = document.createElement('div');
+            noResults.className = 'dropdown-no-results';
+            noResults.innerHTML = `
+                <span class="material-symbols-outlined">search_off</span>
+                <p class="text-sm">Aucun matériau trouvé</p>
+            `;
+            optionsList.appendChild(noResults);
+        }
+        noResults.style.display = '';
+    } else if (noResults) {
+        noResults.style.display = 'none';
+    }
+}
+
+function selectMateriauOption(mat) {
+    const hiddenInput = document.getElementById('zone-materiau');
+    const triggerText = document.getElementById('materiau-dropdown-text');
+    const optionsList = document.getElementById('materiau-options-list');
+    const epaisseurInput = document.getElementById('zone-epaisseur');
+    const btnNextStep3c = document.getElementById('btn-next-step3c');
+    
+    // Update hidden input value
+    if (hiddenInput) {
+        hiddenInput.value = mat.id;
+        hiddenInput.dataset.friabilite = mat.friabilite;
+        hiddenInput.dataset.epaisseur = mat.epaisseur_defaut;
+    }
+    
+    // Update trigger text
+    if (triggerText) {
+        triggerText.textContent = mat.nom;
+        triggerText.classList.remove('text-slate-400');
+        triggerText.classList.add('text-slate-900');
+    }
+    
+    // Update selected state in options list
+    const options = optionsList?.querySelectorAll('.custom-dropdown-option');
+    options?.forEach(opt => {
+        if (opt.dataset.value === String(mat.id)) {
+            opt.classList.add('selected');
+        } else {
+            opt.classList.remove('selected');
+        }
+    });
+    
+    // Update friability badge
+    updateFriabiliteBadge(mat.friabilite);
+    
+    // Set default thickness
+    if (epaisseurInput && mat.epaisseur_defaut) {
+        epaisseurInput.value = mat.epaisseur_defaut;
+    }
+    
+    // Enable continue button
+    if (btnNextStep3c) {
+        btnNextStep3c.disabled = false;
+    }
+    
+    // Close dropdown
+    closeMateriauxDropdown();
+    
+    console.log('Matériau sélectionné:', mat.nom);
 }
 
 function setupStep3Events() {
@@ -868,24 +1056,9 @@ function setupStep3Events() {
     btnBackStep3b?.addEventListener('click', () => goToZoneStep('3a'));
 
     // === Step 3c: Matériau ===
-    const materiauSelect = document.getElementById('zone-materiau');
     const btnBackStep3c = document.getElementById('btn-back-step3c');
     const btnNextStep3c = document.getElementById('btn-next-step3c');
-    const epaisseurInput = document.getElementById('zone-epaisseur');
-
-    materiauSelect?.addEventListener('change', (e) => {
-        const selectedOption = e.target.options[e.target.selectedIndex];
-        const friabilite = selectedOption.dataset.friabilite;
-        const epaisseur = selectedOption.dataset.epaisseur;
-
-        updateFriabiliteBadge(friabilite);
-        btnNextStep3c.disabled = !materiauSelect.value;
-
-        // Set default thickness
-        if (epaisseur && epaisseurInput) {
-            epaisseurInput.value = epaisseur;
-        }
-    });
+    // Note: Material selection is now handled by custom dropdown in selectMateriauOption()
 
     btnBackStep3c?.addEventListener('click', () => goToZoneStep('3b'));
     btnNextStep3c?.addEventListener('click', () => goToZoneStep('3d'));
@@ -1134,10 +1307,9 @@ function calculateZoneValues() {
     const largeur = parseFloat(document.getElementById('zone-largeur')?.value) || 0;
     const epaisseur = parseFloat(document.getElementById('zone-epaisseur')?.value) || 0;
 
-    // Get friability from selected material
-    const materiauSelect = document.getElementById('zone-materiau');
-    const selectedOption = materiauSelect?.options[materiauSelect.selectedIndex];
-    const friabilite = selectedOption?.dataset.friabilite || 'non_friable';
+    // Get friability from selected material (from hidden input)
+    const materiauInput = document.getElementById('zone-materiau');
+    const friabilite = materiauInput?.dataset.friabilite || 'non_friable';
 
     // Calculate surface (pi²) = L × l
     const surface = longueur * largeur;
@@ -1185,9 +1357,10 @@ function determineRisque(volume, friabilite) {
 function addZone() {
     const nom = document.getElementById('zone-nom')?.value.trim();
     const categorie = document.getElementById('zone-categorie')?.value;
-    const materiauSelect = document.getElementById('zone-materiau');
-    const materiauId = materiauSelect?.value;
-    const materiauNom = materiauSelect?.options[materiauSelect.selectedIndex]?.textContent;
+    const materiauInput = document.getElementById('zone-materiau');
+    const materiauId = materiauInput?.value;
+    // Get material name from the trigger text
+    const materiauNom = document.getElementById('materiau-dropdown-text')?.textContent;
     const longueur = parseFloat(document.getElementById('zone-longueur')?.value) || 0;
     const largeur = parseFloat(document.getElementById('zone-largeur')?.value) || 0;
     const epaisseur = parseFloat(document.getElementById('zone-epaisseur')?.value) || 0;
@@ -1240,14 +1413,31 @@ function resetZoneForm() {
     // Reset all inputs
     const nomInput = document.getElementById('zone-nom');
     const categorieInput = document.getElementById('zone-categorie');
-    const materiauSelect = document.getElementById('zone-materiau');
+    const materiauInput = document.getElementById('zone-materiau');
+    const materiauTriggerText = document.getElementById('materiau-dropdown-text');
     const longueurInput = document.getElementById('zone-longueur');
     const largeurInput = document.getElementById('zone-largeur');
     const epaisseurInput = document.getElementById('zone-epaisseur');
 
     if (nomInput) nomInput.value = '';
     if (categorieInput) categorieInput.value = '';
-    if (materiauSelect) materiauSelect.value = '';
+    if (materiauInput) {
+        materiauInput.value = '';
+        delete materiauInput.dataset.friabilite;
+        delete materiauInput.dataset.epaisseur;
+    }
+    // Reset dropdown trigger text
+    if (materiauTriggerText) {
+        materiauTriggerText.textContent = 'Sélectionner un matériau';
+        materiauTriggerText.classList.add('text-slate-400');
+        materiauTriggerText.classList.remove('text-slate-900');
+    }
+    // Reset selected state in dropdown options
+    const optionsList = document.getElementById('materiau-options-list');
+    optionsList?.querySelectorAll('.custom-dropdown-option').forEach(opt => {
+        opt.classList.remove('selected');
+    });
+    
     if (longueurInput) longueurInput.value = '';
     if (largeurInput) largeurInput.value = '';
     if (epaisseurInput) epaisseurInput.value = '';
@@ -1416,15 +1606,36 @@ function getZonePhoto() {
 // LIGHTBOX (Full Image Preview)
 // =====================================================
 
+// Lightbox state
+let lightboxState = {
+    scale: 1,
+    minScale: 0.5,
+    maxScale: 5,
+    translateX: 0,
+    translateY: 0,
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    lastTouchDistance: 0
+};
+
 function setupLightbox() {
     const lightbox = document.getElementById('photo-lightbox');
     const backdrop = document.getElementById('lightbox-backdrop');
     const closeBtn = document.getElementById('lightbox-close');
+    const container = document.getElementById('lightbox-container');
+    const zoomInBtn = document.getElementById('lightbox-zoom-in');
+    const zoomOutBtn = document.getElementById('lightbox-zoom-out');
+    const zoomResetBtn = document.getElementById('lightbox-zoom-reset');
 
     if (!lightbox) return;
 
-    // Close on backdrop click
-    backdrop?.addEventListener('click', closeLightbox);
+    // Close on backdrop click (only if not zoomed)
+    backdrop?.addEventListener('click', () => {
+        if (lightboxState.scale <= 1) {
+            closeLightbox();
+        }
+    });
 
     // Close on button click
     closeBtn?.addEventListener('click', closeLightbox);
@@ -1435,6 +1646,166 @@ function setupLightbox() {
             closeLightbox();
         }
     });
+
+    // Zoom buttons (desktop)
+    zoomInBtn?.addEventListener('click', () => lightboxZoom(0.5));
+    zoomOutBtn?.addEventListener('click', () => lightboxZoom(-0.5));
+    zoomResetBtn?.addEventListener('click', resetLightboxZoom);
+
+    // Mouse wheel zoom (desktop)
+    container?.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.2 : 0.2;
+        lightboxZoom(delta, e.clientX, e.clientY);
+    }, { passive: false });
+
+    // Touch events for pinch-to-zoom (mobile)
+    container?.addEventListener('touchstart', handleTouchStart, { passive: false });
+    container?.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container?.addEventListener('touchend', handleTouchEnd);
+
+    // Mouse drag for panning (desktop)
+    container?.addEventListener('mousedown', handleMouseDown);
+    container?.addEventListener('mousemove', handleMouseMove);
+    container?.addEventListener('mouseup', handleMouseUp);
+    container?.addEventListener('mouseleave', handleMouseUp);
+
+    // Double-click to zoom in/reset
+    container?.addEventListener('dblclick', (e) => {
+        if (lightboxState.scale > 1) {
+            resetLightboxZoom();
+        } else {
+            lightboxZoom(1, e.clientX, e.clientY);
+        }
+    });
+}
+
+function handleTouchStart(e) {
+    if (e.touches.length === 2) {
+        // Pinch start
+        lightboxState.lastTouchDistance = getTouchDistance(e.touches);
+    } else if (e.touches.length === 1 && lightboxState.scale > 1) {
+        // Pan start
+        lightboxState.isDragging = true;
+        lightboxState.startX = e.touches[0].clientX - lightboxState.translateX;
+        lightboxState.startY = e.touches[0].clientY - lightboxState.translateY;
+    }
+}
+
+function handleTouchMove(e) {
+    if (e.touches.length === 2) {
+        // Pinch zoom
+        e.preventDefault();
+        const newDistance = getTouchDistance(e.touches);
+        const delta = (newDistance - lightboxState.lastTouchDistance) * 0.01;
+        
+        // Get center point between two fingers
+        const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        
+        lightboxZoom(delta, centerX, centerY);
+        lightboxState.lastTouchDistance = newDistance;
+    } else if (e.touches.length === 1 && lightboxState.isDragging && lightboxState.scale > 1) {
+        // Pan
+        e.preventDefault();
+        lightboxState.translateX = e.touches[0].clientX - lightboxState.startX;
+        lightboxState.translateY = e.touches[0].clientY - lightboxState.startY;
+        updateLightboxTransform();
+    }
+}
+
+function handleTouchEnd(e) {
+    lightboxState.isDragging = false;
+    lightboxState.lastTouchDistance = 0;
+}
+
+function handleMouseDown(e) {
+    if (lightboxState.scale > 1) {
+        lightboxState.isDragging = true;
+        lightboxState.startX = e.clientX - lightboxState.translateX;
+        lightboxState.startY = e.clientY - lightboxState.translateY;
+        e.target.style.cursor = 'grabbing';
+    }
+}
+
+function handleMouseMove(e) {
+    if (lightboxState.isDragging && lightboxState.scale > 1) {
+        lightboxState.translateX = e.clientX - lightboxState.startX;
+        lightboxState.translateY = e.clientY - lightboxState.startY;
+        updateLightboxTransform();
+    }
+}
+
+function handleMouseUp(e) {
+    lightboxState.isDragging = false;
+    const container = document.getElementById('lightbox-container');
+    if (container) container.style.cursor = lightboxState.scale > 1 ? 'grab' : 'default';
+}
+
+function getTouchDistance(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function lightboxZoom(delta, centerX = null, centerY = null) {
+    const newScale = Math.max(lightboxState.minScale, Math.min(lightboxState.maxScale, lightboxState.scale + delta));
+    
+    if (newScale !== lightboxState.scale) {
+        // If zooming to center point, adjust translation
+        if (centerX !== null && centerY !== null && newScale > 1) {
+            const container = document.getElementById('lightbox-container');
+            if (container) {
+                const rect = container.getBoundingClientRect();
+                const relX = centerX - rect.left - rect.width / 2;
+                const relY = centerY - rect.top - rect.height / 2;
+                
+                const scaleRatio = newScale / lightboxState.scale;
+                lightboxState.translateX = lightboxState.translateX * scaleRatio - relX * (scaleRatio - 1);
+                lightboxState.translateY = lightboxState.translateY * scaleRatio - relY * (scaleRatio - 1);
+            }
+        }
+        
+        lightboxState.scale = newScale;
+        
+        // Reset position if scale is 1 or less
+        if (newScale <= 1) {
+            lightboxState.translateX = 0;
+            lightboxState.translateY = 0;
+        }
+        
+        updateLightboxTransform();
+        updateZoomLevel();
+    }
+}
+
+function resetLightboxZoom() {
+    lightboxState.scale = 1;
+    lightboxState.translateX = 0;
+    lightboxState.translateY = 0;
+    updateLightboxTransform();
+    updateZoomLevel();
+}
+
+function updateLightboxTransform() {
+    const wrapper = document.getElementById('lightbox-img-wrapper');
+    const container = document.getElementById('lightbox-container');
+    
+    if (wrapper) {
+        wrapper.style.transform = `translate(${lightboxState.translateX}px, ${lightboxState.translateY}px) scale(${lightboxState.scale})`;
+    }
+    
+    // Update cursor
+    if (container) {
+        container.style.cursor = lightboxState.scale > 1 ? 'grab' : 'default';
+    }
+}
+
+function updateZoomLevel() {
+    const zoomLevel = document.getElementById('lightbox-zoom-level');
+    if (zoomLevel) {
+        zoomLevel.textContent = `${Math.round(lightboxState.scale * 100)}%`;
+    }
 }
 
 function openLightbox(imageUrl, imageName) {
@@ -1443,6 +1814,9 @@ function openLightbox(imageUrl, imageName) {
     const lightboxName = document.getElementById('lightbox-name');
 
     if (!lightbox || !lightboxImg) return;
+
+    // Reset zoom state
+    resetLightboxZoom();
 
     lightboxImg.src = imageUrl;
     if (lightboxName) lightboxName.textContent = imageName || 'Image';
@@ -1457,6 +1831,9 @@ function closeLightbox() {
 
     lightbox.classList.add('hidden');
     document.body.style.overflow = ''; // Restore scrolling
+    
+    // Reset zoom state
+    resetLightboxZoom();
 }
 
 // =====================================================
@@ -1878,13 +2255,11 @@ function fillDevZoneData() {
     document.getElementById('zone-nom').value = data.nom;
     document.getElementById('zone-categorie').value = data.categorie;
 
-    // Find and select the material
-    const materiauSelect = document.getElementById('zone-materiau');
-    if (materiauSelect && state.materiaux.length > 0) {
+    // Find and select the material using the new custom dropdown
+    if (state.materiaux.length > 0) {
         // Select the first material for simplicity
-        materiauSelect.value = state.materiaux[0].id;
-        // Trigger change to update friability
-        materiauSelect.dispatchEvent(new Event('change'));
+        const mat = state.materiaux[0];
+        selectMateriauOption(mat);
     }
 
     document.getElementById('zone-longueur').value = data.longueur;

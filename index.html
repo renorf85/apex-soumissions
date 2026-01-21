@@ -1083,10 +1083,10 @@
                 <!-- Friabilité badge -->
                 <div id="friabilite-badge" class="hidden">
                     <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
-                        <div class="flex items-center gap-4">
+                        <div class="flex flex-col items-center text-center gap-2">
                             <span id="friabilite-text"
-                                class="inline-flex items-center px-4 py-2 rounded-full text-sm font-bold tracking-wider uppercase"></span>
-                            <p id="friabilite-desc" class="text-sm text-slate-600"></p>
+                                class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold tracking-wider uppercase"></span>
+                            <p id="friabilite-desc" class="text-sm text-slate-500"></p>
                         </div>
                     </div>
                 </div>
@@ -1382,20 +1382,54 @@
         <div id="lightbox-backdrop" class="absolute inset-0 bg-black/90 backdrop-blur-sm"></div>
         
         <!-- Content -->
-        <div class="relative w-full h-full flex items-center justify-center p-4">
-            <!-- Close button -->
-            <button id="lightbox-close" class="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors z-10">
-                <span class="material-symbols-outlined">close</span>
-            </button>
-            
-            <!-- Image container -->
-            <div class="max-w-full max-h-full overflow-auto">
-                <img id="lightbox-img" src="" alt="Full preview" class="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl">
+        <div class="relative w-full h-full flex items-center justify-center">
+            <!-- Top controls bar -->
+            <div class="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-20">
+                <!-- Zoom level indicator -->
+                <div class="bg-black/50 px-3 py-1.5 rounded-full">
+                    <span id="lightbox-zoom-level" class="text-white text-sm font-medium">100%</span>
+                </div>
+                
+                <!-- Close button -->
+                <button id="lightbox-close" class="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
             </div>
             
-            <!-- Image name -->
-            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 px-4 py-2 rounded-full">
-                <p id="lightbox-name" class="text-white text-sm"></p>
+            <!-- Zoom controls (desktop) -->
+            <div class="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 flex-col gap-2 z-20">
+                <button id="lightbox-zoom-in" class="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors" title="Zoom avant">
+                    <span class="material-symbols-outlined">add</span>
+                </button>
+                <button id="lightbox-zoom-reset" class="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors text-xs font-bold" title="Réinitialiser">
+                    1:1
+                </button>
+                <button id="lightbox-zoom-out" class="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors" title="Zoom arrière">
+                    <span class="material-symbols-outlined">remove</span>
+                </button>
+            </div>
+            
+            <!-- Image container (zoomable & pannable) -->
+            <div id="lightbox-container" class="w-full h-full overflow-hidden touch-none">
+                <div id="lightbox-img-wrapper" class="w-full h-full flex items-center justify-center transition-transform duration-100">
+                    <img id="lightbox-img" src="" alt="Full preview" 
+                        class="max-w-none select-none pointer-events-none rounded-lg shadow-2xl"
+                        style="transform-origin: center center;">
+                </div>
+            </div>
+            
+            <!-- Bottom bar with name and mobile zoom hint -->
+            <div class="absolute bottom-4 left-4 right-4 flex justify-between items-center z-20">
+                <!-- Image name -->
+                <div class="bg-black/50 px-4 py-2 rounded-full max-w-[60%]">
+                    <p id="lightbox-name" class="text-white text-sm truncate"></p>
+                </div>
+                
+                <!-- Mobile zoom hint -->
+                <div class="md:hidden bg-black/50 px-3 py-2 rounded-full flex items-center gap-2">
+                    <span class="material-symbols-outlined text-white text-sm">pinch</span>
+                    <span class="text-white text-xs">Pincez pour zoomer</span>
+                </div>
             </div>
         </div>
     </div>
