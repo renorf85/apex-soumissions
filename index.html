@@ -293,82 +293,146 @@
             <input type="file" id="file-input" accept=".pdf" class="hidden"/>
         </section>
 
-        <!-- Step 2: Client Information -->
-        <section id="step-2" class="step-content max-w-xl w-full hidden">
-            <div class="mb-6 md:mb-10">
+        <!-- Step 2a: Nom du client -->
+        <section id="step-2a" class="step-content max-w-xl w-full hidden">
+            <div class="mb-8 md:mb-12">
+                <p class="text-xs font-bold text-primary uppercase tracking-widest mb-3">Client</p>
                 <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
-                    Informations du client
+                    Quel est le nom du client ?
                 </h1>
             </div>
 
-            <form id="client-form" class="space-y-5">
-                <!-- Nom -->
-                <div>
-                    <label for="client-nom" class="block text-sm font-medium text-slate-700 mb-2">Nom complet</label>
-                    <input type="text" id="client-nom" name="nom" required
-                        class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                        placeholder="Jean Tremblay">
-                </div>
+            <div class="space-y-6">
+                <input type="text" id="client-nom" name="nom" required autofocus
+                    class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                    placeholder="Jean Tremblay">
 
-                <!-- Téléphone -->
-                <div>
-                    <label for="client-telephone" class="block text-sm font-medium text-slate-700 mb-2">Téléphone</label>
-                    <input type="tel" id="client-telephone" name="telephone" required
-                        class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                        placeholder="(514) 555-1234">
-                </div>
-
-                <!-- Courriel -->
-                <div>
-                    <label for="client-courriel" class="block text-sm font-medium text-slate-700 mb-2">Courriel</label>
-                    <input type="email" id="client-courriel" name="courriel" required
-                        class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                        placeholder="jean@exemple.com">
-                </div>
-
-                <!-- Adresse du chantier -->
-                <div class="relative">
-                    <label for="client-adresse" class="block text-sm font-medium text-slate-700 mb-2">Adresse du chantier</label>
-                    <div class="relative">
-                        <input type="text" id="client-adresse" name="adresse" required autocomplete="off"
-                            class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                            placeholder="123 rue Principale, Montréal">
-                        <span id="adresse-loading" class="hidden absolute right-4 top-1/2 -translate-y-1/2">
-                            <svg class="animate-spin h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        </span>
-                    </div>
-                    <!-- Suggestions dropdown -->
-                    <div id="adresse-suggestions" class="hidden absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                        <!-- Suggestions will be inserted here -->
-                    </div>
-                </div>
-
-                <!-- Distance -->
-                <div>
-                    <label for="client-distance" class="block text-sm font-medium text-slate-700 mb-2">Distance du chantier (km)</label>
-                    <div class="relative">
-                        <input type="number" id="client-distance" name="distance" min="0" max="500" step="1" value="0"
-                            class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all pr-16">
-                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">km</span>
-                    </div>
-                    <p id="transport-cost" class="text-xs text-slate-500 mt-2">Frais de transport : 55 $</p>
-                </div>
-
-                <!-- Navigation buttons -->
                 <div class="flex items-center justify-between pt-4">
-                    <button type="button" id="btn-back-step2" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                    <button type="button" id="btn-back-step2a" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
                         <span class="material-symbols-outlined text-lg">arrow_back</span>
                         Retour
                     </button>
-                    <button type="submit" class="px-6 py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2">
+                    <button type="button" id="btn-next-step2a" class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                         Continuer
                         <span class="material-symbols-outlined text-lg">arrow_forward</span>
                     </button>
                 </div>
-            </form>
+            </div>
+        </section>
+
+        <!-- Step 2b: Téléphone -->
+        <section id="step-2b" class="step-content max-w-xl w-full hidden">
+            <div class="mb-8 md:mb-12">
+                <p class="text-xs font-bold text-primary uppercase tracking-widest mb-3">Client</p>
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
+                    Numéro de téléphone ?
+                </h1>
+            </div>
+
+            <div class="space-y-6">
+                <input type="tel" id="client-telephone" name="telephone" required
+                    class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                    placeholder="(418) 555-1234">
+
+                <div class="flex items-center justify-between pt-4">
+                    <button type="button" id="btn-back-step2b" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                        <span class="material-symbols-outlined text-lg">arrow_back</span>
+                        Retour
+                    </button>
+                    <button type="button" id="btn-next-step2b" class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Continuer
+                        <span class="material-symbols-outlined text-lg">arrow_forward</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 2c: Courriel -->
+        <section id="step-2c" class="step-content max-w-xl w-full hidden">
+            <div class="mb-8 md:mb-12">
+                <p class="text-xs font-bold text-primary uppercase tracking-widest mb-3">Client</p>
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
+                    Adresse courriel ?
+                </h1>
+            </div>
+
+            <div class="space-y-6">
+                <input type="email" id="client-courriel" name="courriel" required
+                    class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                    placeholder="jean@exemple.com">
+
+                <div class="flex items-center justify-between pt-4">
+                    <button type="button" id="btn-back-step2c" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                        <span class="material-symbols-outlined text-lg">arrow_back</span>
+                        Retour
+                    </button>
+                    <button type="button" id="btn-next-step2c" class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Continuer
+                        <span class="material-symbols-outlined text-lg">arrow_forward</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 2d: Adresse du chantier -->
+        <section id="step-2d" class="step-content max-w-xl w-full hidden">
+            <div class="mb-8 md:mb-12">
+                <p class="text-xs font-bold text-primary uppercase tracking-widest mb-3">Chantier</p>
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
+                    Où est situé le chantier ?
+                </h1>
+            </div>
+
+            <div class="space-y-6">
+                <div class="relative">
+                    <input type="text" id="client-adresse" name="adresse" required autocomplete="off"
+                        class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                        placeholder="Entrez l'adresse...">
+                    <span id="adresse-loading" class="hidden absolute right-4 top-1/2 -translate-y-1/2">
+                        <svg class="animate-spin h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </span>
+                    <!-- Suggestions dropdown -->
+                    <div id="adresse-suggestions" class="hidden absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                        <!-- Suggestions will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Distance info card (appears after address selection) -->
+                <div id="distance-card" class="hidden bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-primary">route</span>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-500">Distance depuis Québec</p>
+                                <p class="text-xl font-bold text-slate-900"><span id="distance-display">0</span> km</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-slate-500">Transport</p>
+                            <p id="transport-cost-display" class="text-xl font-bold text-primary">55 $</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hidden inputs for form data -->
+                <input type="hidden" id="client-distance" name="distance" value="0">
+
+                <div class="flex items-center justify-between pt-4">
+                    <button type="button" id="btn-back-step2d" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                        <span class="material-symbols-outlined text-lg">arrow_back</span>
+                        Retour
+                    </button>
+                    <button type="button" id="btn-next-step2d" class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Continuer
+                        <span class="material-symbols-outlined text-lg">arrow_forward</span>
+                    </button>
+                </div>
+            </div>
         </section>
 
         <!-- Step 3: Zone Library (Liste des zones) -->

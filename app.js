@@ -314,57 +314,109 @@ function handleFileSelected(file) {
 }
 
 // =====================================================
-// STEP 2: CLIENT INFORMATION
+// STEP 2: CLIENT INFORMATION (Wizard sub-steps)
 // =====================================================
 
 function setupStep2Events() {
-    const form = document.getElementById('client-form');
-    const btnBack = document.getElementById('btn-back-step2');
-    const distanceInput = document.getElementById('client-distance');
+    // === Step 2a: Nom ===
+    const nomInput = document.getElementById('client-nom');
+    const btnBackStep2a = document.getElementById('btn-back-step2a');
+    const btnNextStep2a = document.getElementById('btn-next-step2a');
 
-    // Back button
-    btnBack?.addEventListener('click', () => {
-        goToStep(1);
+    nomInput?.addEventListener('input', () => {
+        btnNextStep2a.disabled = !nomInput.value.trim();
     });
 
-    // Distance change - update transport cost display
-    distanceInput?.addEventListener('input', (e) => {
-        updateTransportCost(parseInt(e.target.value) || 0);
+    // Enable on Enter key
+    nomInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && nomInput.value.trim()) {
+            e.preventDefault();
+            goToClientStep('2b');
+        }
+    });
+
+    btnBackStep2a?.addEventListener('click', () => goToStep(1));
+    btnNextStep2a?.addEventListener('click', () => goToClientStep('2b'));
+
+    // === Step 2b: Téléphone ===
+    const telInput = document.getElementById('client-telephone');
+    const btnBackStep2b = document.getElementById('btn-back-step2b');
+    const btnNextStep2b = document.getElementById('btn-next-step2b');
+
+    telInput?.addEventListener('input', () => {
+        btnNextStep2b.disabled = !telInput.value.trim();
+    });
+
+    telInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && telInput.value.trim()) {
+            e.preventDefault();
+            goToClientStep('2c');
+        }
+    });
+
+    btnBackStep2b?.addEventListener('click', () => goToClientStep('2a'));
+    btnNextStep2b?.addEventListener('click', () => goToClientStep('2c'));
+
+    // === Step 2c: Courriel ===
+    const emailInput = document.getElementById('client-courriel');
+    const btnBackStep2c = document.getElementById('btn-back-step2c');
+    const btnNextStep2c = document.getElementById('btn-next-step2c');
+
+    emailInput?.addEventListener('input', () => {
+        btnNextStep2c.disabled = !emailInput.value.trim() || !emailInput.validity.valid;
+    });
+
+    emailInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && emailInput.value.trim() && emailInput.validity.valid) {
+            e.preventDefault();
+            goToClientStep('2d');
+        }
+    });
+
+    btnBackStep2c?.addEventListener('click', () => goToClientStep('2b'));
+    btnNextStep2c?.addEventListener('click', () => goToClientStep('2d'));
+
+    // === Step 2d: Adresse ===
+    const btnBackStep2d = document.getElementById('btn-back-step2d');
+    const btnNextStep2d = document.getElementById('btn-next-step2d');
+
+    btnBackStep2d?.addEventListener('click', () => goToClientStep('2c'));
+    btnNextStep2d?.addEventListener('click', () => {
+        // Save all client data to state
+        state.client = {
+            nom: document.getElementById('client-nom').value.trim(),
+            telephone: document.getElementById('client-telephone').value.trim(),
+            courriel: document.getElementById('client-courriel').value.trim(),
+            adresseChantier: document.getElementById('client-adresse').value.trim(),
+            distanceKm: parseInt(document.getElementById('client-distance').value) || 0
+        };
+        console.log('Client info saved:', state.client);
+        goToStep(3);
     });
 
     // Setup Mapbox address autocomplete
     setupAddressAutocomplete();
+}
 
-    // Form submission
-    form?.addEventListener('submit', (e) => {
-        e.preventDefault();
+function goToClientStep(subStep) {
+    // Hide all step-2 sub-sections
+    document.querySelectorAll('[id^="step-2"]').forEach(el => el.classList.add('hidden'));
 
-        // Validate and save to state
-        const nom = document.getElementById('client-nom').value.trim();
-        const telephone = document.getElementById('client-telephone').value.trim();
-        const courriel = document.getElementById('client-courriel').value.trim();
-        const adresse = document.getElementById('client-adresse').value.trim();
-        const distance = parseInt(document.getElementById('client-distance').value) || 0;
+    // Show the target sub-step
+    const targetEl = document.getElementById(`step-${subStep}`);
+    if (targetEl) {
+        targetEl.classList.remove('hidden');
+        // Focus the input
+        const input = targetEl.querySelector('input');
+        setTimeout(() => input?.focus(), 100);
+    }
 
-        if (!nom || !telephone || !courriel || !adresse) {
-            alert('Veuillez remplir tous les champs.');
-            return;
-        }
+    // Update progress bar (still step 2)
+    updateProgressBar(2);
+    state.currentStep = 2;
 
-        // Save to state
-        state.client = {
-            nom,
-            telephone,
-            courriel,
-            adresseChantier: adresse,
-            distanceKm: distance
-        };
-
-        console.log('Client info saved:', state.client);
-
-        // Go to next step
-        goToStep(3);
-    });
+    // Show mobile back button
+    document.getElementById('btn-back-mobile')?.classList.remove('invisible');
 }
 
 // =====================================================
@@ -509,6 +561,10 @@ async function selectAddress(feature) {
     const adresseInput = document.getElementById('client-adresse');
     const distanceInput = document.getElementById('client-distance');
     const loadingSpinner = document.getElementById('adresse-loading');
+    const distanceCard = document.getElementById('distance-card');
+    const distanceDisplay = document.getElementById('distance-display');
+    const transportCostDisplay = document.getElementById('transport-cost-display');
+    const btnNextStep2d = document.getElementById('btn-next-step2d');
 
     // Set the address in input
     if (adresseInput) {
@@ -540,10 +596,28 @@ async function selectAddress(feature) {
             chantierLat
         );
 
-        // Set distance input
+        // Set hidden distance input
         if (distanceInput) {
             distanceInput.value = distanceKm;
-            updateTransportCost(distanceKm);
+        }
+
+        // Update distance card display
+        if (distanceDisplay) {
+            distanceDisplay.textContent = distanceKm;
+        }
+
+        // Calculate and display transport cost
+        const transportCost = getTransportCost(distanceKm);
+        if (transportCostDisplay) {
+            transportCostDisplay.textContent = `${transportCost} $`;
+        }
+
+        // Show distance card
+        distanceCard?.classList.remove('hidden');
+
+        // Enable continue button
+        if (btnNextStep2d) {
+            btnNextStep2d.disabled = false;
         }
 
         console.log(`📍 Adresse sélectionnée: ${feature.place_name}`);
@@ -563,13 +637,36 @@ async function selectAddress(feature) {
 
         if (distanceInput) {
             distanceInput.value = distanceKm;
-            updateTransportCost(distanceKm);
+        }
+
+        if (distanceDisplay) {
+            distanceDisplay.textContent = distanceKm;
+        }
+
+        const transportCost = getTransportCost(distanceKm);
+        if (transportCostDisplay) {
+            transportCostDisplay.textContent = `${transportCost} $`;
+        }
+
+        distanceCard?.classList.remove('hidden');
+
+        if (btnNextStep2d) {
+            btnNextStep2d.disabled = false;
         }
 
         console.log(`📏 Distance estimée (fallback): ${distanceKm} km`);
     } finally {
         loadingSpinner?.classList.add('hidden');
     }
+}
+
+function getTransportCost(distance) {
+    if (distance > 100) {
+        return '75+ (pension)';
+    } else if (distance > 50) {
+        return 75;
+    }
+    return 55;
 }
 
 // Calculate real driving distance using Mapbox Directions API
@@ -1233,8 +1330,11 @@ function renderRecap() {
 function goToStep(step) {
     console.log(`Navigation vers étape ${step}`);
 
-    // Hide all steps
+    // Hide all steps (including sub-steps like 2a, 2b, etc.)
     document.querySelectorAll('.step-content').forEach(el => {
+        el.classList.add('hidden');
+    });
+    document.querySelectorAll('[id^="step-2"]').forEach(el => {
         el.classList.add('hidden');
     });
 
@@ -1249,7 +1349,10 @@ function goToStep(step) {
             document.getElementById('btn-back-mobile')?.classList.add('invisible');
         }
     } else if (step === 2) {
-        document.getElementById('step-2').classList.remove('hidden');
+        // Start at step 2a (first sub-step)
+        document.getElementById('step-2a').classList.remove('hidden');
+        // Focus the input
+        setTimeout(() => document.getElementById('client-nom')?.focus(), 100);
         // Show mobile back button
         document.getElementById('btn-back-mobile')?.classList.remove('invisible');
     } else if (step === 3) {
@@ -1416,6 +1519,8 @@ function devGoToStep(step) {
     if (step >= 2) {
         state.hasReport = false;
         state.client = DEV_DATA.client;
+        // Also fill the form fields
+        fillDevClientData();
     }
     if (step >= 3) {
         state.zones = DEV_DATA.zones;
@@ -1430,8 +1535,11 @@ function devGoToStep(step) {
     // Forcer la navigation
     console.log(`🚀 DEV: Saut vers étape ${step}`);
 
-    // Cacher toutes les étapes
+    // Cacher toutes les étapes (including sub-steps)
     document.querySelectorAll('.step-content').forEach(el => {
+        el.classList.add('hidden');
+    });
+    document.querySelectorAll('[id^="step-2"]').forEach(el => {
         el.classList.add('hidden');
     });
 
