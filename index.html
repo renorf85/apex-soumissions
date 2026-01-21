@@ -1,17 +1,20 @@
 <!DOCTYPE html>
 <html class="light" lang="fr">
+
 <head>
-    <meta charset="utf-8"/>
-    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Apex Soumissions</title>
-    <link rel="icon" type="image/png" href="assets/favicon.png"/>
+    <link rel="icon" type="image/png" href="assets/favicon.png" />
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 
     <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
 
     <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -106,6 +109,25 @@
         .risk-moderate {
             @apply bg-amber-50 text-amber-600;
         }
+
+        /* Mobile Sticky Footer */
+        @media (max-width: 640px) {
+            .mobile-sticky-footer {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                padding: 1rem 1.5rem;
+                background: white;
+                border-top: 1px solid #f1f5f9;
+                z-index: 50;
+                box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
+            }
+            /* Add padding to the bottom of the section to prevent content from being hidden behind the sticky footer */
+            section.step-content {
+                padding-bottom: 80px; 
+            }
+        }
     </style>
 </head>
 
@@ -114,13 +136,17 @@
     <!-- Mobile Header -->
     <header class="md:hidden sticky top-0 z-20 bg-white/80 backdrop-blur-md px-6 pt-6 pb-4">
         <div class="flex items-center justify-between mb-6">
-            <button id="btn-back-mobile" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 transition-colors invisible">
+            <button id="btn-back-mobile"
+                class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 transition-colors invisible">
                 <span class="material-symbols-outlined">arrow_back</span>
             </button>
             <div class="flex flex-col items-center">
-                <span id="step-label-mobile" class="text-[11px] font-bold tracking-[0.1em] text-slate-500 uppercase">Étape 1 sur 5</span>
+                <span id="step-label-mobile"
+                    class="text-[11px] font-bold tracking-[0.1em] text-slate-500 uppercase">Étape 1 sur 5</span>
             </div>
-            <a href="settings.html" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-primary transition-colors" title="Paramètres">
+            <a href="settings.html"
+                class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-primary transition-colors"
+                title="Paramètres">
                 <span class="material-symbols-outlined">settings</span>
             </a>
         </div>
@@ -139,7 +165,8 @@
 
             <!-- Progress au centre -->
             <div class="flex flex-col gap-2 items-center flex-1 max-w-md mx-8">
-                <span id="step-label" class="text-xs font-semibold uppercase tracking-wider text-primary">Étape 1 sur 5</span>
+                <span id="step-label" class="text-xs font-semibold uppercase tracking-wider text-primary">Étape 1 sur
+                    5</span>
                 <div class="flex gap-1 h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
                     <div id="progress-1" class="w-1/5 bg-primary rounded-full transition-all duration-300"></div>
                     <div id="progress-2" class="flex-1 transition-all duration-300"></div>
@@ -151,7 +178,9 @@
 
             <!-- Bouton paramètres à droite -->
             <div class="w-[120px] flex justify-end">
-                <a href="settings.html" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-primary transition-colors" title="Paramètres">
+                <a href="settings.html"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-primary transition-colors"
+                    title="Paramètres">
                     <span class="material-symbols-outlined">settings</span>
                 </a>
             </div>
@@ -173,12 +202,14 @@
             <!-- Cards -->
             <div class="space-y-4">
                 <button id="btn-has-report" class="plan-card w-full group text-left">
-                    <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mr-4 shrink-0">
+                    <div
+                        class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mr-4 shrink-0">
                         <span class="material-symbols-outlined">description</span>
                     </div>
                     <div class="flex-1 min-w-0">
                         <span class="block font-bold text-slate-900">Oui, j'ai un rapport</span>
-                        <p class="text-[13px] text-slate-500 mt-0.5 leading-snug">J'ai un document prêt à être partagé.</p>
+                        <p class="text-[13px] text-slate-500 mt-0.5 leading-snug">J'ai un document prêt à être partagé.
+                        </p>
                     </div>
                     <div class="ml-3 flex items-center justify-center shrink-0">
                         <div class="radio-circle">
@@ -188,12 +219,14 @@
                 </button>
 
                 <button id="btn-no-report" class="plan-card w-full group text-left">
-                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mr-4 shrink-0">
+                    <div
+                        class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mr-4 shrink-0">
                         <span class="material-symbols-outlined">close</span>
                     </div>
                     <div class="flex-1 min-w-0">
                         <span class="block font-bold text-slate-900">Non, pas encore</span>
-                        <p class="text-[13px] text-slate-500 mt-0.5 leading-snug">Je souhaite procéder sans rapport pour le moment.</p>
+                        <p class="text-[13px] text-slate-500 mt-0.5 leading-snug">Je souhaite procéder sans rapport pour
+                            le moment.</p>
                     </div>
                     <div class="ml-3 flex items-center justify-center shrink-0">
                         <div class="radio-circle">
@@ -212,30 +245,35 @@
                 <div class="mb-10">
                     <h1 class="text-2xl font-bold text-slate-800 mb-4">Rapport de caractérisation</h1>
                     <p class="text-slate-500 text-sm leading-relaxed">
-                        Veuillez nous transmettre votre rapport de caractérisation de l'amiante pour une estimation plus précise de vos travaux.
+                        Veuillez nous transmettre votre rapport de caractérisation de l'amiante pour une estimation plus
+                        précise de vos travaux.
                     </p>
                 </div>
 
                 <div class="w-full space-y-6">
                     <!-- Upload Button (Mobile) -->
-                    <button id="btn-upload-mobile" class="w-full bg-primary hover:bg-primary-dark text-white py-5 px-6 rounded-2xl shadow-lg shadow-blue-500/10 flex flex-col items-center gap-3 transition-all active:scale-[0.98]">
+                    <button id="btn-upload-mobile"
+                        class="w-full bg-primary hover:bg-primary-dark text-white py-5 px-6 rounded-2xl shadow-lg shadow-blue-500/10 flex flex-col items-center gap-3 transition-all active:scale-[0.98]">
                         <span class="material-symbols-outlined text-3xl">upload_file</span>
                         <span class="font-bold text-lg">Télécharger le rapport (PDF)</span>
                         <span class="text-xs opacity-80 font-medium italic">Taille max. 25 Mo</span>
                     </button>
 
                     <!-- Upload Success (Mobile) -->
-                    <div id="upload-success-mobile" class="hidden w-full bg-emerald-50 border-2 border-emerald-200 text-emerald-700 py-5 px-6 rounded-2xl flex flex-col items-center gap-3">
+                    <div id="upload-success-mobile"
+                        class="hidden w-full bg-emerald-50 border-2 border-emerald-200 text-emerald-700 py-5 px-6 rounded-2xl flex flex-col items-center gap-3">
                         <span class="material-symbols-outlined text-3xl">check_circle</span>
                         <span id="file-name-mobile" class="font-bold text-lg"></span>
-                        <button id="btn-change-file-mobile" class="text-sm text-emerald-600 underline">Changer de fichier</button>
+                        <button id="btn-change-file-mobile" class="text-sm text-emerald-600 underline">Changer de
+                            fichier</button>
                     </div>
                 </div>
 
                 <div class="mt-12 p-5 bg-blue-50/50 rounded-2xl border border-blue-100/50 flex gap-4 text-left">
                     <span class="material-symbols-outlined text-primary">info</span>
                     <p class="text-xs text-slate-600 leading-relaxed italic">
-                        Un rapport est fortement recommandé pour identifier précisément les zones contaminées et garantir la conformité de l'intervention.
+                        Un rapport est fortement recommandé pour identifier précisément les zones contaminées et
+                        garantir la conformité de l'intervention.
                     </p>
                 </div>
             </div>
@@ -243,14 +281,18 @@
             <!-- Desktop Upload View -->
             <div class="hidden md:block">
                 <div class="mb-8">
-                    <h1 class="text-3xl font-bold tracking-tight text-slate-900 md:whitespace-nowrap">Rapport de caractérisation</h1>
-                    <p class="text-sm text-slate-500 mt-2">Téléchargez votre document pour obtenir des prix plus précis.</p>
+                    <h1 class="text-3xl font-bold tracking-tight text-slate-900 md:whitespace-nowrap">Rapport de
+                        caractérisation</h1>
+                    <p class="text-sm text-slate-500 mt-2">Téléchargez votre document pour obtenir des prix plus précis.
+                    </p>
                 </div>
 
                 <!-- Drop Zone (Desktop) -->
-                <div id="drop-zone" class="w-full p-12 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer transition-all hover:border-primary hover:bg-blue-50/30">
+                <div id="drop-zone"
+                    class="w-full p-12 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer transition-all hover:border-primary hover:bg-blue-50/30">
                     <div id="upload-default-desktop" class="flex flex-col items-center">
-                        <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4">
+                        <div
+                            class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4">
                             <span class="material-symbols-outlined text-3xl">cloud_upload</span>
                         </div>
                         <p class="text-base font-semibold text-slate-900 mb-1">Glissez votre PDF ici</p>
@@ -259,11 +301,13 @@
                     </div>
 
                     <div id="upload-success-desktop" class="hidden flex flex-col items-center">
-                        <div class="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-4">
+                        <div
+                            class="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-4">
                             <span class="material-symbols-outlined text-3xl">check_circle</span>
                         </div>
                         <p id="file-name-desktop" class="text-base font-semibold text-slate-900 mb-1"></p>
-                        <p class="text-sm text-primary cursor-pointer hover:underline" id="btn-change-file-desktop">Changer de fichier</p>
+                        <p class="text-sm text-primary cursor-pointer hover:underline" id="btn-change-file-desktop">
+                            Changer de fichier</p>
                     </div>
                 </div>
 
@@ -276,44 +320,53 @@
                         <div>
                             <h4 class="text-sm font-bold text-slate-800 mb-1.5">C'est quoi un rapport ?</h4>
                             <p class="text-sm leading-relaxed text-slate-500">
-                                C'est un document légal rédigé par un professionnel certifié qui identifie la présence, le type et la concentration d'amiante dans les matériaux de votre bâtiment.
+                                C'est un document légal rédigé par un professionnel certifié qui identifie la présence,
+                                le type et la concentration d'amiante dans les matériaux de votre bâtiment.
                             </p>
                         </div>
                     </div>
                 </div>
 
                 <div class="mt-6 flex justify-start">
-                    <button id="btn-back-to-choice" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                    <button id="btn-back-to-choice"
+                        class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
                         <span class="material-symbols-outlined text-lg">arrow_back</span>
                         Retour
                     </button>
                 </div>
             </div>
 
-            <input type="file" id="file-input" accept=".pdf" class="hidden"/>
+            <input type="file" id="file-input" accept=".pdf" class="hidden" />
         </section>
 
         <!-- Step 2a: Nom du client -->
         <section id="step-2a" class="step-content max-w-xl w-full hidden">
             <!-- Mini navigation -->
             <div class="flex items-center gap-2 mb-8">
-                <button data-goto="2a" class="wizard-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
+                <button data-goto="2a"
+                    class="wizard-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
                     <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">1</span>
                     Nom
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-goto="2b" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
-                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">2</span>
+                <button data-goto="2b"
+                    class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span
+                        class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">2</span>
                     Tél
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-goto="2c" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
-                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">3</span>
+                <button data-goto="2c"
+                    class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span
+                        class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">3</span>
                     Courriel
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-goto="2d" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
-                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">4</span>
+                <button data-goto="2d"
+                    class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span
+                        class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">4</span>
                     Adresse
                 </button>
             </div>
@@ -330,11 +383,14 @@
                     placeholder="Jean Tremblay">
 
                 <div class="flex items-center justify-between pt-4">
-                    <button type="button" id="btn-back-step2a" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                    <button type="button" id="btn-back-step2a"
+                        class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
                         <span class="material-symbols-outlined text-lg">arrow_back</span>
                         Retour
                     </button>
-                    <button type="button" id="btn-next-step2a" class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <button type="button" id="btn-next-step2a"
+                        class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled>
                         Continuer
                         <span class="material-symbols-outlined text-lg">arrow_forward</span>
                     </button>
@@ -346,23 +402,29 @@
         <section id="step-2b" class="step-content max-w-xl w-full hidden">
             <!-- Mini navigation -->
             <div class="flex items-center gap-2 mb-8">
-                <button data-goto="2a" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                <button data-goto="2a"
+                    class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
                     <span class="material-symbols-outlined text-sm">check</span>
                     Nom
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-goto="2b" class="wizard-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
+                <button data-goto="2b"
+                    class="wizard-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
                     <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">2</span>
                     Tél
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-goto="2c" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
-                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">3</span>
+                <button data-goto="2c"
+                    class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span
+                        class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">3</span>
                     Courriel
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-goto="2d" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
-                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">4</span>
+                <button data-goto="2d"
+                    class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span
+                        class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">4</span>
                     Adresse
                 </button>
             </div>
@@ -379,11 +441,14 @@
                     placeholder="(418) 555-1234">
 
                 <div class="flex items-center justify-between pt-4">
-                    <button type="button" id="btn-back-step2b" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                    <button type="button" id="btn-back-step2b"
+                        class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
                         <span class="material-symbols-outlined text-lg">arrow_back</span>
                         Retour
                     </button>
-                    <button type="button" id="btn-next-step2b" class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <button type="button" id="btn-next-step2b"
+                        class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled>
                         Continuer
                         <span class="material-symbols-outlined text-lg">arrow_forward</span>
                     </button>
@@ -395,23 +460,28 @@
         <section id="step-2c" class="step-content max-w-xl w-full hidden">
             <!-- Mini navigation -->
             <div class="flex items-center gap-2 mb-8">
-                <button data-goto="2a" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                <button data-goto="2a"
+                    class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
                     <span class="material-symbols-outlined text-sm">check</span>
                     Nom
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-goto="2b" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                <button data-goto="2b"
+                    class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
                     <span class="material-symbols-outlined text-sm">check</span>
                     Tél
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-goto="2c" class="wizard-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
+                <button data-goto="2c"
+                    class="wizard-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
                     <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">3</span>
                     Courriel
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-goto="2d" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
-                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">4</span>
+                <button data-goto="2d"
+                    class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span
+                        class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">4</span>
                     Adresse
                 </button>
             </div>
@@ -428,11 +498,14 @@
                     placeholder="jean@exemple.com">
 
                 <div class="flex items-center justify-between pt-4">
-                    <button type="button" id="btn-back-step2c" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                    <button type="button" id="btn-back-step2c"
+                        class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
                         <span class="material-symbols-outlined text-lg">arrow_back</span>
                         Retour
                     </button>
-                    <button type="button" id="btn-next-step2c" class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <button type="button" id="btn-next-step2c"
+                        class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled>
                         Continuer
                         <span class="material-symbols-outlined text-lg">arrow_forward</span>
                     </button>
@@ -444,22 +517,26 @@
         <section id="step-2d" class="step-content max-w-xl w-full hidden">
             <!-- Mini navigation -->
             <div class="flex items-center gap-2 mb-8">
-                <button data-goto="2a" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                <button data-goto="2a"
+                    class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
                     <span class="material-symbols-outlined text-sm">check</span>
                     Nom
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-goto="2b" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                <button data-goto="2b"
+                    class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
                     <span class="material-symbols-outlined text-sm">check</span>
                     Tél
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-goto="2c" class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                <button data-goto="2c"
+                    class="wizard-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
                     <span class="material-symbols-outlined text-sm">check</span>
                     Courriel
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-goto="2d" class="wizard-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
+                <button data-goto="2d"
+                    class="wizard-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
                     <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">4</span>
                     Adresse
                 </button>
@@ -477,13 +554,18 @@
                         class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
                         placeholder="Entrez l'adresse...">
                     <span id="adresse-loading" class="hidden absolute right-4 top-1/2 -translate-y-1/2">
-                        <svg class="animate-spin h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        <svg class="animate-spin h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none"
+                            viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                            </circle>
+                            <path class="opacity-75" fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                            </path>
                         </svg>
                     </span>
                     <!-- Suggestions dropdown -->
-                    <div id="adresse-suggestions" class="hidden absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                    <div id="adresse-suggestions"
+                        class="hidden absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
                         <!-- Suggestions will be inserted here -->
                     </div>
                 </div>
@@ -511,11 +593,14 @@
                 <input type="hidden" id="client-distance" name="distance" value="0">
 
                 <div class="flex items-center justify-between pt-4">
-                    <button type="button" id="btn-back-step2d" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                    <button type="button" id="btn-back-step2d"
+                        class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
                         <span class="material-symbols-outlined text-lg">arrow_back</span>
                         Retour
                     </button>
-                    <button type="button" id="btn-next-step2d" class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <button type="button" id="btn-next-step2d"
+                        class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled>
                         Continuer
                         <span class="material-symbols-outlined text-lg">arrow_forward</span>
                     </button>
@@ -535,18 +620,23 @@
             <!-- Zone Cards Grid -->
             <div id="zones-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 <!-- Add Zone Button (toujours premier) -->
-                <button id="btn-add-zone" class="group flex flex-col items-center justify-center min-h-[200px] md:min-h-[280px] bg-white border-2 border-dashed border-gray-200 rounded-2xl hover:border-primary/40 hover:bg-blue-50/30 transition-all duration-300">
-                    <div class="w-12 h-12 rounded-full border border-primary/20 flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-white transition-colors">
+                <button id="btn-add-zone"
+                    class="group flex flex-col items-center justify-center min-h-[200px] md:min-h-[280px] bg-white border-2 border-dashed border-gray-200 rounded-2xl hover:border-primary/40 hover:bg-blue-50/30 transition-all duration-300">
+                    <div
+                        class="w-12 h-12 rounded-full border border-primary/20 flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-white transition-colors">
                         <span class="material-symbols-outlined text-primary group-hover:text-white">add</span>
                     </div>
-                    <span class="text-[15px] font-medium text-slate-600 group-hover:text-primary transition-colors">Ajouter une zone</span>
+                    <span
+                        class="text-[15px] font-medium text-slate-600 group-hover:text-primary transition-colors">Ajouter
+                        une zone</span>
                 </button>
 
                 <!-- Zone cards will be dynamically inserted here -->
             </div>
 
             <!-- Empty state message (shown when no zones) -->
-            <div id="zones-empty-hint" class="mt-6 p-4 bg-blue-50/50 rounded-xl border border-blue-100/50 flex gap-3 items-start">
+            <div id="zones-empty-hint"
+                class="mt-6 p-4 bg-blue-50/50 rounded-xl border border-blue-100/50 flex gap-3 items-start">
                 <span class="material-symbols-outlined text-primary text-xl">info</span>
                 <p class="text-sm text-slate-600 leading-relaxed">
                     Commencez par ajouter au moins une zone de travail pour continuer.
@@ -555,11 +645,14 @@
 
             <!-- Navigation buttons -->
             <div class="flex items-center justify-between pt-8 mt-8 border-t border-slate-100">
-                <button type="button" id="btn-back-step3" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                <button type="button" id="btn-back-step3"
+                    class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
                     <span class="material-symbols-outlined text-lg">arrow_back</span>
                     Retour
                 </button>
-                <button type="button" id="btn-continue-step3" class="px-6 py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                <button type="button" id="btn-continue-step3"
+                    class="px-6 py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled>
                     Continuer
                     <span class="material-symbols-outlined text-lg">arrow_forward</span>
                 </button>
@@ -569,26 +662,40 @@
         <!-- Step 3a: Nom de la zone -->
         <section id="step-3a" class="step-content max-w-xl w-full hidden">
             <!-- Mini navigation -->
-            <div class="flex items-center gap-2 mb-8 flex-wrap">
-                <button data-zone-goto="3a" class="zone-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
+            <div class="hidden md:flex items-center gap-2 mb-8 flex-wrap">
+                <button data-zone-goto="3a"
+                    class="zone-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
                     <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">1</span>
                     Nom
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-zone-goto="3b" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
-                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">2</span>
+                <button data-zone-goto="3b"
+                    class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span
+                        class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">2</span>
                     Catégorie
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-zone-goto="3c" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
-                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">3</span>
+                <button data-zone-goto="3c"
+                    class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span
+                        class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">3</span>
                     Matériau
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-zone-goto="3d" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
-                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">4</span>
+                <button data-zone-goto="3d"
+                    class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span
+                        class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">4</span>
                     Dimensions
                 </button>
+            </div>
+
+            <!-- Mobile Simple Header -->
+            <div class="md:hidden mb-6 flex items-center gap-2 text-sm text-slate-500 font-medium">
+                <span
+                    class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-xs">1</span>
+                <span>Nom de la zone</span>
             </div>
 
             <div class="mb-6">
@@ -603,12 +710,15 @@
                     class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
                     placeholder="Ex: Cuisine, Sous-sol, Chambre...">
 
-                <div class="flex items-center justify-between pt-4">
-                    <button type="button" id="btn-back-step3a" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                <div class="mobile-sticky-footer flex items-center justify-between pt-4">
+                    <button type="button" id="btn-back-step3a"
+                        class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
                         <span class="material-symbols-outlined text-lg">arrow_back</span>
                         Retour aux zones
                     </button>
-                    <button type="button" id="btn-next-step3a" class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <button type="button" id="btn-next-step3a"
+                        class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled>
                         Continuer
                         <span class="material-symbols-outlined text-lg">arrow_forward</span>
                     </button>
@@ -619,26 +729,39 @@
         <!-- Step 3b: Catégorie -->
         <section id="step-3b" class="step-content max-w-xl w-full hidden">
             <!-- Mini navigation -->
-            <div class="flex items-center gap-2 mb-8 flex-wrap">
-                <button data-zone-goto="3a" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+            <div class="hidden md:flex items-center gap-2 mb-8 flex-wrap">
+                <button data-zone-goto="3a"
+                    class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
                     <span class="material-symbols-outlined text-sm">check</span>
                     Nom
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-zone-goto="3b" class="zone-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
+                <button data-zone-goto="3b"
+                    class="zone-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
                     <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">2</span>
                     Catégorie
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-zone-goto="3c" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
-                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">3</span>
+                <button data-zone-goto="3c"
+                    class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span
+                        class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">3</span>
                     Matériau
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-zone-goto="3d" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
-                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">4</span>
+                <button data-zone-goto="3d"
+                    class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span
+                        class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">4</span>
                     Dimensions
                 </button>
+            </div>
+
+            <!-- Mobile Simple Header -->
+            <div class="md:hidden mb-6 flex items-center gap-2 text-sm text-slate-500 font-medium">
+                <span
+                    class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-xs">2</span>
+                <span>Catégorie</span>
             </div>
 
             <div class="mb-6">
@@ -649,8 +772,10 @@
             </div>
 
             <div class="space-y-4">
-                <button type="button" data-categorie="Mur/Plafond" class="categorie-btn plan-card w-full group text-left">
-                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
+                <button type="button" data-categorie="Mur/Plafond"
+                    class="categorie-btn plan-card w-full group text-left">
+                    <div
+                        class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
                         <span class="material-symbols-outlined">wall</span>
                     </div>
                     <div class="flex-1 min-w-0">
@@ -658,12 +783,15 @@
                         <p class="text-[13px] text-slate-500 mt-0.5">Gypse, plâtre, crépi...</p>
                     </div>
                     <div class="ml-3 flex items-center justify-center shrink-0">
-                        <div class="radio-circle"><div class="radio-inner"></div></div>
+                        <div class="radio-circle">
+                            <div class="radio-inner"></div>
+                        </div>
                     </div>
                 </button>
 
                 <button type="button" data-categorie="Plancher" class="categorie-btn plan-card w-full group text-left">
-                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
+                    <div
+                        class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
                         <span class="material-symbols-outlined">foundation</span>
                     </div>
                     <div class="flex-1 min-w-0">
@@ -671,12 +799,15 @@
                         <p class="text-[13px] text-slate-500 mt-0.5">Tuiles vinyle, colle...</p>
                     </div>
                     <div class="ml-3 flex items-center justify-center shrink-0">
-                        <div class="radio-circle"><div class="radio-inner"></div></div>
+                        <div class="radio-circle">
+                            <div class="radio-inner"></div>
+                        </div>
                     </div>
                 </button>
 
                 <button type="button" data-categorie="Isolation" class="categorie-btn plan-card w-full group text-left">
-                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
+                    <div
+                        class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
                         <span class="material-symbols-outlined">thermostat</span>
                     </div>
                     <div class="flex-1 min-w-0">
@@ -684,12 +815,16 @@
                         <p class="text-[13px] text-slate-500 mt-0.5">Vermiculite, entretoit, mur...</p>
                     </div>
                     <div class="ml-3 flex items-center justify-center shrink-0">
-                        <div class="radio-circle"><div class="radio-inner"></div></div>
+                        <div class="radio-circle">
+                            <div class="radio-inner"></div>
+                        </div>
                     </div>
                 </button>
 
-                <button type="button" data-categorie="Revêtement extérieur" class="categorie-btn plan-card w-full group text-left">
-                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
+                <button type="button" data-categorie="Revêtement extérieur"
+                    class="categorie-btn plan-card w-full group text-left">
+                    <div
+                        class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
                         <span class="material-symbols-outlined">roofing</span>
                     </div>
                     <div class="flex-1 min-w-0">
@@ -697,12 +832,16 @@
                         <p class="text-[13px] text-slate-500 mt-0.5">Bardeaux, fibrociment...</p>
                     </div>
                     <div class="ml-3 flex items-center justify-center shrink-0">
-                        <div class="radio-circle"><div class="radio-inner"></div></div>
+                        <div class="radio-circle">
+                            <div class="radio-inner"></div>
+                        </div>
                     </div>
                 </button>
 
-                <button type="button" data-categorie="Panneaux thermiques" class="categorie-btn plan-card w-full group text-left">
-                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
+                <button type="button" data-categorie="Panneaux thermiques"
+                    class="categorie-btn plan-card w-full group text-left">
+                    <div
+                        class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
                         <span class="material-symbols-outlined">heat</span>
                     </div>
                     <div class="flex-1 min-w-0">
@@ -710,7 +849,9 @@
                         <p class="text-[13px] text-slate-500 mt-0.5">Calorifuge, panneaux...</p>
                     </div>
                     <div class="ml-3 flex items-center justify-center shrink-0">
-                        <div class="radio-circle"><div class="radio-inner"></div></div>
+                        <div class="radio-circle">
+                            <div class="radio-inner"></div>
+                        </div>
                     </div>
                 </button>
             </div>
@@ -718,44 +859,59 @@
             <!-- Hidden input for selected category -->
             <input type="hidden" id="zone-categorie" name="categorie" value="">
 
-            <div class="flex items-center justify-between pt-6">
-                <button type="button" id="btn-back-step3b" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+            <div class="mobile-sticky-footer flex items-center justify-between pt-6">
+                <button type="button" id="btn-back-step3b"
+                    class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
                     <span class="material-symbols-outlined text-lg">arrow_back</span>
                     Retour
                 </button>
+                <!-- Button added for consistency if needed, though originally 3b had only back button because selection triggers next step -->
             </div>
         </section>
 
         <!-- Step 3c: Matériau -->
         <section id="step-3c" class="step-content max-w-xl w-full hidden">
             <!-- Mini navigation -->
-            <div class="flex items-center gap-2 mb-8 flex-wrap">
-                <button data-zone-goto="3a" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+            <div class="hidden md:flex items-center gap-2 mb-8 flex-wrap">
+                <button data-zone-goto="3a"
+                    class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
                     <span class="material-symbols-outlined text-sm">check</span>
                     Nom
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-zone-goto="3b" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                <button data-zone-goto="3b"
+                    class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
                     <span class="material-symbols-outlined text-sm">check</span>
                     Catégorie
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-zone-goto="3c" class="zone-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
+                <button data-zone-goto="3c"
+                    class="zone-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
                     <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">3</span>
                     Matériau
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-zone-goto="3d" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
-                    <span class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">4</span>
+                <button data-zone-goto="3d"
+                    class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:bg-slate-100 transition-colors">
+                    <span
+                        class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">4</span>
                     Dimensions
                 </button>
+            </div>
+
+            <!-- Mobile Simple Header -->
+            <div class="md:hidden mb-6 flex items-center gap-2 text-sm text-slate-500 font-medium">
+                <span
+                    class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-xs">3</span>
+                <span>Matériau</span>
             </div>
 
             <div class="mb-6">
                 <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
                     Quel matériau ?
                 </h1>
-                <p class="text-slate-500 text-sm mt-2">Le matériau détermine la friabilité et l'épaisseur par défaut.</p>
+                <p class="text-slate-500 text-sm mt-2">Le matériau détermine la friabilité et l'épaisseur par défaut.
+                </p>
             </div>
 
             <div class="space-y-6">
@@ -769,18 +925,22 @@
                 <div id="friabilite-badge" class="hidden">
                     <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
                         <div class="flex items-center gap-4">
-                            <span id="friabilite-text" class="inline-flex items-center px-4 py-2 rounded-full text-sm font-bold tracking-wider uppercase"></span>
+                            <span id="friabilite-text"
+                                class="inline-flex items-center px-4 py-2 rounded-full text-sm font-bold tracking-wider uppercase"></span>
                             <p id="friabilite-desc" class="text-sm text-slate-600"></p>
                         </div>
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between pt-4">
-                    <button type="button" id="btn-back-step3c" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                <div class="mobile-sticky-footer flex items-center justify-between pt-4">
+                    <button type="button" id="btn-back-step3c"
+                        class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
                         <span class="material-symbols-outlined text-lg">arrow_back</span>
                         Retour
                     </button>
-                    <button type="button" id="btn-next-step3c" class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <button type="button" id="btn-next-step3c"
+                        class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled>
                         Continuer
                         <span class="material-symbols-outlined text-lg">arrow_forward</span>
                     </button>
@@ -791,26 +951,37 @@
         <!-- Step 3d: Dimensions -->
         <section id="step-3d" class="step-content max-w-xl w-full hidden">
             <!-- Mini navigation -->
-            <div class="flex items-center gap-2 mb-8 flex-wrap">
-                <button data-zone-goto="3a" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+            <div class="hidden md:flex items-center gap-2 mb-8 flex-wrap">
+                <button data-zone-goto="3a"
+                    class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
                     <span class="material-symbols-outlined text-sm">check</span>
                     Nom
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-zone-goto="3b" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                <button data-zone-goto="3b"
+                    class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
                     <span class="material-symbols-outlined text-sm">check</span>
                     Catégorie
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-zone-goto="3c" class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                <button data-zone-goto="3c"
+                    class="zone-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
                     <span class="material-symbols-outlined text-sm">check</span>
                     Matériau
                 </button>
                 <span class="text-slate-300">→</span>
-                <button data-zone-goto="3d" class="zone-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
+                <button data-zone-goto="3d"
+                    class="zone-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white">
                     <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">4</span>
                     Dimensions
                 </button>
+            </div>
+
+            <!-- Mobile Simple Header -->
+            <div class="md:hidden mb-6 flex items-center gap-2 text-sm text-slate-500 font-medium">
+                <span
+                    class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-xs">4</span>
+                <span>Dimensions</span>
             </div>
 
             <div class="mb-6">
@@ -824,30 +995,36 @@
                 <!-- Dimensions inputs -->
                 <div class="grid grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Longueur</label>
+                        <label
+                            class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Longueur</label>
                         <div class="relative">
                             <input type="number" id="zone-longueur" name="longueur" min="0" step="0.1" required
                                 class="w-full px-4 py-4 bg-white border-2 border-slate-200 rounded-xl text-lg text-slate-900 text-center focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
                                 placeholder="0">
-                            <span class="absolute -bottom-5 left-0 right-0 text-[10px] text-slate-400 text-center">pieds</span>
+                            <span
+                                class="absolute -bottom-5 left-0 right-0 text-[10px] text-slate-400 text-center">pieds</span>
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Largeur</label>
+                        <label
+                            class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Largeur</label>
                         <div class="relative">
                             <input type="number" id="zone-largeur" name="largeur" min="0" step="0.1" required
                                 class="w-full px-4 py-4 bg-white border-2 border-slate-200 rounded-xl text-lg text-slate-900 text-center focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
                                 placeholder="0">
-                            <span class="absolute -bottom-5 left-0 right-0 text-[10px] text-slate-400 text-center">pieds</span>
+                            <span
+                                class="absolute -bottom-5 left-0 right-0 text-[10px] text-slate-400 text-center">pieds</span>
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Épaisseur</label>
+                        <label
+                            class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Épaisseur</label>
                         <div class="relative">
                             <input type="number" id="zone-epaisseur" name="epaisseur" min="0" step="0.0625" required
                                 class="w-full px-4 py-4 bg-white border-2 border-slate-200 rounded-xl text-lg text-slate-900 text-center focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
                                 placeholder="0">
-                            <span class="absolute -bottom-5 left-0 right-0 text-[10px] text-slate-400 text-center">pouces</span>
+                            <span
+                                class="absolute -bottom-5 left-0 right-0 text-[10px] text-slate-400 text-center">pouces</span>
                         </div>
                     </div>
                 </div>
@@ -867,17 +1044,21 @@
                         </div>
                         <div>
                             <span class="block text-xs font-bold text-slate-400 uppercase mb-1">Risque</span>
-                            <span id="calc-risque" class="inline-block mt-1 px-4 py-2 rounded-xl text-sm font-bold bg-slate-200 text-slate-400">--</span>
+                            <span id="calc-risque"
+                                class="inline-block mt-1 px-4 py-2 rounded-xl text-sm font-bold bg-slate-200 text-slate-400">--</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between pt-4">
-                    <button type="button" id="btn-back-step3d" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                <div class="mobile-sticky-footer flex items-center justify-between pt-4">
+                    <button type="button" id="btn-back-step3d"
+                        class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
                         <span class="material-symbols-outlined text-lg">arrow_back</span>
                         Retour
                     </button>
-                    <button type="button" id="btn-add-zone-final" class="px-8 py-4 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <button type="button" id="btn-add-zone-final"
+                        class="px-8 py-4 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled>
                         <span class="material-symbols-outlined">add_circle</span>
                         Ajouter cette zone
                     </button>
@@ -907,7 +1088,8 @@
                     <span class="material-symbols-outlined text-slate-400 text-lg">location_on</span>
                     <div>
                         <p id="recap-client-adresse">—</p>
-                        <p class="text-xs text-slate-400 mt-1"><span id="recap-client-distance">0</span> km du bureau</p>
+                        <p class="text-xs text-slate-400 mt-1"><span id="recap-client-distance">0</span> km du bureau
+                        </p>
                     </div>
                 </div>
             </div>
@@ -929,11 +1111,13 @@
                 <div class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-4 text-center">
                     <div>
                         <span class="block text-xs text-slate-400 uppercase tracking-wider">Surface totale</span>
-                        <span class="text-lg font-bold text-slate-900"><span id="recap-surface-total">0</span> pi²</span>
+                        <span class="text-lg font-bold text-slate-900"><span id="recap-surface-total">0</span>
+                            pi²</span>
                     </div>
                     <div>
                         <span class="block text-xs text-slate-400 uppercase tracking-wider">Risque global</span>
-                        <span id="recap-risque-global" class="inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase">—</span>
+                        <span id="recap-risque-global"
+                            class="inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase">—</span>
                     </div>
                 </div>
             </div>
@@ -948,7 +1132,7 @@
                         <h3 class="font-semibold text-slate-900">Détail des coûts</h3>
                     </div>
                 </div>
-                
+
                 <div class="p-5 space-y-3" id="prix-details">
                     <!-- Coûts zones -->
                     <div class="flex justify-between items-center py-2">
@@ -959,7 +1143,7 @@
                         <span class="text-slate-600">Démolition</span>
                         <span class="font-semibold text-slate-900" id="prix-demolition">0 $</span>
                     </div>
-                    
+
                     <!-- Frais risque élevé (conditionnels) -->
                     <div id="prix-risque-eleve-section" class="hidden">
                         <div class="my-3 border-t border-dashed border-slate-200"></div>
@@ -979,7 +1163,7 @@
                     </div>
 
                     <div class="my-3 border-t border-dashed border-slate-200"></div>
-                    
+
                     <div class="flex justify-between items-center py-2">
                         <span class="text-slate-600">Transport</span>
                         <span class="font-semibold text-slate-900" id="prix-transport">0 $</span>
@@ -1021,18 +1205,21 @@
                     <span class="material-symbols-outlined text-red-500">warning</span>
                     <div>
                         <p class="text-sm font-semibold text-red-700">Attention : Risque élevé détecté</p>
-                        <p class="text-xs text-red-600 mt-1">Ce projet nécessite des douches de décontamination et des tests d'air obligatoires.</p>
+                        <p class="text-xs text-red-600 mt-1">Ce projet nécessite des douches de décontamination et des
+                            tests d'air obligatoires.</p>
                     </div>
                 </div>
             </div>
 
             <!-- Navigation buttons -->
             <div class="flex items-center justify-between pt-4">
-                <button type="button" id="btn-back-step4" class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                <button type="button" id="btn-back-step4"
+                    class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
                     <span class="material-symbols-outlined text-lg">arrow_back</span>
                     Modifier les zones
                 </button>
-                <button type="button" id="btn-continue-step4" class="px-6 py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2">
+                <button type="button" id="btn-continue-step4"
+                    class="px-6 py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2">
                     Générer la soumission
                     <span class="material-symbols-outlined text-lg">description</span>
                 </button>
@@ -1051,4 +1238,5 @@
     <!-- JavaScript -->
     <script src="app.js"></script>
 </body>
+
 </html>

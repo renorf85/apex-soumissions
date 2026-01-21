@@ -20,23 +20,28 @@ textarea:focus {
 
 /* Step states */
 .step.completed .step-circle {
-    background-color: #22c55e; /* green-500 */
+    background-color: #22c55e;
+    /* green-500 */
     color: white;
 }
 
 .step.active .step-circle {
-    background-color: #f97316; /* apex-orange */
+    background-color: #f97316;
+    /* apex-orange */
     color: white;
     box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.2);
 }
 
 .step.inactive .step-circle {
-    background-color: #d1d5db; /* gray-300 */
-    color: #6b7280; /* gray-500 */
+    background-color: #d1d5db;
+    /* gray-300 */
+    color: #6b7280;
+    /* gray-500 */
 }
 
 .step-line.completed {
-    background-color: #22c55e; /* green-500 */
+    background-color: #22c55e;
+    /* green-500 */
 }
 
 /* Drop zone */
@@ -56,13 +61,17 @@ textarea:focus {
 
 /* Risk badges */
 .risque-modere {
-    background-color: #fef3c7; /* amber-100 */
-    color: #92400e; /* amber-800 */
+    background-color: #fef3c7;
+    /* amber-100 */
+    color: #92400e;
+    /* amber-800 */
 }
 
 .risque-eleve {
-    background-color: #fee2e2; /* red-100 */
-    color: #991b1b; /* red-800 */
+    background-color: #fee2e2;
+    /* red-100 */
+    color: #991b1b;
+    /* red-800 */
 }
 
 /* Zone cards */
@@ -84,6 +93,7 @@ textarea:focus {
         opacity: 0;
         transform: translateY(-10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -161,6 +171,7 @@ textarea:focus {
 
 /* Print styles */
 @media print {
+
     header,
     nav,
     footer,
@@ -211,3 +222,5 @@ input[type="number"]::-webkit-outer-spin-button {
 ::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
 }
+
+@import 'mobile-styles.css';
