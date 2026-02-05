@@ -72,6 +72,8 @@ const state = {
     materiaux: [],
     config: {},
     risqueGlobal: null,
+    // Multi-surfaces : surfaces temporaires lors de la création/édition d'une zone
+    currentSurfaces: [],
     prix: {
         zones: 0,
         demolition: 0,
@@ -86,6 +88,82 @@ const state = {
         total: 0
     }
 };
+
+// =====================================================
+// FORMATAGE DES NOMBRES (espace comme séparateur milliers)
+// =====================================================
+
+/**
+ * Formate un nombre avec des espaces comme séparateurs de milliers
+ * Ex: 12000 -> "12 000", 1234567.89 -> "1 234 567,89"
+ * @param {number} num - Le nombre à formater
+ * @param {number} decimals - Nombre de décimales (défaut: 0)
+ * @returns {string} - Le nombre formaté
+ */
+function formatNumber(num, decimals = 0) {
+    if (num === null || num === undefined || isNaN(num)) return '--';
+    
+    // Arrondir au nombre de décimales souhaité
+    const fixed = Number(num).toFixed(decimals);
+    
+    // Séparer partie entière et décimale
+    const [intPart, decPart] = fixed.split('.');
+    
+    // Ajouter des espaces comme séparateurs de milliers
+    const formatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    
+    // Retourner avec décimales si nécessaire (virgule pour format québécois)
+    return decPart ? `${formatted},${decPart}` : formatted;
+}
+
+/**
+ * Formate un prix avec $ et espaces
+ * Ex: 12000 -> "12 000 $"
+ */
+function formatPrix(num, decimals = 0) {
+    return `${formatNumber(num, decimals)} $`;
+}
+
+// =====================================================
+// AUTO-FIT TEXT - Ajuste la taille de police pour tenir sur une ligne
+// =====================================================
+
+/**
+ * Ajuste la taille de police d'un élément pour que son contenu tienne sur une ligne
+ * @param {HTMLElement} element - L'élément à ajuster
+ */
+function fitTextToContainer(element) {
+    if (!element) return;
+    
+    const container = element.parentElement;
+    if (!container) return;
+    
+    const minSize = parseInt(element.dataset.minSize) || 12;
+    const maxSize = parseInt(element.dataset.maxSize) || 24;
+    
+    // Reset to max size first
+    element.style.fontSize = maxSize + 'px';
+    
+    // Get container width (accounting for padding)
+    const containerStyle = window.getComputedStyle(container);
+    const containerWidth = container.clientWidth - parseFloat(containerStyle.paddingLeft) - parseFloat(containerStyle.paddingRight);
+    
+    // Reduce font size until it fits
+    let currentSize = maxSize;
+    while (element.scrollWidth > containerWidth && currentSize > minSize) {
+        currentSize -= 1;
+        element.style.fontSize = currentSize + 'px';
+    }
+}
+
+/**
+ * Ajuste tous les éléments avec la classe .auto-fit-text
+ */
+function fitAllAutoFitText() {
+    document.querySelectorAll('.auto-fit-text').forEach(el => {
+        fitTextToContainer(el);
+    });
+}
 
 // =====================================================
 // LOCAL STORAGE - SAVE & RESTORE PROGRESS
@@ -104,10 +182,36 @@ function saveStateToStorage() {
             zones: state.zones,
             savedAt: new Date().toISOString()
         };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-        console.log('💾 Progression sauvegardée');
+        const jsonString = JSON.stringify(dataToSave);
+        const sizeKB = Math.round(jsonString.length / 1024);
+        
+        localStorage.setItem(STORAGE_KEY, jsonString);
+        console.log(`💾 Progression sauvegardée (${sizeKB} KB)`);
     } catch (e) {
-        console.warn('Impossible de sauvegarder:', e);
+        console.error('❌ Erreur sauvegarde:', e);
+        // Si quota exceeded, on essaie sans les photos
+        if (e.name === 'QuotaExceededError' || e.code === 22) {
+            console.warn('⚠️ Stockage plein - sauvegarde sans photos');
+            try {
+                const zonesWithoutPhotos = state.zones.map(z => ({
+                    ...z,
+                    surfaces: z.surfaces?.map(s => ({ ...s, photo: null })) || []
+                }));
+                const fallbackData = {
+                    currentStep: state.currentStep,
+                    hasReport: state.hasReport,
+                    rapport: state.rapport,
+                    client: state.client,
+                    zones: zonesWithoutPhotos,
+                    savedAt: new Date().toISOString(),
+                    photosOmitted: true
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(fallbackData));
+                console.log('💾 Sauvegardé sans photos');
+            } catch (e2) {
+                console.error('❌ Impossible de sauvegarder même sans photos:', e2);
+            }
+        }
     }
 }
 
@@ -305,6 +409,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupStep2Events();
     setupStep3Events();
     setupStep4Events();
+    setupStep5Events();
     setupWizardNavigation();
     setupNewSubmissionButton();
 
@@ -322,6 +427,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('  1-5 = Aller à l\'étape X');
         console.log('  ← / → = Étape précédente / suivante');
     }
+
+    // Ajuster les textes auto-fit lors du redimensionnement de la fenêtre
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(fitAllAutoFitText, 100);
+    });
 
     console.log('Apex Soumissions - Prêt!');
 });
@@ -375,7 +487,9 @@ function setupStep1Events() {
 
     // Back button (mobile) - handles navigation based on current step
     btnBackMobile?.addEventListener('click', () => {
-        if (state.currentStep === 3) {
+        if (state.currentStep === 4) {
+            goToStep(3);
+        } else if (state.currentStep === 3) {
             goToStep(2);
         } else if (state.currentStep === 2) {
             goToStep(1);
@@ -929,12 +1043,14 @@ async function selectAddress(feature) {
 }
 
 function getTransportCost(distance) {
+    // Note: Ceci est un indicateur. Le vrai calcul se fait à l'étape 4
+    // basé sur la durée du projet (heures ÷ équipe ÷ 8h × 75$/jour)
     if (distance > 100) {
-        return '75+ (pension)';
+        return '75$/jour + pension';
     } else if (distance > 50) {
-        return 75;
+        return '75$/jour';
     }
-    return 55;
+    return '55$ (local)';
 }
 
 // Calculate real driving distance using Mapbox Directions API
@@ -974,17 +1090,14 @@ function updateTransportCost(distance) {
     const transportCostEl = document.getElementById('transport-cost');
     if (!transportCostEl) return;
 
-    let cost = 55; // Default 0-50km
     let message = '';
 
     if (distance > 100) {
-        cost = 75;
-        message = `Frais de transport : ${cost} $ <span class="text-amber-600 font-medium">(+ prévoir pension)</span>`;
+        message = `<span class="font-bold">75$/jour</span> <span class="text-amber-600 font-medium">+ pension</span>`;
     } else if (distance > 50) {
-        cost = 75;
-        message = `Frais de transport : ${cost} $`;
+        message = `<span class="font-bold">75$/jour</span>`;
     } else {
-        message = `Frais de transport : ${cost} $`;
+        message = `<span class="font-bold">55$</span> <span class="text-slate-500">(local)</span>`;
     }
 
     transportCostEl.innerHTML = message;
@@ -1270,9 +1383,45 @@ function filterMateriauxByCategorie(categorie) {
         optionsList.appendChild(noResults);
     }
     
-    // Reset the dropdown selection
+    // En mode édition, restaurer la sélection si le matériau existe
     const hiddenInput = document.getElementById('zone-materiau');
     const triggerText = document.getElementById('materiau-dropdown-text');
+    const currentMateriauId = hiddenInput?.value;
+    
+    if (state.editingZoneId && currentMateriauId) {
+        // Vérifier si le matériau sélectionné est dans la liste filtrée
+        const selectedMat = filteredMateriaux.find(mat => mat.id == currentMateriauId);
+        
+        if (selectedMat) {
+            // Marquer l'option comme sélectionnée visuellement
+            const options = optionsList.querySelectorAll('.custom-dropdown-option');
+            options.forEach(opt => {
+                opt.classList.remove('selected');
+                if (opt.dataset.value == currentMateriauId) {
+                    opt.classList.add('selected');
+                }
+            });
+            
+            // S'assurer que le texte du trigger est correct
+            if (triggerText) {
+                triggerText.textContent = selectedMat.nom;
+                triggerText.classList.remove('text-slate-400');
+                triggerText.classList.add('text-slate-900');
+            }
+            
+            // Afficher le badge de friabilité
+            updateFriabiliteBadge(selectedMat.friabilite);
+            
+            // Activer le bouton continuer
+            const btnNextStep3c = document.getElementById('btn-next-step3c');
+            if (btnNextStep3c) btnNextStep3c.disabled = false;
+            
+            console.log(`🔍 Matériaux filtrés pour "${categorie}": ${filteredMateriaux.length} trouvés (matériau actuel conservé: ${selectedMat.nom})`);
+            return;
+        }
+    }
+    
+    // Reset the dropdown selection (mode création ou matériau non trouvé)
     if (hiddenInput) {
         hiddenInput.value = '';
         delete hiddenInput.dataset.friabilite;
@@ -1415,23 +1564,21 @@ function setupStep3Events() {
     btnBackStep3c?.addEventListener('click', () => goToZoneStep('3b'));
     btnNextStep3c?.addEventListener('click', () => goToZoneStep('3d'));
 
-    // === Step 3d: Dimensions ===
-    const longueurInput = document.getElementById('zone-longueur');
-    const largeurInput = document.getElementById('zone-largeur');
+    // === Step 3d: Dimensions (Multi-surfaces) ===
     const epaisseurInput = document.getElementById('zone-epaisseur');
     const btnBackStep3d = document.getElementById('btn-back-step3d');
     const btnAddZoneFinal = document.getElementById('btn-add-zone-final');
+    const btnAddSurface = document.getElementById('btn-add-surface');
 
-    // Dimension inputs → recalculate
-    [longueurInput, largeurInput, epaisseurInput].forEach(input => {
-        input?.addEventListener('input', () => {
-            calculateZoneValues();
-            // Enable add button if all dimensions are filled
-            const hasLong = parseFloat(longueurInput?.value) > 0;
-            const hasLarg = parseFloat(largeurInput?.value) > 0;
-            const hasEpais = parseFloat(epaisseurInput?.value) > 0;
-            btnAddZoneFinal.disabled = !(hasLong && hasLarg && hasEpais);
-        });
+    // Épaisseur → recalculate tous les volumes
+    epaisseurInput?.addEventListener('input', () => {
+        updateSurfaceTotals();
+        updateZoneWizardButtonStates();
+    });
+    
+    // Bouton ajouter une surface
+    btnAddSurface?.addEventListener('click', () => {
+        addSurface();
     });
 
     btnBackStep3d?.addEventListener('click', () => goToZoneStep('3c'));
@@ -1461,6 +1608,20 @@ function goToZoneStep(subStep) {
         const selectedCategorie = document.getElementById('zone-categorie')?.value;
         filterMateriauxByCategorie(selectedCategorie);
     }
+    
+    // If going to step 3d (dimensions), initialiser les surfaces
+    if (subStep === '3d') {
+        // Si pas de surfaces en cours, initialiser avec une surface vide
+        if (!state.currentSurfaces || state.currentSurfaces.length === 0) {
+            initSurfacesList();
+        }
+        // Rendre la liste des surfaces
+        renderSurfacesList();
+        // Configurer la délégation d'événements (une seule fois)
+        setupSurfaceEventDelegation();
+        // Calculer les totaux
+        updateSurfaceTotals();
+    }
 
     // Update progress bar (still step 3)
     updateProgressBar(3);
@@ -1471,15 +1632,21 @@ function goToZoneStep(subStep) {
 
     // Update button states
     updateZoneWizardButtonStates();
+    
+    // Update navigation visuelle (en mode édition, toutes les étapes sont complétées)
+    updateZoneNavSteps(subStep, !!state.editingZoneId);
 }
 
 function updateZoneWizardButtonStates() {
     const nom = document.getElementById('zone-nom')?.value.trim();
     const categorie = document.getElementById('zone-categorie')?.value;
     const materiau = document.getElementById('zone-materiau')?.value;
-    const longueur = parseFloat(document.getElementById('zone-longueur')?.value) > 0;
-    const largeur = parseFloat(document.getElementById('zone-largeur')?.value) > 0;
     const epaisseur = parseFloat(document.getElementById('zone-epaisseur')?.value) > 0;
+    
+    // Vérifier si au moins une surface a des dimensions valides
+    const hasValidSurface = state.currentSurfaces && state.currentSurfaces.some(
+        s => s.longueur > 0 && s.hauteur > 0
+    );
 
     const btnNext3a = document.getElementById('btn-next-step3a');
     const btnNext3c = document.getElementById('btn-next-step3c');
@@ -1487,12 +1654,57 @@ function updateZoneWizardButtonStates() {
 
     if (btnNext3a) btnNext3a.disabled = !nom;
     if (btnNext3c) btnNext3c.disabled = !materiau;
-    if (btnAddFinal) btnAddFinal.disabled = !(longueur && largeur && epaisseur);
+    if (btnAddFinal) btnAddFinal.disabled = !(hasValidSurface && epaisseur);
+}
+
+/**
+ * Met à jour la navigation visuelle du wizard de zone
+ * @param {string} currentStep - L'étape actuelle ('3a', '3b', '3c', '3d')
+ * @param {boolean} isEditMode - Si true, toutes les étapes sauf l'actuelle sont marquées comme complétées
+ */
+function updateZoneNavSteps(currentStep, isEditMode = false) {
+    const steps = ['3a', '3b', '3c', '3d'];
+    const stepLabels = { '3a': 'Nom', '3b': 'Catégorie', '3c': 'Matériau', '3d': 'Dimensions' };
+    const currentIndex = steps.indexOf(currentStep);
+    
+    steps.forEach((step, index) => {
+        // Sélectionner tous les boutons de navigation pour cette étape (dans toutes les sections)
+        const btns = document.querySelectorAll(`[data-zone-goto="${step}"]`);
+        
+        btns.forEach(btn => {
+            btn.classList.remove('active', 'completed', 'pending');
+            
+            let isCompleted = false;
+            let isActive = index === currentIndex;
+            
+            if (isEditMode) {
+                // En mode édition, toutes les étapes sauf l'actuelle sont complétées
+                isCompleted = index !== currentIndex;
+            } else {
+                // En mode création, seules les étapes précédentes sont complétées
+                isCompleted = index < currentIndex;
+            }
+            
+            if (isCompleted) {
+                btn.classList.add('completed');
+                // Mettre l'icône check
+                btn.innerHTML = `<span class="material-symbols-outlined text-xs">check</span>${stepLabels[step]}`;
+            } else if (isActive) {
+                btn.classList.add('active');
+                // Mettre le numéro
+                btn.innerHTML = `<span class="nav-num">${index + 1}</span>${stepLabels[step]}`;
+            } else {
+                btn.classList.add('pending');
+                // Mettre le numéro
+                btn.innerHTML = `<span class="nav-num">${index + 1}</span>${stepLabels[step]}`;
+            }
+        });
+    });
 }
 
 function setupZoneWizardNavigation() {
-    // Add click handlers to all zone nav buttons
-    document.querySelectorAll('.zone-nav-btn').forEach(btn => {
+    // Add click handlers to all zone nav buttons (using data-zone-goto attribute)
+    document.querySelectorAll('[data-zone-goto]').forEach(btn => {
         btn.addEventListener('click', () => {
             const gotoStep = btn.dataset.zoneGoto;
             if (gotoStep) {
@@ -1513,6 +1725,10 @@ function showZoneList() {
     // Hide all zone wizard steps and show zone list
     document.querySelectorAll('[id^="step-3"]').forEach(el => el.classList.add('hidden'));
     document.getElementById('step-3').classList.remove('hidden');
+    
+    // Reset form and editing state when returning to list
+    resetZoneForm();
+    
     renderZoneCards();
 }
 
@@ -1561,82 +1777,176 @@ function createZoneCard(zone) {
     // Risk badge
     const isHighRisk = zone.risque === 'ÉLEVÉ';
     const riskClass = isHighRisk ? 'risk-high' : 'risk-moderate';
-    const riskText = isHighRisk ? 'Risque élevé' : 'Risque modéré';
+    const riskText = isHighRisk ? 'ÉLEVÉ' : 'MODÉRÉ';
+    const isOverride = zone.risqueOverride === true;
+    const overrideIndicator = '';
 
     // Friability text
     const friabiliteText = zone.friabilite === 'friable' ? 'Friable' : 'Non friable';
 
-    // Photo section with glassmorphism effect
-    const hasPhoto = zone.photo && zone.photo.dataUrl;
-    const photoHtml = hasPhoto 
-        ? `<div class="zone-card-photo absolute inset-0 rounded-2xl overflow-hidden">
-               <img src="${zone.photo.dataUrl}" alt="${zone.nom}" class="w-full h-full object-cover">
-               <div class="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/40 to-slate-900/20"></div>
-           </div>`
-        : '';
+    // Collecter toutes les photos (ancien format + nouveau format surfaces)
+    const allPhotos = [];
+    if (zone.photo?.dataUrl) {
+        allPhotos.push({ dataUrl: zone.photo.dataUrl, name: zone.photo.name || 'Photo zone', surfaceIndex: null });
+    }
+    zone.surfaces?.forEach((s, i) => {
+        if (s.photo?.dataUrl) {
+            allPhotos.push({ dataUrl: s.photo.dataUrl, name: s.photo.name || `Photo mur ${i + 1}`, surfaceIndex: i });
+        }
+    });
+    const hasPhotos = allPhotos.length > 0;
 
-    // Photo thumbnail for top left (instead of icon when photo exists)
-    const topLeftHtml = hasPhoto
-        ? `<div class="zone-photo-thumb w-14 h-14 rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-white/50 transition-all shadow-lg border-2 border-white/30" data-photo-url="${zone.photo.dataUrl}" data-photo-name="${zone.photo.name}">
-               <img src="${zone.photo.dataUrl}" alt="${zone.nom}" class="w-full h-full object-cover">
-           </div>`
-        : `<div class="bg-slate-50 p-3 rounded-xl">
-               <span class="material-symbols-outlined text-slate-400">${icon}</span>
-           </div>`;
-
-    // Different text colors for photo vs no photo
-    const textColorMain = hasPhoto ? 'text-white' : 'text-slate-900';
-    const textColorSecondary = hasPhoto ? 'text-white/70' : 'text-slate-400';
-    const textColorValue = hasPhoto ? 'text-white' : 'text-slate-700';
-    const borderColor = hasPhoto ? 'border-white/20' : 'border-slate-50';
-    const deleteIconColor = hasPhoto ? 'text-white/50 hover:text-red-400' : 'text-slate-300 hover:text-red-500';
+    // Générer le HTML des photos empilées verticalement
+    const photosStackHtml = hasPhotos ? `
+        <div class="zone-photos-stack mt-4 pt-4 border-t border-slate-100 space-y-2">
+            ${allPhotos.map((photo, i) => `
+                <div class="photo-item relative rounded-xl overflow-hidden bg-slate-100 cursor-pointer group" data-photo-index="${i}">
+                    <img src="${photo.dataUrl}" alt="Photo ${i + 1}" 
+                        class="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-300">
+                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 flex items-center justify-center transition-all">
+                        <span class="material-symbols-outlined text-white text-2xl opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg">zoom_in</span>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    ` : '';
 
     card.innerHTML = `
-        ${photoHtml}
-        <div class="relative z-10 flex justify-between items-start mb-4">
-            ${topLeftHtml}
-            <div class="flex flex-col items-end gap-2">
-                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${riskClass}">
-                    ${riskText}
-                </span>
-                <button class="btn-delete-zone w-8 h-8 flex items-center justify-center ${deleteIconColor} transition-colors" data-zone-id="${zone.id}">
+        <!-- Header: Icône + Nom + Boutons -->
+        <div class="flex items-start justify-between mb-3">
+            <div class="flex items-center gap-3">
+                <div class="bg-slate-100 p-2.5 rounded-xl">
+                    <span class="material-symbols-outlined text-slate-500">${icon}</span>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-slate-900">${zone.nom}</h3>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${riskClass}">
+                            ${riskText}${overrideIndicator}
+                        </span>
+                        <button class="btn-toggle-risque w-5 h-5 flex items-center justify-center rounded ${isOverride ? 'bg-yellow-500 text-white' : 'bg-slate-200 text-slate-400 hover:text-slate-600'} transition-all" data-zone-id="${zone.id}" title="${isOverride ? 'Retour au calcul auto' : 'Modifier le risque'}">
+                            <span class="material-symbols-outlined text-xs">${isOverride ? 'refresh' : 'edit'}</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-1">
+                <button class="btn-edit-zone w-8 h-8 flex items-center justify-center text-slate-400 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors" data-zone-id="${zone.id}" title="Modifier">
+                    <span class="material-symbols-outlined text-xl">edit</span>
+                </button>
+                <button class="btn-delete-zone w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" data-zone-id="${zone.id}" title="Supprimer">
                     <span class="material-symbols-outlined text-xl">delete</span>
                 </button>
             </div>
         </div>
-        <div class="relative z-10 mt-auto">
-            <h3 class="text-lg font-bold ${textColorMain} mb-1">${zone.nom}</h3>
-            <div class="space-y-2 pt-3 border-t ${borderColor}">
-                <div class="flex justify-between items-center">
-                    <span class="text-xs ${textColorSecondary}">Surface</span>
-                    <span class="text-xs font-semibold ${textColorValue}">${zone.surface.toFixed(0)} pi²</span>
+
+        <!-- Infos de la zone - Style tableau -->
+        <div class="mt-3">
+            <!-- Tableau des surfaces -->
+            ${zone.surfaces && zone.surfaces.length > 0 ? `
+                <table class="w-full text-xs border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-200">
+                            <th class="text-left py-2 text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Surface</th>
+                            <th class="text-right py-2 text-slate-400 font-semibold uppercase tracking-wider text-[10px]">L × H</th>
+                            <th class="text-right py-2 text-slate-400 font-semibold uppercase tracking-wider text-[10px]">pi²</th>
+                            <th class="w-8"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        ${zone.surfaces.map((s, i) => `
+                            <tr class="hover:bg-slate-50">
+                                <td class="py-2 text-slate-600">Mur ${i + 1}</td>
+                                <td class="py-2 text-right text-slate-700">${formatNumber(s.longueur, 0)} × ${formatNumber(s.hauteur, 0)}</td>
+                                <td class="py-2 text-right font-medium text-slate-800">${formatNumber(s.longueur * s.hauteur, 0)}</td>
+                                <td class="py-2 text-center">
+                                    ${s.photo ? `
+                                        <button class="btn-view-surface-photo text-blue-500 hover:text-blue-700 transition-colors" data-zone-id="${zone.id}" data-surface-index="${i}" title="Voir la photo">
+                                            <span class="material-symbols-outlined text-base">photo_camera</span>
+                                        </button>
+                                    ` : `
+                                        <span class="text-slate-300">
+                                            <span class="material-symbols-outlined text-base">photo_camera</span>
+                                        </span>
+                                    `}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                    <tfoot>
+                        <tr class="border-t-2 border-slate-300 bg-slate-50">
+                            <td class="py-2 font-semibold text-slate-700" colspan="2">Total</td>
+                            <td class="py-2 text-right font-bold text-slate-900">${formatNumber(zone.surface || zone.surfaceTotal, 0)}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            ` : `
+                <div class="flex justify-between items-center py-2 border-b border-slate-100">
+                    <span class="text-xs text-slate-500">Surface</span>
+                    <span class="text-sm font-bold text-slate-900">${formatNumber(zone.surface || zone.surfaceTotal, 0)} pi²</span>
                 </div>
-                <div class="flex justify-between items-center">
-                    <span class="text-xs ${textColorSecondary}">Matériau</span>
-                    <span class="text-xs font-semibold ${textColorValue}">${zone.materiauNom?.split(' ')[0] || 'N/A'}</span>
+            `}
+            
+            <!-- Autres infos -->
+            <div class="divide-y divide-slate-100 mt-2">
+                <div class="flex justify-between items-center py-2">
+                    <span class="text-xs text-slate-500">Matériau</span>
+                    <span class="text-xs font-semibold text-slate-700">${zone.materiauNom?.split(' ')[0] || 'N/A'}</span>
                 </div>
-                <div class="flex justify-between items-center">
-                    <span class="text-xs ${textColorSecondary}">Friabilité</span>
-                    <span class="text-xs font-semibold ${textColorValue}">${friabiliteText}</span>
+                <div class="flex justify-between items-center py-2">
+                    <span class="text-xs text-slate-500">Friabilité</span>
+                    <span class="text-xs font-semibold text-slate-700">${friabiliteText}</span>
                 </div>
             </div>
         </div>
+
+        <!-- Photos empilées -->
+        ${photosStackHtml}
     `;
 
-    // Photo thumbnail click → open lightbox
-    const photoThumb = card.querySelector('.zone-photo-thumb');
-    if (photoThumb) {
-        photoThumb.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openLightbox(photoThumb.dataset.photoUrl, photoThumb.dataset.photoName);
+    // Click sur photos → lightbox
+    if (hasPhotos) {
+        card.querySelectorAll('.photo-item').forEach((item, i) => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openLightbox(allPhotos[i].dataUrl, `Photo ${i + 1}`);
+            });
         });
     }
+
+    // Toggle risque button listener
+    const btnToggleRisque = card.querySelector('.btn-toggle-risque');
+    btnToggleRisque?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleZoneRisque(zone.id);
+    });
+
+    // Edit button listener
+    const btnEdit = card.querySelector('.btn-edit-zone');
+    btnEdit?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        editZone(zone.id);
+    });
 
     // Delete button listener
     const btnDelete = card.querySelector('.btn-delete-zone');
     btnDelete?.addEventListener('click', (e) => {
         e.stopPropagation();
         deleteZone(zone.id);
+    });
+
+    // Surface photo buttons listener
+    card.querySelectorAll('.btn-view-surface-photo').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const zoneId = parseInt(btn.dataset.zoneId);
+            const surfaceIndex = parseInt(btn.dataset.surfaceIndex);
+            const targetZone = state.zones.find(z => z.id === zoneId);
+            if (targetZone?.surfaces?.[surfaceIndex]?.photo?.dataUrl) {
+                openLightbox(targetZone.surfaces[surfaceIndex].photo.dataUrl, `Photo Mur ${surfaceIndex + 1}`);
+            }
+        });
     });
 
     return card;
@@ -1653,6 +1963,142 @@ function deleteZone(zoneId) {
     saveStateToStorage();
 }
 
+// Met à jour le carrousel de photos d'une carte
+function updateCarousel(card) {
+    if (!card.carouselPhotos || card.carouselPhotos.length === 0) return;
+    
+    const photo = card.carouselPhotos[card.carouselIndex];
+    const img = card.querySelector('.carousel-photo');
+    const caption = card.querySelector('.carousel-caption');
+    const dots = card.querySelectorAll('.carousel-dot');
+    
+    if (img) img.src = photo.dataUrl;
+    if (caption) caption.textContent = photo.name;
+    
+    dots.forEach((dot, i) => {
+        dot.classList.toggle('bg-primary', i === card.carouselIndex);
+        dot.classList.toggle('bg-slate-300', i !== card.carouselIndex);
+    });
+}
+
+// Toggle manuel du risque par zone (feedback équipe 21 jan 2026)
+function toggleZoneRisque(zoneId) {
+    const zone = state.zones.find(z => z.id === zoneId);
+    if (!zone) return;
+
+    if (zone.risqueOverride) {
+        // Retour au calcul automatique
+        delete zone.risqueOverride;
+        zone.risque = determineRisque(zone.volume, zone.friabilite);
+        console.log('🔄 Risque auto restauré pour zone:', zone.nom, '→', zone.risque);
+    } else {
+        // Toggle manuel : inverser le risque
+        zone.risqueOverride = true;
+        zone.risque = zone.risque === 'ÉLEVÉ' ? 'MODÉRÉ' : 'ÉLEVÉ';
+        console.log('✏️ Risque modifié manuellement pour zone:', zone.nom, '→', zone.risque);
+    }
+
+    renderZoneCards();
+    
+    // Recalculer les prix si on est à l'étape 4
+    if (state.currentStep === 4) {
+        calculatePrix();
+    }
+    
+    saveStateToStorage();
+}
+
+// Éditer une zone existante (Phase 4 - feedback équipe 21 jan 2026)
+function editZone(zoneId) {
+    const zone = state.zones.find(z => z.id === zoneId);
+    if (!zone) {
+        console.error('Zone non trouvée:', zoneId);
+        return;
+    }
+
+    console.log('✏️ Édition de la zone:', zone.nom);
+
+    // Stocker l'ID de la zone en édition
+    state.editingZoneId = zoneId;
+
+    // Pré-remplir les champs du formulaire
+    const nomInput = document.getElementById('zone-nom');
+    const categorieInput = document.getElementById('zone-categorie');
+    const materiauInput = document.getElementById('zone-materiau');
+    const materiauTriggerText = document.getElementById('materiau-dropdown-text');
+    const epaisseurInput = document.getElementById('zone-epaisseur');
+
+    if (nomInput) nomInput.value = zone.nom;
+    if (categorieInput) categorieInput.value = zone.categorie;
+    
+    // Sélectionner visuellement la carte de catégorie
+    document.querySelectorAll('.categorie-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.categorie === zone.categorie) {
+            btn.classList.add('active');
+        }
+    });
+    
+    if (materiauInput) {
+        materiauInput.value = zone.materiauId;
+        materiauInput.dataset.friabilite = zone.friabilite;
+    }
+    if (materiauTriggerText) {
+        materiauTriggerText.textContent = zone.materiauNom || 'Sélectionner un matériau';
+        materiauTriggerText.classList.remove('text-slate-400');
+        materiauTriggerText.classList.add('text-slate-900');
+    }
+    if (epaisseurInput) epaisseurInput.value = zone.epaisseur;
+
+    // Charger les surfaces existantes ou migrer depuis l'ancien format
+    if (zone.surfaces && zone.surfaces.length > 0) {
+        // Nouveau format multi-surfaces
+        state.currentSurfaces = zone.surfaces.map(s => ({
+            id: s.id || Date.now() + Math.random(),
+            longueur: s.longueur,
+            hauteur: s.hauteur,
+            surface: s.surface,
+            volume: s.volume,
+            photo: s.photo
+        }));
+    } else if (zone.longueur && zone.largeur) {
+        // Ancien format : migrer vers multi-surfaces
+        state.currentSurfaces = [{
+            id: Date.now(),
+            longueur: zone.longueur,
+            hauteur: zone.largeur, // "largeur" était "hauteur" dans l'ancien système
+            surface: zone.longueur * zone.largeur,
+            volume: zone.longueur * zone.largeur * (zone.epaisseur / 12),
+            photo: zone.photo
+        }];
+    } else {
+        state.currentSurfaces = [];
+    }
+
+    // Mettre à jour le badge de friabilité
+    updateFriabiliteBadge(zone.friabilite);
+    
+    // Activer les boutons selon les valeurs pré-remplies
+    updateZoneWizardButtonStates();
+
+    // Naviguer vers le wizard zone (étape 3a - nom)
+    goToZoneStep('3a');
+    
+    // Mettre à jour le titre pour indiquer le mode édition
+    updateZoneWizardTitle();
+    
+    // En mode édition, marquer toutes les étapes comme complétées
+    updateZoneNavSteps('3a', true);
+}
+
+// Mettre à jour le titre du wizard selon le mode (création vs édition)
+function updateZoneWizardTitle() {
+    const titleEl = document.querySelector('#step-3a h2');
+    if (titleEl) {
+        titleEl.textContent = state.editingZoneId ? 'Modifier la zone' : 'Nom de la zone';
+    }
+}
+
 function updateFriabiliteBadge(friabilite) {
     const badge = document.getElementById('friabilite-badge');
     const text = document.getElementById('friabilite-text');
@@ -1664,7 +2110,7 @@ function updateFriabiliteBadge(friabilite) {
     if (friabilite === 'friable') {
         text.textContent = 'FRIABLE';
         text.className = 'inline-flex items-center px-4 py-2 rounded-full text-sm font-bold tracking-wider uppercase bg-red-100 text-red-600';
-        if (desc) desc.textContent = 'Risque élevé si volume > 1 pi³';
+        if (desc) desc.textContent = 'Risque élevé si volume > 3 pi³';
     } else {
         text.textContent = 'NON FRIABLE';
         text.className = 'inline-flex items-center px-4 py-2 rounded-full text-sm font-bold tracking-wider uppercase bg-green-100 text-green-600';
@@ -1672,28 +2118,267 @@ function updateFriabiliteBadge(friabilite) {
     }
 }
 
-function calculateZoneValues() {
-    const longueur = parseFloat(document.getElementById('zone-longueur')?.value) || 0;
-    const largeur = parseFloat(document.getElementById('zone-largeur')?.value) || 0;
-    const epaisseur = parseFloat(document.getElementById('zone-epaisseur')?.value) || 0;
+// =====================================================
+// MULTI-SURFACES - Gestion des surfaces multiples par zone
+// =====================================================
 
-    // Get friability from selected material (from hidden input)
+// Initialiser la liste des surfaces avec une surface vide
+function initSurfacesList() {
+    state.currentSurfaces = [];
+    addSurface(); // Ajouter une première surface
+    renderSurfacesList();
+    setupSurfaceEventDelegation(); // Initialiser la délégation une seule fois
+}
+
+// Ajouter une nouvelle surface
+function addSurface() {
+    const newSurface = {
+        id: Date.now() + Math.random(), // ID unique
+        longueur: 0,
+        hauteur: 0,
+        surface: 0,
+        volume: 0,
+        photo: null
+    };
+    state.currentSurfaces.push(newSurface);
+    renderSurfacesList();
+    updateSurfaceTotals();
+    
+    // Focus sur le premier champ de la nouvelle surface
+    setTimeout(() => {
+        const inputs = document.querySelectorAll(`[data-surface-id="${newSurface.id}"] input[name="longueur"]`);
+        if (inputs.length > 0) {
+            inputs[inputs.length - 1]?.focus();
+        }
+    }, 100);
+}
+
+// Supprimer une surface
+function removeSurface(surfaceId) {
+    if (state.currentSurfaces.length <= 1) {
+        // Ne pas supprimer si c'est la dernière surface
+        return;
+    }
+    state.currentSurfaces = state.currentSurfaces.filter(s => s.id !== surfaceId);
+    renderSurfacesList();
+    updateSurfaceTotals();
+}
+
+// Mettre à jour une surface
+function updateSurface(surfaceId, field, value) {
+    const surface = state.currentSurfaces.find(s => s.id === surfaceId);
+    if (!surface) return;
+    
+    surface[field] = parseFloat(value) || 0;
+    
+    // Recalculer surface et volume pour cette surface
+    const epaisseur = parseFloat(document.getElementById('zone-epaisseur')?.value) || 0;
+    surface.surface = surface.longueur * surface.hauteur;
+    surface.volume = surface.longueur * surface.hauteur * (epaisseur / 12);
+    
+    updateSurfaceTotals();
+}
+
+// Mettre à jour la photo d'une surface
+function updateSurfacePhoto(surfaceId, photoData) {
+    const surface = state.currentSurfaces.find(s => s.id === surfaceId);
+    if (!surface) return;
+    
+    surface.photo = photoData;
+    renderSurfacesList();
+}
+
+// Supprimer la photo d'une surface
+function deleteSurfacePhoto(surfaceId) {
+    const surface = state.currentSurfaces.find(s => s.id === surfaceId);
+    if (!surface) return;
+    
+    surface.photo = null;
+    renderSurfacesList();
+    console.log('Photo supprimée pour surface', surfaceId);
+}
+
+// Rendre la liste des surfaces
+function renderSurfacesList() {
+    const container = document.getElementById('surfaces-list');
+    if (!container) return;
+    
+    container.innerHTML = state.currentSurfaces.map((surface, index) => `
+        <div class="surface-item bg-white border-2 border-slate-200 rounded-xl p-4 relative" data-surface-id="${surface.id}">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-sm font-semibold text-slate-600">Surface ${index + 1}</span>
+                <div class="flex items-center gap-2">
+                    <!-- Bouton photo -->
+                    <button type="button" class="btn-surface-photo w-8 h-8 flex items-center justify-center rounded-lg ${surface.photo ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'} transition-colors" 
+                            data-surface-id="${surface.id}" title="${surface.photo ? 'Photo ajoutée' : 'Ajouter une photo'}">
+                        <span class="material-symbols-outlined text-lg">${surface.photo ? 'photo' : 'add_a_photo'}</span>
+                    </button>
+                    <!-- Bouton supprimer (caché si une seule surface) -->
+                    ${state.currentSurfaces.length > 1 ? `
+                        <button type="button" class="btn-remove-surface w-8 h-8 flex items-center justify-center rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors" 
+                                data-surface-id="${surface.id}" title="Supprimer cette surface">
+                            <span class="material-symbols-outlined text-lg">close</span>
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Longueur</label>
+                    <div class="relative">
+                        <input type="number" name="longueur" min="0" step="0.1"
+                            class="surface-input w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-lg text-base text-slate-900 text-center focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                            placeholder="0" value="${surface.longueur || ''}"
+                            data-surface-id="${surface.id}" data-field="longueur">
+                        <span class="absolute -bottom-4 left-0 right-0 text-[9px] text-slate-400 text-center">pieds</span>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Hauteur</label>
+                    <div class="relative">
+                        <input type="number" name="hauteur" min="0" step="0.1"
+                            class="surface-input w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-lg text-base text-slate-900 text-center focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                            placeholder="0" value="${surface.hauteur || ''}"
+                            data-surface-id="${surface.id}" data-field="hauteur">
+                        <span class="absolute -bottom-4 left-0 right-0 text-[9px] text-slate-400 text-center">pieds</span>
+                    </div>
+                </div>
+            </div>
+            ${surface.photo ? `
+                <div class="mt-6">
+                    <div class="relative rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
+                        <!-- Photo -->
+                        <img src="${surface.photo.dataUrl}" alt="Photo surface ${index + 1}" 
+                            class="w-full object-contain max-h-64 cursor-pointer" data-surface-id="${surface.id}" data-action="preview-photo">
+                        <!-- Barre d'actions - toujours visible -->
+                        <div class="absolute top-2 right-2 flex gap-1">
+                            <button class="btn-photo-zoom w-9 h-9 flex items-center justify-center bg-white shadow-lg border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 rounded-lg transition-colors" data-surface-id="${surface.id}" title="Agrandir">
+                                <span class="material-symbols-outlined text-xl">zoom_in</span>
+                            </button>
+                            <button class="btn-photo-replace w-9 h-9 flex items-center justify-center bg-white shadow-lg border border-slate-200 text-slate-600 hover:text-amber-600 hover:border-amber-300 rounded-lg transition-colors" data-surface-id="${surface.id}" title="Remplacer">
+                                <span class="material-symbols-outlined text-xl">sync</span>
+                            </button>
+                            <button class="btn-photo-delete w-9 h-9 flex items-center justify-center bg-white shadow-lg border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-300 rounded-lg transition-colors" data-surface-id="${surface.id}" title="Supprimer">
+                                <span class="material-symbols-outlined text-xl">delete</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
+        </div>
+    `).join('');
+    
+    // Pas besoin de setupSurfaceEventListeners ici - on utilise la délégation
+}
+
+// Flag pour éviter d'initialiser plusieurs fois la délégation
+let surfacesDelegationSetup = false;
+
+// Configurer la délégation d'événements pour les surfaces (une seule fois)
+function setupSurfaceEventDelegation() {
+    if (surfacesDelegationSetup) return;
+    surfacesDelegationSetup = true;
+    
+    const container = document.getElementById('surfaces-list');
+    if (!container) return;
+    
+    // Délégation pour tous les événements sur le container
+    container.addEventListener('click', (e) => {
+        // Bouton photo
+        const photoBtn = e.target.closest('.btn-surface-photo');
+        if (photoBtn) {
+            e.stopPropagation();
+            const surfaceId = parseFloat(photoBtn.dataset.surfaceId);
+            openSurfacePhotoUpload(surfaceId);
+            return;
+        }
+        
+        // Bouton supprimer
+        const removeBtn = e.target.closest('.btn-remove-surface');
+        if (removeBtn) {
+            e.stopPropagation();
+            const surfaceId = parseFloat(removeBtn.dataset.surfaceId);
+            removeSurface(surfaceId);
+            return;
+        }
+        
+        // Preview photo → lightbox (clic sur l'image)
+        const preview = e.target.closest('[data-action="preview-photo"]');
+        if (preview) {
+            e.stopPropagation();
+            const surfaceId = parseFloat(preview.dataset.surfaceId);
+            const surface = state.currentSurfaces.find(s => s.id === surfaceId);
+            if (surface?.photo?.dataUrl) {
+                openLightbox(surface.photo.dataUrl, 'Photo');
+            }
+            return;
+        }
+        
+        // Bouton zoom photo
+        const zoomBtn = e.target.closest('.btn-photo-zoom');
+        if (zoomBtn) {
+            e.stopPropagation();
+            const surfaceId = parseFloat(zoomBtn.dataset.surfaceId);
+            const surface = state.currentSurfaces.find(s => s.id === surfaceId);
+            if (surface?.photo?.dataUrl) {
+                openLightbox(surface.photo.dataUrl, 'Photo');
+            }
+            return;
+        }
+        
+        // Bouton remplacer photo
+        const replaceBtn = e.target.closest('.btn-photo-replace');
+        if (replaceBtn) {
+            e.stopPropagation();
+            const surfaceId = parseFloat(replaceBtn.dataset.surfaceId);
+            openSurfacePhotoUpload(surfaceId);
+            return;
+        }
+        
+        // Bouton supprimer photo
+        const deletePhotoBtn = e.target.closest('.btn-photo-delete');
+        if (deletePhotoBtn) {
+            e.stopPropagation();
+            const surfaceId = parseFloat(deletePhotoBtn.dataset.surfaceId);
+            deleteSurfacePhoto(surfaceId);
+            return;
+        }
+    });
+    
+    // Délégation pour les inputs
+    container.addEventListener('input', (e) => {
+        const input = e.target.closest('.surface-input');
+        if (input) {
+            const surfaceId = parseFloat(input.dataset.surfaceId);
+            const field = input.dataset.field;
+            updateSurface(surfaceId, field, input.value);
+        }
+    });
+    
+    console.log('Surface event delegation setup');
+}
+
+// Calculer et afficher les totaux de toutes les surfaces
+function updateSurfaceTotals() {
+    const epaisseur = parseFloat(document.getElementById('zone-epaisseur')?.value) || 0;
     const materiauInput = document.getElementById('zone-materiau');
     const friabilite = materiauInput?.dataset.friabilite || 'non_friable';
-
-    // Calculate surface (pi²) = L × l
-    const surface = longueur * largeur;
-
-    // Calculate volume (pi³) = L × l × (épaisseur_po / 12)
-    const volume = longueur * largeur * (epaisseur / 12);
-
-    // Determine risk based on CSTC rules
-    const risque = determineRisque(volume, friabilite);
-
-    // Update UI
-    document.getElementById('calc-surface').textContent = surface > 0 ? surface.toFixed(1) : '--';
-    document.getElementById('calc-volume').textContent = volume > 0 ? volume.toFixed(2) : '--';
-
+    
+    // Recalculer chaque surface avec l'épaisseur actuelle
+    state.currentSurfaces.forEach(surface => {
+        surface.surface = surface.longueur * surface.hauteur;
+        surface.volume = surface.longueur * surface.hauteur * (epaisseur / 12);
+    });
+    
+    // Calculer les totaux
+    const surfaceTotal = state.currentSurfaces.reduce((sum, s) => sum + s.surface, 0);
+    const volumeTotal = state.currentSurfaces.reduce((sum, s) => sum + s.volume, 0);
+    const risque = determineRisque(volumeTotal, friabilite);
+    
+    // Mettre à jour l'UI
+    document.getElementById('calc-surface').textContent = surfaceTotal > 0 ? formatNumber(surfaceTotal, 1) : '--';
+    document.getElementById('calc-volume').textContent = volumeTotal > 0 ? formatNumber(volumeTotal, 2) : '--';
+    
     const risqueEl = document.getElementById('calc-risque');
     if (risqueEl) {
         if (risque === 'ÉLEVÉ') {
@@ -1707,21 +2392,132 @@ function calculateZoneValues() {
             risqueEl.className = 'inline-block mt-1 px-4 py-2 rounded-xl text-sm font-bold bg-slate-200 text-slate-400';
         }
     }
+    
+    // Activer/désactiver le bouton "Ajouter cette zone"
+    const btnAddZone = document.getElementById('btn-add-zone-final');
+    const hasValidSurface = state.currentSurfaces.some(s => s.longueur > 0 && s.hauteur > 0);
+    if (btnAddZone) {
+        btnAddZone.disabled = !(hasValidSurface && epaisseur > 0);
+    }
+    
+    return { surfaceTotal, volumeTotal, risque, friabilite };
+}
 
-    return { surface, volume, risque, friabilite };
+// Compresser une image pour réduire la taille du localStorage
+function compressImage(dataUrl, maxWidth = 1200, quality = 0.7) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            
+            // Redimensionner si trop grand
+            if (width > maxWidth) {
+                height = (height * maxWidth) / width;
+                width = maxWidth;
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Compresser en JPEG
+            const compressed = canvas.toDataURL('image/jpeg', quality);
+            console.log(`📸 Image compressée: ${Math.round(dataUrl.length/1024)}KB → ${Math.round(compressed.length/1024)}KB`);
+            resolve(compressed);
+        };
+        img.src = dataUrl;
+    });
+}
+
+// Ouvrir le sélecteur de photo pour une surface
+let currentPhotoSurfaceId = null;
+
+function openSurfacePhotoUpload(surfaceId) {
+    currentPhotoSurfaceId = surfaceId;
+    
+    // Créer un input file temporaire
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment'; // Utiliser la caméra sur mobile
+    
+    input.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            // Compresser l'image avant de la sauvegarder
+            const compressedDataUrl = await compressImage(event.target.result);
+            updateSurfacePhoto(currentPhotoSurfaceId, {
+                name: file.name,
+                dataUrl: compressedDataUrl
+            });
+        };
+        reader.readAsDataURL(file);
+    });
+    
+    input.click();
+}
+
+function calculateZoneValues() {
+    // Utiliser le système multi-surfaces si on est sur step-3d
+    if (state.currentSurfaces && state.currentSurfaces.length > 0) {
+        const result = updateSurfaceTotals();
+        fitAllAutoFitText();
+        return { 
+            surface: result.surfaceTotal, 
+            volume: result.volumeTotal, 
+            risque: result.risque, 
+            friabilite: result.friabilite 
+        };
+    }
+    
+    // Fallback pour compatibilité (ne devrait plus être utilisé)
+    const epaisseur = parseFloat(document.getElementById('zone-epaisseur')?.value) || 0;
+    const materiauInput = document.getElementById('zone-materiau');
+    const friabilite = materiauInput?.dataset.friabilite || 'non_friable';
+    
+    // Si pas de surfaces, retourner zéro
+    return { surface: 0, volume: 0, risque: null, friabilite };
 }
 
 function determineRisque(volume, friabilite) {
     // CSTC Rules:
-    // - Friable: > 1 pi³ = ÉLEVÉ
+    // CSTC Rules (corrigé selon feedback équipe 21 jan 2026):
+    // - Friable: > 3 pi³ = ÉLEVÉ
     // - Non friable: > 10 pi³ = ÉLEVÉ
     if (volume <= 0) return null;
 
     if (friabilite === 'friable') {
-        return volume > 1 ? 'ÉLEVÉ' : 'MODÉRÉ';
+        return volume > 3 ? 'ÉLEVÉ' : 'MODÉRÉ';
     } else {
         return volume > 10 ? 'ÉLEVÉ' : 'MODÉRÉ';
     }
+}
+
+/**
+ * Détermine le risque global du projet (propagation du risque élevé)
+ * Selon feedback équipe 21 jan 2026:
+ * - Si UNE zone est à risque élevé, TOUT le projet est à risque élevé
+ * - Les frais globaux (douche, tests, perte de temps) s'appliquent une seule fois
+ * @returns {Object} { risque: 'ÉLEVÉ'|'MODÉRÉ', hasZoneElevee: boolean, zonesElevees: number }
+ */
+function getProjetRisque() {
+    const zones = state.zones || [];
+    const zonesElevees = zones.filter(z => z.risque === 'ÉLEVÉ').length;
+    const hasZoneElevee = zonesElevees > 0;
+    
+    return {
+        risque: hasZoneElevee ? 'ÉLEVÉ' : 'MODÉRÉ',
+        hasZoneElevee,
+        zonesElevees,
+        totalZones: zones.length
+    };
 }
 
 function addZone() {
@@ -1729,47 +2525,72 @@ function addZone() {
     const categorie = document.getElementById('zone-categorie')?.value;
     const materiauInput = document.getElementById('zone-materiau');
     const materiauId = materiauInput?.value;
-    // Get material name from the trigger text
     const materiauNom = document.getElementById('materiau-dropdown-text')?.textContent;
-    const longueur = parseFloat(document.getElementById('zone-longueur')?.value) || 0;
-    const largeur = parseFloat(document.getElementById('zone-largeur')?.value) || 0;
     const epaisseur = parseFloat(document.getElementById('zone-epaisseur')?.value) || 0;
+    const friabilite = materiauInput?.dataset.friabilite || 'non_friable';
 
-    // Validate
-    if (!nom || !categorie || !materiauId || longueur <= 0 || largeur <= 0 || epaisseur <= 0) {
-        alert('Veuillez remplir tous les champs.');
+    // Valider qu'il y a au moins une surface valide
+    const validSurfaces = state.currentSurfaces.filter(s => s.longueur > 0 && s.hauteur > 0);
+    
+    if (!nom || !categorie || !materiauId || validSurfaces.length === 0 || epaisseur <= 0) {
+        alert('Veuillez remplir tous les champs et ajouter au moins une surface.');
         return;
     }
 
-    // Calculate values
-    const { surface, volume, risque, friabilite } = calculateZoneValues();
+    // Calculer les totaux
+    const surfaceTotal = validSurfaces.reduce((sum, s) => sum + (s.longueur * s.hauteur), 0);
+    const volumeTotal = validSurfaces.reduce((sum, s) => sum + (s.longueur * s.hauteur * (epaisseur / 12)), 0);
+    const risque = determineRisque(volumeTotal, friabilite);
 
-    // Get photo data if any
-    const photo = getZonePhoto();
+    // Préparer les surfaces avec leurs calculs finaux
+    const surfaces = validSurfaces.map((s, index) => ({
+        id: s.id,
+        nom: `Surface ${index + 1}`,
+        longueur: s.longueur,
+        hauteur: s.hauteur,
+        surface: s.longueur * s.hauteur,
+        volume: s.longueur * s.hauteur * (epaisseur / 12),
+        photo: s.photo ? { name: s.photo.name, dataUrl: s.photo.dataUrl } : null
+    }));
 
-    // Create zone object
-    const zone = {
-        id: Date.now(), // Unique ID
+    // Créer l'objet zone avec la nouvelle structure multi-surfaces
+    const zoneData = {
         nom,
         categorie,
         materiauId,
         materiauNom,
         friabilite,
-        longueur,
-        largeur,
         epaisseur,
-        surface,
-        volume,
+        surfaces, // Nouveau: tableau de surfaces
+        surfaceTotal,
+        volumeTotal,
         risque,
-        photo: photo ? {
-            name: photo.name,
-            dataUrl: photo.dataUrl
-        } : null
+        // Compatibilité avec l'ancien système (pour les calculs de prix)
+        surface: surfaceTotal,
+        volume: volumeTotal
     };
 
-    // Add to state
-    state.zones.push(zone);
-    console.log('✅ Zone ajoutée:', zone);
+    // Mode édition ou création ?
+    if (state.editingZoneId) {
+        const index = state.zones.findIndex(z => z.id === state.editingZoneId);
+        if (index !== -1) {
+            const originalZone = state.zones[index];
+            state.zones[index] = {
+                ...zoneData,
+                id: originalZone.id,
+                risqueOverride: originalZone.risqueOverride
+            };
+            console.log('✏️ Zone mise à jour:', state.zones[index]);
+        }
+        delete state.editingZoneId;
+    } else {
+        const zone = {
+            ...zoneData,
+            id: Date.now()
+        };
+        state.zones.push(zone);
+        console.log('✅ Zone ajoutée:', zone);
+    }
     console.log('📋 Total zones:', state.zones.length);
 
     // Save progress
@@ -1788,8 +2609,6 @@ function resetZoneForm() {
     const categorieInput = document.getElementById('zone-categorie');
     const materiauInput = document.getElementById('zone-materiau');
     const materiauTriggerText = document.getElementById('materiau-dropdown-text');
-    const longueurInput = document.getElementById('zone-longueur');
-    const largeurInput = document.getElementById('zone-largeur');
     const epaisseurInput = document.getElementById('zone-epaisseur');
 
     if (nomInput) nomInput.value = '';
@@ -1811,9 +2630,10 @@ function resetZoneForm() {
         opt.classList.remove('selected');
     });
     
-    if (longueurInput) longueurInput.value = '';
-    if (largeurInput) largeurInput.value = '';
     if (epaisseurInput) epaisseurInput.value = '';
+    
+    // Reset multi-surfaces
+    state.currentSurfaces = [];
 
     // Reset category buttons
     document.querySelectorAll('.categorie-btn').forEach(btn => btn.classList.remove('active'));
@@ -1844,6 +2664,12 @@ function resetZoneForm() {
 
     // Reset photo
     clearZonePhoto();
+
+    // Reset editing state and title
+    if (state.editingZoneId) {
+        delete state.editingZoneId;
+    }
+    updateZoneWizardTitle();
 }
 
 // =====================================================
@@ -2235,7 +3061,7 @@ async function loadConfig() {
             marge_profit: 20,
             prix_demo_palier1: 8,
             prix_demo_palier2: 6.5,
-            prix_demo_palier3: 4.5,
+            prix_demo_palier3: 3,
             transport_0_50km: 55,
             transport_50_100km: 75,
             zone1_modere: 736,
@@ -2247,7 +3073,7 @@ async function loadConfig() {
             test_zone1: 600,
             test_zone_supp: 400,
             perte_temps_heures_par_jour: 2,
-            disposition_par_1000pi2: 600,
+            disposition_par_1000pi2: 400,
             assurance_petit: 250,
             assurance_grand: 500
         };
@@ -2272,15 +3098,16 @@ function calculatePrix() {
     const zones = state.zones;
     const distance = state.client.distanceKm || 0;
 
-    // Séparer zones par risque
+    // Utiliser la fonction de risque projet (propagation)
+    const projetRisque = getProjetRisque();
+    state.risqueGlobal = projetRisque.risque;
+
+    // Séparer zones par risque pour le calcul des frais de zones
     const zonesModere = zones.filter(z => z.risque === 'MODÉRÉ');
     const zonesEleve = zones.filter(z => z.risque === 'ÉLEVÉ');
 
-    // Surface totale
-    const surfaceTotal = zones.reduce((sum, z) => sum + (z.surface || 0), 0);
-
-    // Déterminer risque global
-    state.risqueGlobal = zonesEleve.length > 0 ? 'ÉLEVÉ' : 'MODÉRÉ';
+    // Surface totale (compatible ancien et nouveau format)
+    const surfaceTotal = zones.reduce((sum, z) => sum + (z.surface || z.surfaceTotal || 0), 0);
 
     // 1. Coûts des zones
     let prixZones = 0;
@@ -2302,6 +3129,8 @@ function calculatePrix() {
     }
 
     // 2. Prix démolition (selon surface totale)
+    // NOTE: Le tarif de démolition au pi² reste le MÊME quel que soit le risque
+    // (confirmation feedback équipe 21 jan 2026)
     let prixDemo = 0;
     if (surfaceTotal <= 500) {
         prixDemo = surfaceTotal * (config.prix_demo_palier1 || 8);
@@ -2311,28 +3140,25 @@ function calculatePrix() {
     } else {
         prixDemo = 500 * (config.prix_demo_palier1 || 8);
         prixDemo += 1000 * (config.prix_demo_palier2 || 6.5);
-        prixDemo += (surfaceTotal - 1500) * (config.prix_demo_palier3 || 4.5);
+        prixDemo += (surfaceTotal - 1500) * (config.prix_demo_palier3 || 3);
     }
 
-    // 3. Frais risque élevé (seulement si zones élevées)
+    // 3. Frais GLOBAUX risque élevé (s'appliquent UNE SEULE FOIS au projet)
+    // Selon feedback équipe 21 jan 2026:
+    // - Si UNE zone est élevée, tout le projet bascule en risque élevé
+    // - Les frais s'appliquent globalement, pas par zone élevée
     let prixDouches = 0;
     let prixTests = 0;
     let prixPerteTemps = 0;
 
-    if (zonesEleve.length > 0) {
-        // Douches
+    if (projetRisque.hasZoneElevee) {
+        // Douches (frais global unique)
         prixDouches = config.douche_zone1 || 800;
-        if (zonesEleve.length > 1) {
-            prixDouches += (zonesEleve.length - 1) * (config.douche_zone_supp || 600);
-        }
 
-        // Tests d'air
-        prixTests = config.test_zone1 || 600;
-        if (zonesEleve.length > 1) {
-            prixTests += (zonesEleve.length - 1) * (config.test_zone_supp || 400);
-        }
+        // Tests d'air (frais global unique: entrée + sortie = 2 tests)
+        prixTests = (config.test_zone1 || 600) * 2;
 
-        // Perte de temps (basée sur le prix de démolition - REGLES_METIER_MASTER.md)
+        // Perte de temps (basée sur le prix de démolition)
         // heures = prix_demo / 92, jours = ceil(heures/8), perte = jours × 2h × 92$
         const tauxHoraire = config.taux_horaire || 92;
         const heuresPerteParJour = config.perte_temps_heures_par_jour || 2;
@@ -2341,17 +3167,26 @@ function calculatePrix() {
         prixPerteTemps = joursHommes * heuresPerteParJour * tauxHoraire;
     }
 
-    // 4. Transport
-    let prixTransport = 0;
-    if (distance <= 50) {
-        prixTransport = config.transport_0_50km || 55;
-    } else {
-        prixTransport = config.transport_50_100km || 75;
-    }
+    // 4. Transport (dynamique selon durée du projet - feedback 21 jan 2026)
+    // Formule: (heures totales ÷ 3 gars ÷ 8h/jour) × 75$/jour
+    const tauxHoraireTransport = config.taux_horaire || 92;
+    const heuresTotalesProjet = prixDemo / tauxHoraireTransport;
+    const nbEmployesEquipe = config.nb_employes_equipe || 3;
+    const nbJoursProjet = Math.max(1, Math.ceil(heuresTotalesProjet / nbEmployesEquipe / 8)); // minimum 1 jour
+    const transportParJour = config.transport_50_100km || 75; // 75$/jour comme base
+    let prixTransport = nbJoursProjet * transportParJour;
+    
+    // Stocker les détails pour affichage
+    const transportDetails = {
+        heures: Math.round(heuresTotalesProjet),
+        jours: nbJoursProjet,
+        equipe: nbEmployesEquipe,
+        tarifJour: transportParJour
+    };
 
-    // 5. Disposition (par 1000 pi², minimum 600$)
-    let prixDisposition = Math.ceil(surfaceTotal / 1000) * (config.disposition_par_1000pi2 || 600);
-    prixDisposition = Math.max(prixDisposition, config.disposition_par_1000pi2 || 600);
+    // 5. Disposition (par 1000 pi², minimum 400$)
+    let prixDisposition = Math.ceil(surfaceTotal / 1000) * (config.disposition_par_1000pi2 || 400);
+    prixDisposition = Math.max(prixDisposition, config.disposition_par_1000pi2 || 400);
 
     // 6. Assurance
     let prixAssurance = 0;
@@ -2384,6 +3219,7 @@ function calculatePrix() {
         tests: prixTests,
         perteTemps: prixPerteTemps,
         transport: prixTransport,
+        transportDetails: transportDetails,
         disposition: prixDisposition,
         assurance: prixAssurance,
         sousTotal: sousTotal,
@@ -2415,12 +3251,20 @@ function renderRecap() {
         const isEleve = zone.risque === 'ÉLEVÉ';
         const riskClass = isEleve ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600';
         
+        // Nombre de surfaces et de photos
+        const surfaceCount = zone.surfaces?.length || 1;
+        const photoCount = zone.surfaces?.filter(s => s.photo?.dataUrl).length || (zone.photo ? 1 : 0);
+        const surfaceLabel = surfaceCount > 1 ? `${surfaceCount} murs` : '';
+        const photoLabel = photoCount > 0 ? `${photoCount} photo${photoCount > 1 ? 's' : ''}` : '';
+        const detailParts = [surfaceLabel, photoLabel].filter(Boolean);
+        const detailText = detailParts.length > 0 ? `• ${detailParts.join(' • ')}` : '';
+        
         const div = document.createElement('div');
         div.className = 'flex items-center justify-between p-3 bg-slate-50 rounded-xl';
         div.innerHTML = `
             <div class="flex items-center gap-3">
                 <span class="font-medium text-slate-800">${zone.nom}</span>
-                <span class="text-sm text-slate-500">${zone.surface?.toFixed(0) || 0} pi²</span>
+                <span class="text-sm text-slate-500">${formatNumber(zone.surface || zone.surfaceTotal || 0, 0)} pi² ${detailText}</span>
             </div>
             <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${riskClass}">${zone.risque}</span>
         `;
@@ -2428,7 +3272,7 @@ function renderRecap() {
     });
 
     // Surface totale
-    document.getElementById('recap-surface-total').textContent = state.prix.surfaceTotal?.toFixed(0) || 0;
+    document.getElementById('recap-surface-total').textContent = formatNumber(state.prix.surfaceTotal || 0, 0);
 
     // Risque global
     const risqueEl = document.getElementById('recap-risque-global');
@@ -2444,19 +3288,29 @@ function renderRecap() {
         document.getElementById('prix-risque-eleve-section')?.classList.add('hidden');
     }
 
-    // Prix details - Set values in inputs with 2 decimal places
-    document.getElementById('prix-zones').value = (state.prix.zones || 0).toFixed(2);
-    document.getElementById('prix-demolition').value = (state.prix.demolition || 0).toFixed(2);
-    document.getElementById('prix-douches').value = (state.prix.douches || 0).toFixed(2);
-    document.getElementById('prix-tests').value = (state.prix.tests || 0).toFixed(2);
-    document.getElementById('prix-perte-temps').value = (state.prix.perteTemps || 0).toFixed(2);
-    document.getElementById('prix-transport').value = (state.prix.transport || 0).toFixed(2);
-    document.getElementById('prix-disposition').value = (state.prix.disposition || 0).toFixed(2);
-    document.getElementById('prix-assurance').value = (state.prix.assurance || 0).toFixed(2);
+    // Prix details - Set values in inputs with formatted numbers (espaces milliers)
+    document.getElementById('prix-zones').value = formatInputValue(state.prix.zones || 0);
+    document.getElementById('prix-demolition').value = formatInputValue(state.prix.demolition || 0);
+    document.getElementById('prix-douches').value = formatInputValue(state.prix.douches || 0);
+    document.getElementById('prix-tests').value = formatInputValue(state.prix.tests || 0);
+    document.getElementById('prix-perte-temps').value = formatInputValue(state.prix.perteTemps || 0);
+    document.getElementById('prix-transport').value = formatInputValue(state.prix.transport || 0);
+    
+    // Afficher les détails du calcul transport
+    if (state.prix.transportDetails) {
+        const td = state.prix.transportDetails;
+        
+        // Explication simple et lisible
+        const explication = `${td.jours} jour${td.jours > 1 ? 's' : ''} × ${td.equipe} employés × ${td.tarifJour}$/jour`;
+        document.getElementById('transport-explication').textContent = explication;
+    }
+    
+    document.getElementById('prix-disposition').value = formatInputValue(state.prix.disposition || 0);
+    document.getElementById('prix-assurance').value = formatInputValue(state.prix.assurance || 0);
     document.getElementById('prix-sous-total').textContent = formatCurrency(state.prix.sousTotal);
     document.getElementById('marge-percent').value = state.prix.margePourcent || 20;
     document.getElementById('prix-marge').textContent = formatCurrency(state.prix.marge);
-    document.getElementById('prix-total').value = (state.prix.total || 0).toFixed(2);
+    document.getElementById('prix-total').value = formatInputValue(state.prix.total || 0);
 
     // Setup event listeners for editable inputs (only once)
     setupPrixInputListeners();
@@ -2483,6 +3337,11 @@ function setupPrixInputListeners() {
     prixInputIds.forEach(id => {
         const input = document.getElementById(id);
         input?.addEventListener('input', recalculerTotaux);
+        // Reformat on blur (when user leaves the field)
+        input?.addEventListener('blur', function() {
+            const value = parseFormattedValue(this.value);
+            this.value = formatInputValue(value);
+        });
     });
 
     // Marge percent listener
@@ -2492,20 +3351,25 @@ function setupPrixInputListeners() {
     // Total direct edit listener (recalculates marge backwards)
     const totalInput = document.getElementById('prix-total');
     totalInput?.addEventListener('input', onTotalDirectEdit);
+    // Reformat total on blur
+    totalInput?.addEventListener('blur', function() {
+        const value = parseFormattedValue(this.value);
+        this.value = formatInputValue(value);
+    });
 
     console.log('✅ Prix input listeners configurés');
 }
 
 function recalculerTotaux() {
-    // Get all current values from inputs
-    const zones = parseFloat(document.getElementById('prix-zones')?.value) || 0;
-    const demolition = parseFloat(document.getElementById('prix-demolition')?.value) || 0;
-    const douches = parseFloat(document.getElementById('prix-douches')?.value) || 0;
-    const tests = parseFloat(document.getElementById('prix-tests')?.value) || 0;
-    const perteTemps = parseFloat(document.getElementById('prix-perte-temps')?.value) || 0;
-    const transport = parseFloat(document.getElementById('prix-transport')?.value) || 0;
-    const disposition = parseFloat(document.getElementById('prix-disposition')?.value) || 0;
-    const assurance = parseFloat(document.getElementById('prix-assurance')?.value) || 0;
+    // Get all current values from inputs (parse formatted values)
+    const zones = parseFormattedValue(document.getElementById('prix-zones')?.value);
+    const demolition = parseFormattedValue(document.getElementById('prix-demolition')?.value);
+    const douches = parseFormattedValue(document.getElementById('prix-douches')?.value);
+    const tests = parseFormattedValue(document.getElementById('prix-tests')?.value);
+    const perteTemps = parseFormattedValue(document.getElementById('prix-perte-temps')?.value);
+    const transport = parseFormattedValue(document.getElementById('prix-transport')?.value);
+    const disposition = parseFormattedValue(document.getElementById('prix-disposition')?.value);
+    const assurance = parseFormattedValue(document.getElementById('prix-assurance')?.value);
     // Allow 0 as valid marge value (don't use || which treats 0 as falsy)
     const margeValue = document.getElementById('marge-percent')?.value;
     const margePourcent = margeValue !== '' && !isNaN(parseFloat(margeValue)) ? parseFloat(margeValue) : 20;
@@ -2522,7 +3386,7 @@ function recalculerTotaux() {
     // Update displays
     document.getElementById('prix-sous-total').textContent = formatCurrency(sousTotal);
     document.getElementById('prix-marge').textContent = formatCurrency(marge);
-    document.getElementById('prix-total').value = total.toFixed(2);
+    document.getElementById('prix-total').value = formatInputValue(total);
 
     // Update state
     state.prix.zones = zones;
@@ -2544,17 +3408,17 @@ function recalculerTotaux() {
 function onTotalDirectEdit() {
     // When user edits total directly, we recalculate the marge backwards
     const totalInput = document.getElementById('prix-total');
-    const newTotal = parseFloat(totalInput?.value) || 0;
+    const newTotal = parseFormattedValue(totalInput?.value);
 
-    // Get sous-total
-    const zones = parseFloat(document.getElementById('prix-zones')?.value) || 0;
-    const demolition = parseFloat(document.getElementById('prix-demolition')?.value) || 0;
-    const douches = parseFloat(document.getElementById('prix-douches')?.value) || 0;
-    const tests = parseFloat(document.getElementById('prix-tests')?.value) || 0;
-    const perteTemps = parseFloat(document.getElementById('prix-perte-temps')?.value) || 0;
-    const transport = parseFloat(document.getElementById('prix-transport')?.value) || 0;
-    const disposition = parseFloat(document.getElementById('prix-disposition')?.value) || 0;
-    const assurance = parseFloat(document.getElementById('prix-assurance')?.value) || 0;
+    // Get sous-total (parse formatted values)
+    const zones = parseFormattedValue(document.getElementById('prix-zones')?.value);
+    const demolition = parseFormattedValue(document.getElementById('prix-demolition')?.value);
+    const douches = parseFormattedValue(document.getElementById('prix-douches')?.value);
+    const tests = parseFormattedValue(document.getElementById('prix-tests')?.value);
+    const perteTemps = parseFormattedValue(document.getElementById('prix-perte-temps')?.value);
+    const transport = parseFormattedValue(document.getElementById('prix-transport')?.value);
+    const disposition = parseFormattedValue(document.getElementById('prix-disposition')?.value);
+    const assurance = parseFormattedValue(document.getElementById('prix-assurance')?.value);
 
     const sousTotal = zones + demolition + douches + tests + perteTemps + transport + disposition + assurance;
 
@@ -2620,6 +3484,16 @@ function goToStep(step) {
         // Calculate prices and render recap
         calculatePrix();
         renderRecap();
+        // Show mobile back button
+        document.getElementById('btn-back-mobile')?.classList.remove('invisible');
+    } else if (step === 5) {
+        document.getElementById('step-5').classList.remove('hidden');
+        // Load config textes if not already loaded
+        if (Object.keys(configTextes).length === 0) {
+            loadConfigTextes().then(() => renderStep5());
+        } else {
+            renderStep5();
+        }
         // Show mobile back button
         document.getElementById('btn-back-mobile')?.classList.remove('invisible');
     }
@@ -2720,7 +3594,7 @@ function setupDevMode() {
 
     // Afficher indicateur DEV
     const devBadge = document.createElement('div');
-    devBadge.innerHTML = '🛠️ DEV';
+    devBadge.innerHTML = 'DEV';
     devBadge.style.cssText = 'position: fixed; bottom: 10px; right: 10px; background: #f59e0b; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; z-index: 9999;';
     document.body.appendChild(devBadge);
 }
@@ -2815,6 +3689,13 @@ function devGoToStep(step) {
     } else if (step === 4) {
         calculatePrix();
         renderRecap();
+    } else if (step === 5) {
+        calculatePrix();
+        if (Object.keys(configTextes).length === 0) {
+            loadConfigTextes().then(() => renderStep5());
+        } else {
+            renderStep5();
+        }
     }
 
     // Mettre à jour le state et la progress bar
@@ -2835,8 +3716,485 @@ function devGoToStep(step) {
 // =====================================================
 
 function formatCurrency(amount) {
-    return new Intl.NumberFormat('fr-CA', {
-        style: 'currency',
-        currency: 'CAD'
-    }).format(amount);
+    if (amount === null || amount === undefined || isNaN(amount)) return '0 $';
+    // Format avec espaces comme séparateurs de milliers
+    return formatNumber(amount, 0) + ' $';
+}
+
+/**
+ * Formate une valeur pour affichage dans un input (avec espaces, 2 décimales)
+ * Ex: 12000 -> "12 000,00"
+ */
+function formatInputValue(num) {
+    if (num === null || num === undefined || isNaN(num)) return '0,00';
+    return formatNumber(num, 2);
+}
+
+/**
+ * Parse une valeur formatée (avec espaces et virgule) en nombre
+ * Ex: "12 000,00" -> 12000
+ */
+function parseFormattedValue(str) {
+    if (!str) return 0;
+    // Enlever les espaces et remplacer virgule par point
+    const cleaned = str.toString().replace(/\s/g, '').replace(',', '.');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
+}
+
+// =====================================================
+// STEP 5: PDF GENERATION & SIGNATURE
+// =====================================================
+
+// Signature canvas state
+let signatureCanvas = null;
+let signatureCtx = null;
+let isDrawing = false;
+let hasSignature = false;
+let lastX = 0;
+let lastY = 0;
+
+// Config textes state (loaded from Supabase)
+let configTextes = {};
+
+/**
+ * Setup Step 5 events and signature canvas
+ */
+function setupStep5Events() {
+    const btnBack = document.getElementById('btn-back-step5');
+    const btnDownload = document.getElementById('btn-download-pdf');
+    const btnClearSignature = document.getElementById('btn-clear-signature');
+
+    btnBack?.addEventListener('click', () => {
+        goToStep(4);
+    });
+
+    btnDownload?.addEventListener('click', async () => {
+        await generateAndDownloadPDF();
+    });
+
+    btnClearSignature?.addEventListener('click', () => {
+        clearSignature();
+    });
+
+    // Setup signature canvas
+    setupSignatureCanvas();
+}
+
+/**
+ * Setup signature canvas for mouse, touch and stylus
+ */
+function setupSignatureCanvas() {
+    signatureCanvas = document.getElementById('signature-canvas');
+    if (!signatureCanvas) return;
+
+    signatureCtx = signatureCanvas.getContext('2d');
+
+    // Set canvas size to match container
+    resizeSignatureCanvas();
+    window.addEventListener('resize', resizeSignatureCanvas);
+
+    // Mouse events
+    signatureCanvas.addEventListener('mousedown', startDrawing);
+    signatureCanvas.addEventListener('mousemove', draw);
+    signatureCanvas.addEventListener('mouseup', stopDrawing);
+    signatureCanvas.addEventListener('mouseout', stopDrawing);
+
+    // Touch events (for tablets and phones)
+    signatureCanvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    signatureCanvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    signatureCanvas.addEventListener('touchend', stopDrawing);
+    signatureCanvas.addEventListener('touchcancel', stopDrawing);
+
+    // Pointer events (for stylus support)
+    signatureCanvas.addEventListener('pointerdown', handlePointerStart);
+    signatureCanvas.addEventListener('pointermove', handlePointerMove);
+    signatureCanvas.addEventListener('pointerup', stopDrawing);
+    signatureCanvas.addEventListener('pointercancel', stopDrawing);
+}
+
+function resizeSignatureCanvas() {
+    if (!signatureCanvas) return;
+
+    const container = signatureCanvas.parentElement;
+    const rect = container.getBoundingClientRect();
+    
+    // Store current drawing if any
+    const imageData = hasSignature ? signatureCtx.getImageData(0, 0, signatureCanvas.width, signatureCanvas.height) : null;
+
+    // Set actual size in memory
+    const dpr = window.devicePixelRatio || 1;
+    signatureCanvas.width = rect.width * dpr;
+    signatureCanvas.height = 200 * dpr;
+
+    // Set display size
+    signatureCanvas.style.width = rect.width + 'px';
+    signatureCanvas.style.height = '200px';
+
+    // Scale context
+    signatureCtx.scale(dpr, dpr);
+
+    // Setup drawing style
+    signatureCtx.strokeStyle = '#1E73BE';
+    signatureCtx.lineWidth = 2;
+    signatureCtx.lineCap = 'round';
+    signatureCtx.lineJoin = 'round';
+
+    // Restore drawing if any
+    if (imageData) {
+        signatureCtx.putImageData(imageData, 0, 0);
+    }
+}
+
+function getCanvasCoordinates(e) {
+    const rect = signatureCanvas.getBoundingClientRect();
+    let x, y;
+
+    if (e.touches && e.touches.length > 0) {
+        x = e.touches[0].clientX - rect.left;
+        y = e.touches[0].clientY - rect.top;
+    } else {
+        x = e.clientX - rect.left;
+        y = e.clientY - rect.top;
+    }
+
+    return { x, y };
+}
+
+function startDrawing(e) {
+    isDrawing = true;
+    const coords = getCanvasCoordinates(e);
+    lastX = coords.x;
+    lastY = coords.y;
+
+    // Hide placeholder on first draw
+    if (!hasSignature) {
+        document.getElementById('signature-placeholder')?.classList.add('opacity-0');
+    }
+}
+
+function draw(e) {
+    if (!isDrawing) return;
+
+    const coords = getCanvasCoordinates(e);
+
+    signatureCtx.beginPath();
+    signatureCtx.moveTo(lastX, lastY);
+    signatureCtx.lineTo(coords.x, coords.y);
+    signatureCtx.stroke();
+
+    lastX = coords.x;
+    lastY = coords.y;
+
+    // Mark as having signature
+    if (!hasSignature) {
+        hasSignature = true;
+        updateSignatureStatus();
+    }
+}
+
+function stopDrawing() {
+    isDrawing = false;
+}
+
+function handleTouchStart(e) {
+    e.preventDefault();
+    startDrawing(e);
+}
+
+function handleTouchMove(e) {
+    e.preventDefault();
+    draw(e);
+}
+
+function handlePointerStart(e) {
+    if (e.pointerType === 'pen' || e.pointerType === 'touch' || e.pointerType === 'mouse') {
+        startDrawing(e);
+    }
+}
+
+function handlePointerMove(e) {
+    if (e.pointerType === 'pen' || e.pointerType === 'touch' || e.pointerType === 'mouse') {
+        draw(e);
+    }
+}
+
+function clearSignature() {
+    if (!signatureCanvas || !signatureCtx) return;
+
+    signatureCtx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+    hasSignature = false;
+    
+    // Show placeholder again
+    document.getElementById('signature-placeholder')?.classList.remove('opacity-0');
+    
+    updateSignatureStatus();
+}
+
+function updateSignatureStatus() {
+    const statusEl = document.getElementById('signature-status');
+    const downloadBtn = document.getElementById('btn-download-pdf');
+
+    if (hasSignature) {
+        if (statusEl) {
+            statusEl.textContent = 'Signature capturée';
+            statusEl.classList.remove('text-slate-400');
+            statusEl.classList.add('text-green-600');
+        }
+        if (downloadBtn) {
+            downloadBtn.disabled = false;
+        }
+    } else {
+        if (statusEl) {
+            statusEl.textContent = 'En attente de signature';
+            statusEl.classList.remove('text-green-600');
+            statusEl.classList.add('text-slate-400');
+        }
+        if (downloadBtn) {
+            downloadBtn.disabled = true;
+        }
+    }
+}
+
+function getSignatureDataUrl() {
+    if (!signatureCanvas || !hasSignature) return null;
+    return signatureCanvas.toDataURL('image/png');
+}
+
+/**
+ * Load config textes from Supabase for PDF generation
+ */
+async function loadConfigTextes() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('config_textes')
+            .select('*');
+
+        if (error) throw error;
+
+        // Convert array to object
+        data.forEach(item => {
+            configTextes[item.cle] = item.valeur;
+        });
+
+        console.log(`✅ ${data.length} config textes chargés pour PDF`);
+    } catch (err) {
+        console.error('Erreur chargement config textes:', err);
+        // Use defaults
+        configTextes = {
+            entreprise_nom: 'Apex Désamiantage',
+            entreprise_adresse: '689 rue des Caryers, Québec, QC G3G 2B4',
+            numero_prefix: 'APEX-',
+            texte_signature: 'Je, soussigné(e), reconnais avoir pris connaissance de la présente soumission et accepte les termes et conditions.',
+            liste_inclusions: '["Installation zone hermétique","Retrait matériaux contaminés","Nettoyage HEPA","Disposition réglementaire"]',
+            liste_exclusions: '["Reconstruction","Peinture","Électricité","Plomberie"]'
+        };
+    }
+}
+
+/**
+ * Generate next soumission number
+ */
+function generateSoumissionNumber() {
+    const prefix = configTextes.numero_prefix || 'APEX-';
+    const year = new Date().getFullYear();
+    
+    // Get next number from localStorage (simple increment)
+    let nextNum = parseInt(localStorage.getItem('apex_soumission_counter') || '0') + 1;
+    localStorage.setItem('apex_soumission_counter', nextNum.toString());
+    
+    // Format: APEX-2026-001
+    return `${prefix}${year}-${String(nextNum).padStart(3, '0')}`;
+}
+
+/**
+ * Render Step 5 content
+ */
+function renderStep5() {
+    // Set date
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('fr-CA', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    });
+    document.getElementById('pdf-date').textContent = dateStr;
+
+    // Generate soumission number
+    const soumissionNum = generateSoumissionNumber();
+    document.getElementById('pdf-numero-soumission').textContent = soumissionNum;
+    state.soumissionNumber = soumissionNum;
+
+    // Set signature text
+    const texteSignature = configTextes.texte_signature || 
+        'Je, soussigné(e), reconnais avoir pris connaissance de la présente soumission et accepte les termes et conditions.';
+    document.getElementById('pdf-texte-signature').textContent = texteSignature;
+
+    // Render inclusions/exclusions
+    renderInclusionsExclusions();
+
+    // Update summary
+    const zones = state.zones || [];
+    const photosCount = zones.reduce((count, zone) => {
+        const surfacePhotos = (zone.surfaces || []).filter(s => s.photo).length;
+        return count + surfacePhotos;
+    }, 0);
+
+    document.getElementById('pdf-resume-zones').textContent = zones.length;
+    document.getElementById('pdf-resume-photos').textContent = photosCount;
+    document.getElementById('pdf-resume-total').textContent = formatPrix(state.prix?.total || 0);
+
+    // Estimate pages
+    let pages = 3; // Cover + pricing + inclusions
+    if (photosCount > 0) pages += Math.ceil(photosCount / 2); // 2 photos per page
+    pages += 1; // Signature page
+    document.getElementById('pdf-resume-pages').textContent = pages;
+
+    // Reset signature
+    clearSignature();
+    
+    // Resize canvas after DOM is ready
+    setTimeout(resizeSignatureCanvas, 100);
+}
+
+/**
+ * Render inclusions/exclusions checkboxes
+ */
+function renderInclusionsExclusions() {
+    const inclusionsList = document.getElementById('pdf-inclusions-list');
+    const exclusionsList = document.getElementById('pdf-exclusions-list');
+
+    if (!inclusionsList || !exclusionsList) return;
+
+    // Parse JSON arrays
+    let inclusions = [];
+    let exclusions = [];
+
+    try {
+        inclusions = JSON.parse(configTextes.liste_inclusions || '[]');
+    } catch (e) {
+        inclusions = ['Installation zone hermétique', 'Retrait matériaux', 'Nettoyage HEPA', 'Disposition réglementaire'];
+    }
+
+    try {
+        exclusions = JSON.parse(configTextes.liste_exclusions || '[]');
+    } catch (e) {
+        exclusions = ['Reconstruction', 'Peinture', 'Électricité', 'Plomberie'];
+    }
+
+    // Render inclusions
+    inclusionsList.innerHTML = inclusions.map((item, i) => `
+        <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked data-inclusion="${i}"
+                class="w-4 h-4 rounded border-slate-300 text-green-500 focus:ring-green-500 cursor-pointer">
+            <span class="text-sm text-slate-700">${item}</span>
+        </label>
+    `).join('');
+
+    // Render exclusions
+    exclusionsList.innerHTML = exclusions.map((item, i) => `
+        <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked data-exclusion="${i}"
+                class="w-4 h-4 rounded border-slate-300 text-red-500 focus:ring-red-500 cursor-pointer">
+            <span class="text-sm text-slate-700">${item}</span>
+        </label>
+    `).join('');
+
+    // Store in state for PDF generation
+    state.pdfInclusions = inclusions;
+    state.pdfExclusions = exclusions;
+}
+
+/**
+ * Get selected inclusions/exclusions for PDF
+ */
+function getSelectedInclusionsExclusions() {
+    const inclusions = [];
+    const exclusions = [];
+
+    document.querySelectorAll('[data-inclusion]').forEach(cb => {
+        if (cb.checked) {
+            const idx = parseInt(cb.dataset.inclusion);
+            if (state.pdfInclusions && state.pdfInclusions[idx]) {
+                inclusions.push(state.pdfInclusions[idx]);
+            }
+        }
+    });
+
+    document.querySelectorAll('[data-exclusion]').forEach(cb => {
+        if (cb.checked) {
+            const idx = parseInt(cb.dataset.exclusion);
+            if (state.pdfExclusions && state.pdfExclusions[idx]) {
+                exclusions.push(state.pdfExclusions[idx]);
+            }
+        }
+    });
+
+    return { inclusions, exclusions };
+}
+
+/**
+ * Generate and download the PDF
+ */
+async function generateAndDownloadPDF() {
+    if (!hasSignature) {
+        alert('Veuillez signer avant de télécharger le PDF.');
+        return;
+    }
+
+    // Show loading
+    const loadingEl = document.getElementById('pdf-loading');
+    loadingEl?.classList.remove('hidden');
+
+    try {
+        // Get options
+        const includePhotos = document.getElementById('pdf-option-photos')?.checked ?? true;
+        const includeLegalDocs = document.getElementById('pdf-option-legaux')?.checked ?? true;
+
+        // Get selected inclusions/exclusions
+        const { inclusions, exclusions } = getSelectedInclusionsExclusions();
+
+        // Get signature
+        const signatureDataUrl = getSignatureDataUrl();
+
+        // Generate PDF (using pdf-generator.js)
+        const pdfBlob = await generatePDF({
+            state: state,
+            configTextes: configTextes,
+            signature: signatureDataUrl,
+            includePhotos: includePhotos,
+            includeLegalDocs: includeLegalDocs,
+            inclusions: inclusions,
+            exclusions: exclusions,
+            soumissionNumber: state.soumissionNumber,
+            date: new Date()
+        });
+
+        // Download
+        const fileName = `Soumission_${state.soumissionNumber}_${state.client.nom?.replace(/\s+/g, '_') || 'Client'}.pdf`;
+        downloadBlob(pdfBlob, fileName);
+
+        console.log('✅ PDF généré et téléchargé:', fileName);
+
+    } catch (err) {
+        console.error('Erreur génération PDF:', err);
+        alert('Erreur lors de la génération du PDF. Veuillez réessayer.');
+    } finally {
+        // Hide loading
+        loadingEl?.classList.add('hidden');
+    }
+}
+
+/**
+ * Download a blob as a file
+ */
+function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }

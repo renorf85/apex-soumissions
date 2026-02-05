@@ -360,6 +360,220 @@
             </div>
         </details>
 
+        <!-- Separator -->
+        <div class="flex items-center gap-4 my-4">
+            <div class="flex-1 h-px bg-slate-200"></div>
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Configuration PDF</span>
+            <div class="flex-1 h-px bg-slate-200"></div>
+        </div>
+
+        <!-- Informations entreprise -->
+        <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden" open>
+            <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary">business</span>
+                    <span class="font-medium text-slate-900">Informations entreprise</span>
+                </div>
+                <span class="material-symbols-outlined text-slate-400 transition-transform duration-300 group-open:rotate-180">expand_more</span>
+            </summary>
+            <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Nom de l'entreprise</label>
+                    <input id="config-entreprise_nom" class="param-input" type="text" value="Apex Désamiantage"/>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Adresse</label>
+                    <input id="config-entreprise_adresse" class="param-input" type="text" value="689 rue des Caryers, Québec, QC G3G 2B4"/>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-1.5">Téléphone</label>
+                        <input id="config-entreprise_telephone" class="param-input" type="tel" placeholder="(418) 555-1234"/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-1.5">Courriel</label>
+                        <input id="config-entreprise_courriel" class="param-input" type="email" placeholder="info@apex.ca"/>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Licence RBQ</label>
+                    <input id="config-entreprise_licence_rbq" class="param-input" type="text" placeholder="1234-5678-90"/>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Préfixe numéro de soumission</label>
+                    <input id="config-numero_prefix" class="param-input" type="text" value="APEX-"/>
+                    <p class="mt-1 text-xs text-slate-500 italic">Ex: APEX-2026-001</p>
+                </div>
+            </div>
+        </details>
+
+        <!-- Descriptifs techniques -->
+        <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary">description</span>
+                    <span class="font-medium text-slate-900">Descriptifs techniques</span>
+                </div>
+                <span class="material-symbols-outlined text-slate-400 transition-transform duration-300 group-open:rotate-180">expand_more</span>
+            </summary>
+            <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
+                <div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="w-1 h-4 bg-amber-400 rounded-full"></div>
+                        <label class="text-sm font-medium text-slate-600">Texte - Risque modéré</label>
+                    </div>
+                    <textarea id="config-descriptif_risque_modere" rows="5" 
+                        class="block w-full rounded-lg border-slate-300 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all"
+                        placeholder="Texte décrivant les travaux à risque modéré..."></textarea>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="w-1 h-4 bg-red-500 rounded-full"></div>
+                        <label class="text-sm font-medium text-slate-600">Texte - Risque élevé</label>
+                    </div>
+                    <textarea id="config-descriptif_risque_eleve" rows="5" 
+                        class="block w-full rounded-lg border-slate-300 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all"
+                        placeholder="Texte décrivant les travaux à risque élevé..."></textarea>
+                </div>
+            </div>
+        </details>
+
+        <!-- Inclusions / Exclusions -->
+        <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary">checklist</span>
+                    <span class="font-medium text-slate-900">Inclusions / Exclusions</span>
+                </div>
+                <span class="material-symbols-outlined text-slate-400 transition-transform duration-300 group-open:rotate-180">expand_more</span>
+            </summary>
+            <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-2">Éléments inclus (un par ligne)</label>
+                    <textarea id="config-liste_inclusions" rows="6" 
+                        class="block w-full rounded-lg border-slate-300 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all font-mono"
+                        placeholder="Installation zone hermétique&#10;Retrait des matériaux&#10;Nettoyage HEPA&#10;..."></textarea>
+                    <p class="mt-1 text-xs text-slate-500 italic">Un élément par ligne</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-2">Éléments exclus (un par ligne)</label>
+                    <textarea id="config-liste_exclusions" rows="4" 
+                        class="block w-full rounded-lg border-slate-300 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all font-mono"
+                        placeholder="Reconstruction&#10;Peinture&#10;Électricité&#10;..."></textarea>
+                </div>
+            </div>
+        </details>
+
+        <!-- Instructions de paiement et signature -->
+        <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary">edit_note</span>
+                    <span class="font-medium text-slate-900">Paiement et signature</span>
+                </div>
+                <span class="material-symbols-outlined text-slate-400 transition-transform duration-300 group-open:rotate-180">expand_more</span>
+            </summary>
+            <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-2">Instructions de paiement</label>
+                    <textarea id="config-instructions_paiement" rows="6" 
+                        class="block w-full rounded-lg border-slate-300 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all"
+                        placeholder="Modes de paiement acceptés..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-2">Texte légal (au-dessus de la signature)</label>
+                    <textarea id="config-texte_signature" rows="3" 
+                        class="block w-full rounded-lg border-slate-300 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all"
+                        placeholder="Je, soussigné(e), accepte les termes..."></textarea>
+                </div>
+            </div>
+        </details>
+
+        <!-- Documents légaux -->
+        <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary">folder_open</span>
+                    <span class="font-medium text-slate-900">Documents légaux (PDF)</span>
+                </div>
+                <span class="material-symbols-outlined text-slate-400 transition-transform duration-300 group-open:rotate-180">expand_more</span>
+            </summary>
+            <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
+                <p class="text-sm text-slate-500">Ces documents PDF seront automatiquement annexés aux soumissions générées.</p>
+                
+                <!-- Licence RBQ -->
+                <div class="border border-slate-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-slate-400">badge</span>
+                            <span class="text-sm font-medium text-slate-700">Licence RBQ</span>
+                        </div>
+                        <span id="doc-licence-status" class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-500">Non téléversé</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <label class="flex-1 cursor-pointer">
+                            <input type="file" id="doc-licence" accept=".pdf" class="hidden" onchange="handleDocUpload('licence', this)"/>
+                            <div class="flex items-center justify-center gap-2 py-2.5 px-4 border-2 border-dashed border-slate-200 rounded-lg text-sm text-slate-600 hover:border-primary hover:text-primary transition-colors">
+                                <span class="material-symbols-outlined text-lg">upload_file</span>
+                                Téléverser PDF
+                            </div>
+                        </label>
+                        <button type="button" onclick="removeDoc('licence')" id="btn-remove-licence" class="hidden p-2.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                            <span class="material-symbols-outlined">delete</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Assurance -->
+                <div class="border border-slate-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-slate-400">verified_user</span>
+                            <span class="text-sm font-medium text-slate-700">Certificat d'assurance</span>
+                        </div>
+                        <span id="doc-assurance-status" class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-500">Non téléversé</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <label class="flex-1 cursor-pointer">
+                            <input type="file" id="doc-assurance" accept=".pdf" class="hidden" onchange="handleDocUpload('assurance', this)"/>
+                            <div class="flex items-center justify-center gap-2 py-2.5 px-4 border-2 border-dashed border-slate-200 rounded-lg text-sm text-slate-600 hover:border-primary hover:text-primary transition-colors">
+                                <span class="material-symbols-outlined text-lg">upload_file</span>
+                                Téléverser PDF
+                            </div>
+                        </label>
+                        <button type="button" onclick="removeDoc('assurance')" id="btn-remove-assurance" class="hidden p-2.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                            <span class="material-symbols-outlined">delete</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Contrat -->
+                <div class="border border-slate-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-slate-400">contract</span>
+                            <span class="text-sm font-medium text-slate-700">Contrat type</span>
+                        </div>
+                        <span id="doc-contrat-status" class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-500">Non téléversé</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <label class="flex-1 cursor-pointer">
+                            <input type="file" id="doc-contrat" accept=".pdf" class="hidden" onchange="handleDocUpload('contrat', this)"/>
+                            <div class="flex items-center justify-center gap-2 py-2.5 px-4 border-2 border-dashed border-slate-200 rounded-lg text-sm text-slate-600 hover:border-primary hover:text-primary transition-colors">
+                                <span class="material-symbols-outlined text-lg">upload_file</span>
+                                Téléverser PDF
+                            </div>
+                        </label>
+                        <button type="button" onclick="removeDoc('contrat')" id="btn-remove-contrat" class="hidden p-2.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                            <span class="material-symbols-outlined">delete</span>
+                        </button>
+                    </div>
+                </div>
+
+                <p class="text-xs text-slate-400 italic">Les documents sont stockés de façon sécurisée et seront inclus dans chaque PDF généré.</p>
+            </div>
+        </details>
+
     </main>
 
     <!-- Footer with Save Button -->
