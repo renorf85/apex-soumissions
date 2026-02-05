@@ -6,7 +6,7 @@
 // MODE DÉVELOPPEMENT
 // =====================================================
 
-const DEV_MODE = true; // Mettre à false en production
+const DEV_MODE = false; // Mettre à false en production
 
 const DEV_DATA = {
     client: {
@@ -1116,15 +1116,21 @@ async function loadMateriaux() {
 
         if (error) throw error;
 
-        state.materiaux = data;
-        console.log(`✅ ${data.length} matériaux chargés depuis Supabase`);
-
-        // Populate the dropdown
-        populateMateriauxDropdown();
+        // Si la table est vide, utiliser le fallback
+        if (data && data.length > 0) {
+            state.materiaux = data;
+            console.log(`✅ ${data.length} matériaux chargés depuis Supabase`);
+            populateMateriauxDropdown();
+            return;
+        }
+        
+        console.log('⚠️ Table materiaux vide, utilisation du fallback');
     } catch (err) {
         console.error('Erreur chargement matériaux:', err);
-        // Fallback: use hardcoded list based on MATERIAUX_REFERENCE.md
-        state.materiaux = [
+    }
+    
+    // Fallback: use hardcoded list based on MATERIAUX_REFERENCE.md
+    state.materiaux = [
             // Mur/Plafond
             { id: 1, nom: 'Gypse (panneau 1/2")', friabilite: 'non_friable', epaisseur_defaut: 0.5, categorie: 'Mur/Plafond' },
             { id: 2, nom: 'Gypse 3/8"', friabilite: 'non_friable', epaisseur_defaut: 0.375, categorie: 'Mur/Plafond' },
@@ -3592,11 +3598,6 @@ function setupDevMode() {
         }
     });
 
-    // Afficher indicateur DEV
-    const devBadge = document.createElement('div');
-    devBadge.innerHTML = 'DEV';
-    devBadge.style.cssText = 'position: fixed; bottom: 10px; right: 10px; background: #f59e0b; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; z-index: 9999;';
-    document.body.appendChild(devBadge);
 }
 
 function fillDevClientData() {
