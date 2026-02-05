@@ -1131,29 +1131,28 @@ async function loadMateriaux() {
     
     // Fallback: use hardcoded list based on MATERIAUX_REFERENCE.md
     state.materiaux = [
-            // Mur/Plafond
-            { id: 1, nom: 'Gypse (panneau 1/2")', friabilite: 'non_friable', epaisseur_defaut: 0.5, categorie: 'Mur/Plafond' },
-            { id: 2, nom: 'Gypse 3/8"', friabilite: 'non_friable', epaisseur_defaut: 0.375, categorie: 'Mur/Plafond' },
-            { id: 3, nom: 'Gypse 5/8"', friabilite: 'non_friable', epaisseur_defaut: 0.625, categorie: 'Mur/Plafond' },
-            { id: 4, nom: 'Composé à joints', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Mur/Plafond' },
-            { id: 5, nom: 'Plâtre sur lattes', friabilite: 'friable', epaisseur_defaut: 0.875, categorie: 'Mur/Plafond' },
-            { id: 6, nom: 'Crépi cimentaire', friabilite: 'friable', epaisseur_defaut: 0.5, categorie: 'Mur/Plafond' },
-            // Plancher
-            { id: 7, nom: 'Tuile vinyle 9x9', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Plancher' },
-            { id: 8, nom: 'Tuile vinyle 12x12', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Plancher' },
-            // Isolation
-            { id: 9, nom: 'Vermiculite (Zonolite)', friabilite: 'friable', epaisseur_defaut: 4.0, categorie: 'Isolation' },
-            { id: 10, nom: 'Calorifuge tuyaux', friabilite: 'friable', epaisseur_defaut: 1.0, categorie: 'Isolation' },
-            { id: 11, nom: 'Flocage (projection)', friabilite: 'friable', epaisseur_defaut: 1.0, categorie: 'Isolation' },
-            // Revêtement extérieur / Toiture
-            { id: 12, nom: 'Bardeaux asphalte', friabilite: 'non_friable', epaisseur_defaut: 0.125, categorie: 'Revêtement extérieur' },
-            { id: 13, nom: 'Panneau fibrociment', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Revêtement extérieur' },
-            { id: 14, nom: 'Mastic fenêtre', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Revêtement extérieur' },
-            // Panneaux thermiques
-            { id: 15, nom: 'Panneau isolant rigide', friabilite: 'non_friable', epaisseur_defaut: 1.0, categorie: 'Panneaux thermiques' },
-        ];
-        populateMateriauxDropdown();
-    }
+        // Mur/Plafond
+        { id: 1, nom: 'Gypse (panneau 1/2")', friabilite: 'non_friable', epaisseur_defaut: 0.5, categorie: 'Mur/Plafond' },
+        { id: 2, nom: 'Gypse 3/8"', friabilite: 'non_friable', epaisseur_defaut: 0.375, categorie: 'Mur/Plafond' },
+        { id: 3, nom: 'Gypse 5/8"', friabilite: 'non_friable', epaisseur_defaut: 0.625, categorie: 'Mur/Plafond' },
+        { id: 4, nom: 'Composé à joints', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Mur/Plafond' },
+        { id: 5, nom: 'Plâtre sur lattes', friabilite: 'friable', epaisseur_defaut: 0.875, categorie: 'Mur/Plafond' },
+        { id: 6, nom: 'Crépi cimentaire', friabilite: 'friable', epaisseur_defaut: 0.5, categorie: 'Mur/Plafond' },
+        // Plancher
+        { id: 7, nom: 'Tuile vinyle 9x9', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Plancher' },
+        { id: 8, nom: 'Tuile vinyle 12x12', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Plancher' },
+        // Isolation
+        { id: 9, nom: 'Vermiculite (Zonolite)', friabilite: 'friable', epaisseur_defaut: 4.0, categorie: 'Isolation' },
+        { id: 10, nom: 'Calorifuge tuyaux', friabilite: 'friable', epaisseur_defaut: 1.0, categorie: 'Isolation' },
+        { id: 11, nom: 'Flocage (projection)', friabilite: 'friable', epaisseur_defaut: 1.0, categorie: 'Isolation' },
+        // Revêtement extérieur / Toiture
+        { id: 12, nom: 'Bardeaux asphalte', friabilite: 'non_friable', epaisseur_defaut: 0.125, categorie: 'Revêtement extérieur' },
+        { id: 13, nom: 'Panneau fibrociment', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Revêtement extérieur' },
+        { id: 14, nom: 'Mastic fenêtre', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Revêtement extérieur' },
+        // Panneaux thermiques
+        { id: 15, nom: 'Panneau isolant rigide', friabilite: 'non_friable', epaisseur_defaut: 1.0, categorie: 'Panneaux thermiques' },
+    ];
+    populateMateriauxDropdown();
 }
 
 function populateMateriauxDropdown() {
