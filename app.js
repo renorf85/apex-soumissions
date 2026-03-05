@@ -14,6 +14,9 @@ const DEV_DATA = {
         telephone: '514-555-1234',
         courriel: 'jean.tremblay@test.com',
         adresseChantier: '123 rue Test, Montréal',
+        adresseFacturation: '',
+        villeFacturation: '',
+        descriptionProjet: 'Travaux de désamiantage - Résidence privée',
         distanceKm: 35
     },
     zones: [
@@ -65,6 +68,9 @@ const state = {
         telephone: '',
         courriel: '',
         adresseChantier: '',
+        adresseFacturation: '',
+        villeFacturation: '',
+        descriptionProjet: '',
         distanceKm: 0,
         coordinates: null
     },
@@ -72,11 +78,13 @@ const state = {
     materiaux: [],
     config: {},
     risqueGlobal: null,
+    doucheCount: null, // null = auto-calculated, number = manual override
     // Multi-surfaces : surfaces temporaires lors de la création/édition d'une zone
     currentSurfaces: [],
     prix: {
         zones: 0,
         demolition: 0,
+        ventilateur: 0,
         douches: 0,
         tests: 0,
         perteTemps: 0,
@@ -86,7 +94,11 @@ const state = {
         sousTotal: 0,
         marge: 0,
         total: 0
-    }
+    },
+    // Inline editing state (Phase 2)
+    inlineEditingZoneId: null,
+    inlineEditData: null,
+    inlineEditSurfaces: []
 };
 
 // =====================================================
@@ -180,6 +192,9 @@ function saveStateToStorage() {
             rapport: state.rapport,
             client: state.client,
             zones: state.zones,
+            prix: state.prix,
+            risqueGlobal: state.risqueGlobal,
+            soumissionNumber: state.soumissionNumber,
             savedAt: new Date().toISOString()
         };
         const jsonString = JSON.stringify(dataToSave);
@@ -203,6 +218,9 @@ function saveStateToStorage() {
                     rapport: state.rapport,
                     client: state.client,
                     zones: zonesWithoutPhotos,
+                    prix: state.prix,
+                    risqueGlobal: state.risqueGlobal,
+                    soumissionNumber: state.soumissionNumber,
                     savedAt: new Date().toISOString(),
                     photosOmitted: true
                 };
@@ -257,6 +275,10 @@ function restoreSavedState() {
     state.rapport = saved.rapport;
     state.client = { ...state.client, ...saved.client };
     state.zones = saved.zones || [];
+    if (saved.prix) state.prix = { ...state.prix, ...saved.prix };
+    if (saved.risqueGlobal) state.risqueGlobal = saved.risqueGlobal;
+    if (saved.soumissionNumber) state.soumissionNumber = saved.soumissionNumber;
+    if (saved.photosOmitted) state.photosOmitted = true;
 
     console.log('✅ Progression restaurée:', saved);
     return true;
@@ -273,6 +295,36 @@ function applyRestoredStateToUI() {
     if (telInput && state.client.telephone) telInput.value = state.client.telephone;
     if (emailInput && state.client.courriel) emailInput.value = state.client.courriel;
     if (adresseInput && state.client.adresseChantier) adresseInput.value = state.client.adresseChantier;
+
+    // Restore billing address fields
+    const descriptionProjetInput = document.getElementById('description-projet');
+    const adresseFacturationInput = document.getElementById('adresse-facturation');
+    const villeFacturationInput = document.getElementById('ville-facturation');
+    const sameBillingCheckbox = document.getElementById('same-billing-address');
+    const billingSection = document.getElementById('billing-address-section');
+
+    if (descriptionProjetInput && state.client.descriptionProjet) {
+        descriptionProjetInput.value = state.client.descriptionProjet;
+    }
+    if (adresseFacturationInput && state.client.adresseFacturation) {
+        adresseFacturationInput.value = state.client.adresseFacturation;
+    }
+    if (villeFacturationInput && state.client.villeFacturation) {
+        villeFacturationInput.value = state.client.villeFacturation;
+    }
+    // If billing address differs from chantier, uncheck the checkbox and show billing fields
+    if (state.client.adresseFacturation && state.client.adresseFacturation !== state.client.adresseChantier) {
+        if (sameBillingCheckbox) sameBillingCheckbox.checked = false;
+        if (billingSection) billingSection.classList.remove('hidden');
+    }
+
+    // Trigger validation on restored inputs so "Continuer" buttons are enabled
+    const btnNextStep2a = document.getElementById('btn-next-step2a');
+    const btnNextStep2b = document.getElementById('btn-next-step2b');
+    const btnNextStep2c = document.getElementById('btn-next-step2c');
+    if (btnNextStep2a && nomInput?.value.trim()) btnNextStep2a.disabled = false;
+    if (btnNextStep2b && telInput?.value.trim()) btnNextStep2b.disabled = false;
+    if (btnNextStep2c && emailInput?.value.trim() && emailInput.validity.valid) btnNextStep2c.disabled = false;
 
     // Navigate to saved step
     if (state.currentStep > 1) {
@@ -373,11 +425,14 @@ function resetAllState() {
         telephone: '',
         courriel: '',
         adresseChantier: '',
+        adresseFacturation: '',
+        villeFacturation: '',
+        descriptionProjet: '',
         distanceKm: 0,
         coordinates: null
     };
     state.zones = [];
-    
+
     // Reset all form fields
     document.querySelectorAll('input:not([type="hidden"]):not([type="file"])').forEach(input => {
         input.value = '';
@@ -715,12 +770,33 @@ function setupStep2Events() {
             adresseChantier: document.getElementById('client-adresse').value.trim(),
             distanceKm: parseInt(document.getElementById('client-distance').value) || 0
         };
+
+        // Read billing address fields
+        state.client.descriptionProjet = document.getElementById('description-projet')?.value?.trim() || '';
+
+        const sameBilling = document.getElementById('same-billing-address')?.checked;
+        if (sameBilling) {
+            state.client.adresseFacturation = state.client.adresseChantier;
+            state.client.villeFacturation = '';
+        } else {
+            state.client.adresseFacturation = document.getElementById('adresse-facturation')?.value?.trim() || '';
+            state.client.villeFacturation = document.getElementById('ville-facturation')?.value?.trim() || '';
+        }
+
         console.log('Client info saved:', state.client);
-        
+
         // Save progress to localStorage
         saveStateToStorage();
-        
+
         goToStep(3);
+    });
+
+    // Toggle billing address section visibility
+    document.getElementById('same-billing-address')?.addEventListener('change', function() {
+        const billingSection = document.getElementById('billing-address-section');
+        if (billingSection) {
+            billingSection.classList.toggle('hidden', this.checked);
+        }
     });
 
     // Setup Mapbox address autocomplete
@@ -1086,22 +1162,6 @@ function toRad(deg) {
     return deg * (Math.PI / 180);
 }
 
-function updateTransportCost(distance) {
-    const transportCostEl = document.getElementById('transport-cost');
-    if (!transportCostEl) return;
-
-    let message = '';
-
-    if (distance > 100) {
-        message = `<span class="font-bold">75$/jour</span> <span class="text-amber-600 font-medium">+ pension</span>`;
-    } else if (distance > 50) {
-        message = `<span class="font-bold">75$/jour</span>`;
-    } else {
-        message = `<span class="font-bold">55$</span> <span class="text-slate-500">(local)</span>`;
-    }
-
-    transportCostEl.innerHTML = message;
-}
 
 // =====================================================
 // STEP 3: ZONES
@@ -1129,28 +1189,32 @@ async function loadMateriaux() {
         console.error('Erreur chargement matériaux:', err);
     }
     
-    // Fallback: use hardcoded list based on MATERIAUX_REFERENCE.md
+    // Fallback: use hardcoded list based on Gabriel's classification (19 matériaux)
     state.materiaux = [
-        // Mur/Plafond
-        { id: 1, nom: 'Gypse (panneau 1/2")', friabilite: 'non_friable', epaisseur_defaut: 0.5, categorie: 'Mur/Plafond' },
-        { id: 2, nom: 'Gypse 3/8"', friabilite: 'non_friable', epaisseur_defaut: 0.375, categorie: 'Mur/Plafond' },
-        { id: 3, nom: 'Gypse 5/8"', friabilite: 'non_friable', epaisseur_defaut: 0.625, categorie: 'Mur/Plafond' },
-        { id: 4, nom: 'Composé à joints', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Mur/Plafond' },
-        { id: 5, nom: 'Plâtre sur lattes', friabilite: 'friable', epaisseur_defaut: 0.875, categorie: 'Mur/Plafond' },
-        { id: 6, nom: 'Crépi cimentaire', friabilite: 'friable', epaisseur_defaut: 0.5, categorie: 'Mur/Plafond' },
-        // Plancher
-        { id: 7, nom: 'Tuile vinyle 9x9', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Plancher' },
-        { id: 8, nom: 'Tuile vinyle 12x12', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Plancher' },
-        // Isolation
-        { id: 9, nom: 'Vermiculite (Zonolite)', friabilite: 'friable', epaisseur_defaut: 4.0, categorie: 'Isolation' },
-        { id: 10, nom: 'Calorifuge tuyaux', friabilite: 'friable', epaisseur_defaut: 1.0, categorie: 'Isolation' },
-        { id: 11, nom: 'Flocage (projection)', friabilite: 'friable', epaisseur_defaut: 1.0, categorie: 'Isolation' },
-        // Revêtement extérieur / Toiture
-        { id: 12, nom: 'Bardeaux asphalte', friabilite: 'non_friable', epaisseur_defaut: 0.125, categorie: 'Revêtement extérieur' },
-        { id: 13, nom: 'Panneau fibrociment', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Revêtement extérieur' },
-        { id: 14, nom: 'Mastic fenêtre', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Revêtement extérieur' },
-        // Panneaux thermiques
-        { id: 15, nom: 'Panneau isolant rigide', friabilite: 'non_friable', epaisseur_defaut: 1.0, categorie: 'Panneaux thermiques' },
+        // Isolants
+        { id: 1, nom: 'Flocage (ignifugation projetée)', friabilite: 'friable', epaisseur_defaut: 2.0, categorie: 'Isolants', niveau_risque_typique: 'Élevé' },
+        { id: 2, nom: 'Calorifugeage (tuyauterie, coudes)', friabilite: 'friable', epaisseur_defaut: 1.0, categorie: 'Isolants', niveau_risque_typique: 'Élevé (Modéré si < 1m linéaire)' },
+        { id: 3, nom: 'Vermiculite (isolant en vrac)', friabilite: 'friable', epaisseur_defaut: 4.0, categorie: 'Isolants', niveau_risque_typique: 'Élevé' },
+        { id: 4, nom: 'Isolant de chaudière / réservoir', friabilite: 'friable', epaisseur_defaut: 2.0, categorie: 'Isolants', niveau_risque_typique: 'Élevé' },
+        // Murs et Plafonds
+        { id: 5, nom: 'Plâtre cimentaire / Plâtre sur lattes', friabilite: 'friable', epaisseur_defaut: 0.875, categorie: 'Murs et Plafonds', niveau_risque_typique: 'Élevé (si > 10 pi³)' },
+        { id: 6, nom: 'Stucco / Plafond "Popcorn"', friabilite: 'friable', epaisseur_defaut: 0.5, categorie: 'Murs et Plafonds', niveau_risque_typique: 'Modéré à Élevé' },
+        { id: 7, nom: 'Gypse et composé à joint', friabilite: 'non_friable', epaisseur_defaut: 0.5, categorie: 'Murs et Plafonds', niveau_risque_typique: 'Modéré' },
+        { id: 8, nom: 'Tuiles de plafond suspendu', friabilite: 'friable', epaisseur_defaut: 0.5, categorie: 'Murs et Plafonds', niveau_risque_typique: 'Modéré' },
+        // Sols
+        { id: 9, nom: 'Linoléum avec endos de feutre', friabilite: 'friable', epaisseur_defaut: 0.125, categorie: 'Sols', niveau_risque_typique: 'Élevé (si arraché)' },
+        { id: 10, nom: 'Dalles de vinyle-amiante (V.A.T.)', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Sols', niveau_risque_typique: 'Modéré' },
+        { id: 11, nom: 'Mastic / Colle noire (sous dalles/bois)', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Sols', niveau_risque_typique: 'Modéré' },
+        // Extérieur
+        { id: 12, nom: 'Bardeau / Déclin de ciment (Transite)', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Extérieur', niveau_risque_typique: 'Modéré' },
+        { id: 13, nom: 'Bardeaux de toiture en asphalte', friabilite: 'non_friable', epaisseur_defaut: 0.125, categorie: 'Extérieur', niveau_risque_typique: 'Faible à Modéré' },
+        { id: 14, nom: 'Calfeutrant de fenêtres / portes', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Extérieur', niveau_risque_typique: 'Faible à Modéré' },
+        { id: 15, nom: 'Stucco extérieur', friabilite: 'non_friable', epaisseur_defaut: 0.5, categorie: 'Extérieur', niveau_risque_typique: 'Modéré' },
+        // Mécanique
+        { id: 16, nom: 'Conduits de ventilation (Transite)', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Mécanique', niveau_risque_typique: 'Modéré' },
+        { id: 17, nom: 'Tuyaux de drainage / égout (Transite)', friabilite: 'non_friable', epaisseur_defaut: 1.0, categorie: 'Mécanique', niveau_risque_typique: 'Modéré (Élevé si scié)' },
+        { id: 18, nom: 'Tissus de joints de dilatation', friabilite: 'friable', epaisseur_defaut: 0.125, categorie: 'Mécanique', niveau_risque_typique: 'Modéré à Élevé' },
+        { id: 19, nom: 'Panneaux électriques (Ébène)', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Mécanique', niveau_risque_typique: 'Modéré' },
     ];
     populateMateriauxDropdown();
 }
@@ -1158,54 +1222,65 @@ async function loadMateriaux() {
 function populateMateriauxDropdown() {
     const optionsList = document.getElementById('materiau-options-list');
     if (!optionsList) return;
-
-    // Clear existing options
     optionsList.innerHTML = '';
 
-    // Add materiaux options
+    // Icon mapping by category
+    const categoryIcons = {
+        'Isolants': 'thermostat',
+        'Murs et Plafonds': 'dashboard',
+        'Sols': 'grid_view',
+        'Extérieur': 'roofing',
+        'Mécanique': 'plumbing'
+    };
+
+    // Group by category
+    const grouped = {};
     state.materiaux.forEach(mat => {
-        const option = document.createElement('div');
-        option.className = 'custom-dropdown-option';
-        option.dataset.value = mat.id;
-        option.dataset.nom = mat.nom;
-        option.dataset.friabilite = mat.friabilite;
-        option.dataset.epaisseur = mat.epaisseur_defaut;
-        
-        // Determine icon based on material type (using valid Material Symbols icons)
-        let icon = 'category';
-        const nomLower = mat.nom.toLowerCase();
-        if (nomLower.includes('gypse') || nomLower.includes('plâtre') || nomLower.includes('platre')) icon = 'dashboard';
-        else if (nomLower.includes('tuile') || nomLower.includes('vinyl')) icon = 'grid_view';
-        else if (nomLower.includes('vermiculite') || nomLower.includes('isolant')) icon = 'thermostat';
-        else if (nomLower.includes('bardeau') || nomLower.includes('fibrociment')) icon = 'roofing';
-        else if (nomLower.includes('composé') || nomLower.includes('compose') || nomLower.includes('joint')) icon = 'format_paint';
-        else if (nomLower.includes('crépi') || nomLower.includes('crepi') || nomLower.includes('ciment')) icon = 'texture';
-        else if (nomLower.includes('mastic') || nomLower.includes('fenêtre') || nomLower.includes('fenetre')) icon = 'window';
-        else if (nomLower.includes('panneau')) icon = 'view_module';
-        
-        const friabiliteText = mat.friabilite === 'friable' ? 'Friable' : 'Non friable';
-        const friabiliteClass = mat.friabilite === 'friable' ? 'text-red-500' : 'text-green-600';
-        
-        option.innerHTML = `
-            <div class="option-icon">
-                <span class="material-symbols-outlined">${icon}</span>
-            </div>
-            <div class="option-text">
-                <p class="option-name">${mat.nom}</p>
-                <p class="option-meta"><span class="${friabiliteClass}">${friabiliteText}</span> • Épaisseur: ${mat.epaisseur_defaut}"</p>
-            </div>
-            <div class="option-check">
-                <span class="material-symbols-outlined text-sm">check</span>
-            </div>
-        `;
-        
-        // Click handler
-        option.addEventListener('click', () => selectMateriauOption(mat));
-        
-        optionsList.appendChild(option);
+        const cat = mat.categorie || 'Autre';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(mat);
     });
 
-    // Setup custom dropdown events
+    // Render each category group
+    Object.entries(grouped).forEach(([categorie, materiaux]) => {
+        // Category header
+        const header = document.createElement('div');
+        header.className = 'px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50 sticky top-0';
+        header.textContent = categorie;
+        optionsList.appendChild(header);
+
+        // Material options
+        materiaux.forEach(mat => {
+            const option = document.createElement('div');
+            option.className = 'custom-dropdown-option';
+            option.dataset.value = mat.id;
+            option.dataset.nom = mat.nom;
+            option.dataset.friabilite = mat.friabilite;
+            option.dataset.epaisseur = mat.epaisseur_defaut;
+
+            const icon = categoryIcons[categorie] || 'category';
+            const friabiliteText = mat.friabilite === 'friable' ? 'Friable' : 'Non friable';
+            const friabiliteClass = mat.friabilite === 'friable' ? 'text-red-500' : 'text-green-600';
+            const risqueText = mat.niveau_risque_typique ? ` • Risque: ${mat.niveau_risque_typique}` : '';
+
+            option.innerHTML = `
+                <div class="option-icon">
+                    <span class="material-symbols-outlined">${icon}</span>
+                </div>
+                <div class="option-text">
+                    <p class="option-name">${mat.nom}</p>
+                    <p class="option-meta"><span class="${friabiliteClass}">${friabiliteText}</span> • Épaisseur: ${mat.epaisseur_defaut}"${risqueText}</p>
+                </div>
+                <div class="option-check">
+                    <span class="material-symbols-outlined text-sm">check</span>
+                </div>
+            `;
+
+            option.addEventListener('click', () => selectMateriauOption(mat));
+            optionsList.appendChild(option);
+        });
+    });
+
     setupCustomDropdown();
 }
 
@@ -1268,8 +1343,10 @@ function openMateriauxDropdown() {
     if (searchInput) searchInput.value = '';
     filterMateriauxOptions('');
     
-    // Prevent body scroll on mobile
-    document.body.style.overflow = 'hidden';
+    // Prevent body scroll on mobile only
+    if (window.innerWidth < 768) {
+        document.body.style.overflow = 'hidden';
+    }
 }
 
 function closeMateriauxDropdown() {
@@ -1440,11 +1517,17 @@ function filterMateriauxByCategorie(categorie) {
     
     // Hide friability badge
     document.getElementById('friabilite-badge')?.classList.add('hidden');
-    
+
+    // Hide friability override
+    document.getElementById('friabilite-override-section')?.classList.add('hidden');
+    document.getElementById('friabilite-override-controls')?.classList.add('hidden');
+    const overrideSelectFilter = document.getElementById('friabilite-override');
+    if (overrideSelectFilter) overrideSelectFilter.value = '';
+
     // Disable continue button
     const btnNextStep3c = document.getElementById('btn-next-step3c');
     if (btnNextStep3c) btnNextStep3c.disabled = true;
-    
+
     console.log(`🔍 Matériaux filtrés pour "${categorie}": ${filteredMateriaux.length} trouvés`);
 }
 
@@ -1481,20 +1564,29 @@ function selectMateriauOption(mat) {
     
     // Update friability badge
     updateFriabiliteBadge(mat.friabilite);
-    
+
+    // Show friability override section and reset override
+    const overrideSection = document.getElementById('friabilite-override-section');
+    if (overrideSection) overrideSection.classList.remove('hidden');
+    const overrideSelect = document.getElementById('friabilite-override');
+    if (overrideSelect) overrideSelect.value = '';
+    const overrideControls = document.getElementById('friabilite-override-controls');
+    if (overrideControls) overrideControls.classList.add('hidden');
+    if (hiddenInput) hiddenInput.dataset.friabiliteOverride = 'false';
+
     // Set default thickness
     if (epaisseurInput && mat.epaisseur_defaut) {
         epaisseurInput.value = mat.epaisseur_defaut;
     }
-    
+
     // Enable continue button
     if (btnNextStep3c) {
         btnNextStep3c.disabled = false;
     }
-    
+
     // Close dropdown
     closeMateriauxDropdown();
-    
+
     console.log('Matériau sélectionné:', mat.nom);
 }
 
@@ -1569,6 +1661,39 @@ function setupStep3Events() {
     btnBackStep3c?.addEventListener('click', () => goToZoneStep('3b'));
     btnNextStep3c?.addEventListener('click', () => goToZoneStep('3d'));
 
+    // === Friability override toggle and select ===
+    document.getElementById('btn-toggle-friabilite')?.addEventListener('click', () => {
+        const controls = document.getElementById('friabilite-override-controls');
+        if (controls) controls.classList.toggle('hidden');
+    });
+
+    document.getElementById('friabilite-override')?.addEventListener('change', (e) => {
+        const materiauInput = document.getElementById('zone-materiau');
+        if (!materiauInput) return;
+
+        const overrideValue = e.target.value;
+        if (overrideValue) {
+            // Override the friability
+            materiauInput.dataset.friabilite = overrideValue;
+            materiauInput.dataset.friabiliteOverride = 'true';
+        } else {
+            // Reset to default from material
+            const mat = state.materiaux.find(m => String(m.id) === String(materiauInput.value));
+            if (mat) {
+                materiauInput.dataset.friabilite = mat.friabilite;
+            }
+            materiauInput.dataset.friabiliteOverride = 'false';
+        }
+
+        // Update the friability badge display
+        updateFriabiliteBadge(materiauInput.dataset.friabilite);
+
+        // Recalculate surfaces if we're already on step 3d
+        if (state.currentSurfaces && state.currentSurfaces.length > 0) {
+            updateSurfaceTotals();
+        }
+    });
+
     // === Step 3d: Dimensions (Multi-surfaces) ===
     const epaisseurInput = document.getElementById('zone-epaisseur');
     const btnBackStep3d = document.getElementById('btn-back-step3d');
@@ -1596,6 +1721,9 @@ function setupStep3Events() {
 }
 
 function goToZoneStep(subStep) {
+    // Always close the materiau dropdown if open
+    closeMateriauxDropdown();
+
     // Hide all step-3 sub-sections and zone list
     document.querySelectorAll('[id^="step-3"]').forEach(el => el.classList.add('hidden'));
 
@@ -1748,10 +1876,15 @@ function renderZoneCards() {
     const existingCards = grid.querySelectorAll('.zone-card');
     existingCards.forEach(card => card.remove());
 
-    // Add zone cards
+    // Add zone cards (expanded if inline editing)
     state.zones.forEach(zone => {
-        const card = createZoneCard(zone);
-        grid.appendChild(card);
+        if (zone.id === state.inlineEditingZoneId) {
+            const card = createZoneCardExpanded(zone);
+            grid.appendChild(card);
+        } else {
+            const card = createZoneCard(zone);
+            grid.appendChild(card);
+        }
     });
 
     // Show/hide empty hint
@@ -1771,23 +1904,34 @@ function createZoneCard(zone) {
 
     // Icon based on category
     const iconMap = {
-        'Mur/Plafond': 'dashboard',
-        'Plancher': 'foundation',
-        'Isolation': 'thermostat',
-        'Revêtement extérieur': 'roofing',
-        'Panneaux thermiques': 'heat'
+        'Isolants': 'thermostat',
+        'Murs et Plafonds': 'dashboard',
+        'Sols': 'grid_view',
+        'Extérieur': 'roofing',
+        'Mécanique': 'plumbing'
     };
     const icon = iconMap[zone.categorie] || 'square_foot';
 
     // Risk badge
     const isHighRisk = zone.risque === 'ÉLEVÉ';
-    const riskClass = isHighRisk ? 'risk-high' : 'risk-moderate';
-    const riskText = isHighRisk ? 'ÉLEVÉ' : 'MODÉRÉ';
+    const isAllegeRisk = zone.risque === 'ÉLEVÉ_ALLÉGÉ';
+    let riskClass, riskText;
+    if (isHighRisk) {
+        riskClass = 'risk-high';
+        riskText = 'ÉLEVÉ';
+    } else if (isAllegeRisk) {
+        riskClass = 'risk-allege';
+        riskText = 'ÉLEVÉ ALLÉGÉ';
+    } else {
+        riskClass = 'risk-moderate';
+        riskText = 'MODÉRÉ';
+    }
     const isOverride = zone.risqueOverride === true;
     const overrideIndicator = '';
 
     // Friability text
     const friabiliteText = zone.friabilite === 'friable' ? 'Friable' : 'Non friable';
+    const friabiliteOverrideIndicator = zone.friabiliteOverride ? ' <span class="text-amber-500 text-xs">(modifié)</span>' : '';
 
     // Collecter toutes les photos (ancien format + nouveau format surfaces)
     const allPhotos = [];
@@ -1816,11 +1960,29 @@ function createZoneCard(zone) {
         </div>
     ` : '';
 
+    // Photos thumbnail (max 2, horizontal)
+    const photosThumbnailHtml = hasPhotos ? `
+        <div class="flex gap-2 flex-shrink-0">
+            ${allPhotos.slice(0, 2).map((photo, i) => `
+                <div class="photo-item relative rounded-lg overflow-hidden bg-slate-100 cursor-pointer group w-20 h-20 flex-shrink-0" data-photo-index="${i}">
+                    <img src="${photo.dataUrl}" alt="Photo ${i + 1}"
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 flex items-center justify-center transition-all">
+                        <span class="material-symbols-outlined text-white text-lg opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg">zoom_in</span>
+                    </div>
+                </div>
+            `).join('')}
+            ${allPhotos.length > 2 ? `<span class="text-xs text-slate-400 self-center">+${allPhotos.length - 2}</span>` : ''}
+        </div>
+    ` : '';
+
+    const totalSurface = zone.surface || zone.surfaceTotal || 0;
+
     card.innerHTML = `
-        <!-- Header: Icône + Nom + Boutons -->
-        <div class="flex items-start justify-between mb-3">
-            <div class="flex items-center gap-3">
-                <div class="bg-slate-100 p-2.5 rounded-xl">
+        <div class="flex items-center gap-4 flex-wrap md:flex-nowrap">
+            <!-- Left: Icône + Nom + Risque -->
+            <div class="flex items-center gap-3 min-w-[180px]">
+                <div class="bg-slate-100 p-2.5 rounded-xl flex-shrink-0">
                     <span class="material-symbols-outlined text-slate-500">${icon}</span>
                 </div>
                 <div>
@@ -1835,79 +1997,37 @@ function createZoneCard(zone) {
                     </div>
                 </div>
             </div>
-            <div class="flex items-center gap-1">
-                <button class="btn-edit-zone w-8 h-8 flex items-center justify-center text-slate-400 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors" data-zone-id="${zone.id}" title="Modifier">
-                    <span class="material-symbols-outlined text-xl">edit</span>
-                </button>
-                <button class="btn-delete-zone w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" data-zone-id="${zone.id}" title="Supprimer">
-                    <span class="material-symbols-outlined text-xl">delete</span>
-                </button>
-            </div>
-        </div>
 
-        <!-- Infos de la zone - Style tableau -->
-        <div class="mt-3">
-            <!-- Tableau des surfaces -->
-            ${zone.surfaces && zone.surfaces.length > 0 ? `
-                <table class="w-full text-xs border-collapse">
-                    <thead>
-                        <tr class="border-b border-slate-200">
-                            <th class="text-left py-2 text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Surface</th>
-                            <th class="text-right py-2 text-slate-400 font-semibold uppercase tracking-wider text-[10px]">L × H</th>
-                            <th class="text-right py-2 text-slate-400 font-semibold uppercase tracking-wider text-[10px]">pi²</th>
-                            <th class="w-8"></th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        ${zone.surfaces.map((s, i) => `
-                            <tr class="hover:bg-slate-50">
-                                <td class="py-2 text-slate-600">Mur ${i + 1}</td>
-                                <td class="py-2 text-right text-slate-700">${formatNumber(s.longueur, 0)} × ${formatNumber(s.hauteur, 0)}</td>
-                                <td class="py-2 text-right font-medium text-slate-800">${formatNumber(s.longueur * s.hauteur, 0)}</td>
-                                <td class="py-2 text-center">
-                                    ${s.photo ? `
-                                        <button class="btn-view-surface-photo text-blue-500 hover:text-blue-700 transition-colors" data-zone-id="${zone.id}" data-surface-index="${i}" title="Voir la photo">
-                                            <span class="material-symbols-outlined text-base">photo_camera</span>
-                                        </button>
-                                    ` : `
-                                        <span class="text-slate-300">
-                                            <span class="material-symbols-outlined text-base">photo_camera</span>
-                                        </span>
-                                    `}
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                    <tfoot>
-                        <tr class="border-t-2 border-slate-300 bg-slate-50">
-                            <td class="py-2 font-semibold text-slate-700" colspan="2">Total</td>
-                            <td class="py-2 text-right font-bold text-slate-900">${formatNumber(zone.surface || zone.surfaceTotal, 0)}</td>
-                            <td></td>
-                        </tr>
-                    </tfoot>
-                </table>
-            ` : `
-                <div class="flex justify-between items-center py-2 border-b border-slate-100">
-                    <span class="text-xs text-slate-500">Surface</span>
-                    <span class="text-sm font-bold text-slate-900">${formatNumber(zone.surface || zone.surfaceTotal, 0)} pi²</span>
+            <!-- Center: Infos compactes -->
+            <div class="flex items-center gap-6 flex-1 text-xs text-slate-600">
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] text-slate-400 uppercase font-semibold">Surface</span>
+                    <span class="text-sm font-bold text-slate-900">${formatNumber(totalSurface, 0)} pi²</span>
+                    ${zone.surfaces && zone.surfaces.length > 1 ? `<span class="text-[10px] text-slate-400">${zone.surfaces.length} murs</span>` : ''}
                 </div>
-            `}
-            
-            <!-- Autres infos -->
-            <div class="divide-y divide-slate-100 mt-2">
-                <div class="flex justify-between items-center py-2">
-                    <span class="text-xs text-slate-500">Matériau</span>
-                    <span class="text-xs font-semibold text-slate-700">${zone.materiauNom?.split(' ')[0] || 'N/A'}</span>
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] text-slate-400 uppercase font-semibold">Matériau</span>
+                    <span class="text-sm font-semibold text-slate-700">${zone.materiauNom?.split(' ')[0] || 'N/A'}</span>
                 </div>
-                <div class="flex justify-between items-center py-2">
-                    <span class="text-xs text-slate-500">Friabilité</span>
-                    <span class="text-xs font-semibold text-slate-700">${friabiliteText}</span>
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] text-slate-400 uppercase font-semibold">Friabilité</span>
+                    <span class="text-sm font-semibold text-slate-700">${friabiliteText}</span>
+                </div>
+            </div>
+
+            <!-- Right: Photos + Actions -->
+            <div class="flex items-center gap-3 flex-shrink-0">
+                ${photosThumbnailHtml}
+                <div class="flex items-center gap-1 ml-2">
+                    <button class="btn-edit-zone w-8 h-8 flex items-center justify-center text-slate-400 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors" data-zone-id="${zone.id}" title="Modifier">
+                        <span class="material-symbols-outlined text-xl">edit</span>
+                    </button>
+                    <button class="btn-delete-zone w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" data-zone-id="${zone.id}" title="Supprimer">
+                        <span class="material-symbols-outlined text-xl">delete</span>
+                    </button>
                 </div>
             </div>
         </div>
-
-        <!-- Photos empilées -->
-        ${photosStackHtml}
     `;
 
     // Click sur photos → lightbox
@@ -1927,11 +2047,11 @@ function createZoneCard(zone) {
         toggleZoneRisque(zone.id);
     });
 
-    // Edit button listener
+    // Edit button listener → inline editing
     const btnEdit = card.querySelector('.btn-edit-zone');
     btnEdit?.addEventListener('click', (e) => {
         e.stopPropagation();
-        editZone(zone.id);
+        toggleZoneInlineEdit(zone.id);
     });
 
     // Delete button listener
@@ -1955,6 +2075,555 @@ function createZoneCard(zone) {
     });
 
     return card;
+}
+
+// =====================================================
+// INLINE ZONE EDITING (Phase 2)
+// =====================================================
+
+function toggleZoneInlineEdit(zoneId) {
+    if (state.inlineEditingZoneId === zoneId) {
+        // Already editing this zone → cancel
+        cancelInlineEdit();
+        return;
+    }
+
+    const zone = state.zones.find(z => z.id === zoneId);
+    if (!zone) return;
+
+    console.log('✏️ Inline edit:', zone.nom);
+
+    // Copy zone data to temp state
+    state.inlineEditingZoneId = zoneId;
+    state.inlineEditData = {
+        nom: zone.nom,
+        categorie: zone.categorie,
+        materiauId: zone.materiauId,
+        materiauNom: zone.materiauNom,
+        friabilite: zone.friabilite,
+        friabiliteOverride: zone.friabiliteOverride || false,
+        epaisseur: zone.epaisseur,
+        risqueOverride: zone.risqueOverride || false,
+        risque: zone.risque
+    };
+    state.inlineEditSurfaces = (zone.surfaces || []).map(s => ({
+        id: s.id || Date.now() + Math.random(),
+        longueur: s.longueur || 0,
+        hauteur: s.hauteur || 0,
+        surface: s.surface || 0,
+        volume: s.volume || 0,
+        photo: s.photo ? { ...s.photo } : null
+    }));
+
+    // Ensure at least one surface
+    if (state.inlineEditSurfaces.length === 0) {
+        state.inlineEditSurfaces.push({
+            id: Date.now() + Math.random(),
+            longueur: 0, hauteur: 0, surface: 0, volume: 0, photo: null
+        });
+    }
+
+    renderZoneCards();
+}
+
+function cancelInlineEdit() {
+    state.inlineEditingZoneId = null;
+    state.inlineEditData = null;
+    state.inlineEditSurfaces = [];
+    renderZoneCards();
+}
+
+function saveInlineEdit() {
+    const data = state.inlineEditData;
+    if (!data) return;
+
+    const zoneId = state.inlineEditingZoneId;
+    const index = state.zones.findIndex(z => z.id === zoneId);
+    if (index === -1) return;
+
+    // Validate
+    const validSurfaces = state.inlineEditSurfaces.filter(s => s.longueur > 0 && s.hauteur > 0);
+    if (!data.nom || !data.categorie || !data.materiauId || validSurfaces.length === 0 || data.epaisseur <= 0) {
+        alert('Veuillez remplir tous les champs et avoir au moins une surface valide.');
+        return;
+    }
+
+    // Calculate totals
+    const epaisseur = data.epaisseur;
+    const surfaceTotal = validSurfaces.reduce((sum, s) => sum + (s.longueur * s.hauteur), 0);
+    const volumeTotal = validSurfaces.reduce((sum, s) => sum + (s.longueur * s.hauteur * (epaisseur / 12)), 0);
+    const risque = data.risqueOverride ? data.risque : determineRisque(volumeTotal, data.friabilite);
+
+    const surfaces = validSurfaces.map((s, i) => ({
+        id: s.id,
+        nom: `Surface ${i + 1}`,
+        longueur: s.longueur,
+        hauteur: s.hauteur,
+        surface: s.longueur * s.hauteur,
+        volume: s.longueur * s.hauteur * (epaisseur / 12),
+        photo: s.photo ? { name: s.photo.name, dataUrl: s.photo.dataUrl } : null
+    }));
+
+    // Update zone
+    state.zones[index] = {
+        ...state.zones[index],
+        nom: data.nom,
+        categorie: data.categorie,
+        materiauId: data.materiauId,
+        materiauNom: data.materiauNom,
+        friabilite: data.friabilite,
+        friabiliteOverride: data.friabiliteOverride,
+        epaisseur: epaisseur,
+        surfaces: surfaces,
+        surfaceTotal: surfaceTotal,
+        volumeTotal: volumeTotal,
+        surface: surfaceTotal,
+        volume: volumeTotal,
+        risque: risque,
+        risqueOverride: data.risqueOverride
+    };
+
+    console.log('✅ Zone inline mise à jour:', state.zones[index].nom);
+
+    // Clear inline state
+    state.inlineEditingZoneId = null;
+    state.inlineEditData = null;
+    state.inlineEditSurfaces = [];
+
+    saveStateToStorage();
+    renderZoneCards();
+
+    // Recalculate prices if on step 4
+    if (state.currentStep === 4) {
+        calculatePrix();
+    }
+}
+
+function recalcInlineZone() {
+    const data = state.inlineEditData;
+    if (!data) return;
+
+    const epaisseur = data.epaisseur || 0;
+
+    // Recalc each surface
+    state.inlineEditSurfaces.forEach(s => {
+        s.surface = s.longueur * s.hauteur;
+        s.volume = s.longueur * s.hauteur * (epaisseur / 12);
+    });
+
+    const surfaceTotal = state.inlineEditSurfaces.reduce((sum, s) => sum + s.surface, 0);
+    const volumeTotal = state.inlineEditSurfaces.reduce((sum, s) => sum + s.volume, 0);
+    const risque = data.risqueOverride ? data.risque : determineRisque(volumeTotal, data.friabilite);
+
+    // Update displayed totals
+    const el = document.getElementById('inline-edit-card');
+    if (!el) return;
+
+    const surfaceEl = el.querySelector('[data-calc="surface"]');
+    const volumeEl = el.querySelector('[data-calc="volume"]');
+    const risqueEl = el.querySelector('[data-calc="risque"]');
+
+    if (surfaceEl) surfaceEl.textContent = surfaceTotal > 0 ? formatNumber(surfaceTotal, 1) + ' pi²' : '--';
+    if (volumeEl) volumeEl.textContent = volumeTotal > 0 ? formatNumber(volumeTotal, 2) + ' pi³' : '--';
+    if (risqueEl) {
+        if (risque === 'ÉLEVÉ') {
+            risqueEl.textContent = 'ÉLEVÉ';
+            risqueEl.className = 'inline-flex px-3 py-1 rounded-full text-xs font-bold risk-high';
+        } else if (risque === 'ÉLEVÉ_ALLÉGÉ') {
+            risqueEl.textContent = 'ÉLEVÉ ALLÉGÉ';
+            risqueEl.className = 'inline-flex px-3 py-1 rounded-full text-xs font-bold risk-allege';
+        } else if (risque === 'MODÉRÉ') {
+            risqueEl.textContent = 'MODÉRÉ';
+            risqueEl.className = 'inline-flex px-3 py-1 rounded-full text-xs font-bold risk-moderate';
+        } else {
+            risqueEl.textContent = '--';
+            risqueEl.className = 'inline-flex px-3 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-400';
+        }
+    }
+
+    // Enable/disable save button
+    const btnSave = el.querySelector('.btn-inline-save');
+    const hasValidSurface = state.inlineEditSurfaces.some(s => s.longueur > 0 && s.hauteur > 0);
+    if (btnSave) {
+        btnSave.disabled = !(data.nom && data.categorie && data.materiauId && hasValidSurface && epaisseur > 0);
+    }
+}
+
+function addInlineSurface() {
+    state.inlineEditSurfaces.push({
+        id: Date.now() + Math.random(),
+        longueur: 0, hauteur: 0, surface: 0, volume: 0, photo: null
+    });
+    renderInlineSurfaces();
+    recalcInlineZone();
+}
+
+function removeInlineSurface(surfaceId) {
+    if (state.inlineEditSurfaces.length <= 1) return;
+    state.inlineEditSurfaces = state.inlineEditSurfaces.filter(s => s.id !== surfaceId);
+    renderInlineSurfaces();
+    recalcInlineZone();
+}
+
+function renderInlineSurfaces() {
+    const container = document.getElementById('inline-surfaces-list');
+    if (!container) return;
+
+    container.innerHTML = state.inlineEditSurfaces.map((surface, index) => `
+        <div class="inline-surface-item bg-white border border-slate-200 rounded-lg p-3 relative" data-inline-surface-id="${surface.id}">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold text-slate-500">Mur ${index + 1}</span>
+                <div class="flex items-center gap-1">
+                    <button type="button" class="btn-inline-surface-photo w-7 h-7 flex items-center justify-center rounded ${surface.photo ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'} transition-colors"
+                            data-inline-surface-id="${surface.id}" title="${surface.photo ? 'Photo ajoutée' : 'Ajouter photo'}">
+                        <span class="material-symbols-outlined text-base">${surface.photo ? 'photo' : 'add_a_photo'}</span>
+                    </button>
+                    ${state.inlineEditSurfaces.length > 1 ? `
+                        <button type="button" class="btn-inline-remove-surface w-7 h-7 flex items-center justify-center rounded bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors"
+                                data-inline-surface-id="${surface.id}" title="Supprimer">
+                            <span class="material-symbols-outlined text-base">close</span>
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Longueur</label>
+                    <input type="number" min="0" step="0.1"
+                        class="inline-surface-input w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded text-sm text-slate-900 text-center focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
+                        placeholder="0" value="${surface.longueur || ''}"
+                        data-inline-surface-id="${surface.id}" data-field="longueur">
+                </div>
+                <div>
+                    <label class="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Hauteur</label>
+                    <input type="number" min="0" step="0.1"
+                        class="inline-surface-input w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded text-sm text-slate-900 text-center focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
+                        placeholder="0" value="${surface.hauteur || ''}"
+                        data-inline-surface-id="${surface.id}" data-field="hauteur">
+                </div>
+            </div>
+            ${surface.photo ? `
+                <div class="mt-2 relative rounded-lg overflow-hidden bg-slate-100 border border-slate-200">
+                    <img src="${surface.photo.dataUrl}" alt="Photo mur ${index + 1}"
+                        class="w-full object-contain max-h-32 cursor-pointer" data-inline-surface-id="${surface.id}" data-action="preview-inline-photo">
+                    <div class="absolute top-1 right-1 flex gap-1">
+                        <button class="btn-inline-photo-delete w-6 h-6 flex items-center justify-center bg-white/90 shadow text-red-500 hover:text-red-700 rounded transition-colors" data-inline-surface-id="${surface.id}" title="Supprimer photo">
+                            <span class="material-symbols-outlined text-sm">delete</span>
+                        </button>
+                    </div>
+                </div>
+            ` : ''}
+        </div>
+    `).join('');
+}
+
+function openInlineSurfacePhotoUpload(surfaceId) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+
+    input.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const compressedDataUrl = await compressImage(event.target.result);
+            const surface = state.inlineEditSurfaces.find(s => s.id === surfaceId);
+            if (surface) {
+                surface.photo = { name: file.name, dataUrl: compressedDataUrl };
+                renderInlineSurfaces();
+            }
+        };
+        reader.readAsDataURL(file);
+    });
+
+    input.click();
+}
+
+function createZoneCardExpanded(zone) {
+    const card = document.createElement('div');
+    card.className = 'zone-card zone-card-expanded';
+    card.id = 'inline-edit-card';
+    card.dataset.zoneId = zone.id;
+
+    const data = state.inlineEditData;
+    if (!data) return card;
+
+    // Category pills
+    const categories = ['Isolants', 'Murs et Plafonds', 'Sols', 'Extérieur', 'Mécanique'];
+    const categoryPills = categories.map(cat => `
+        <button type="button" class="inline-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${data.categorie === cat ? 'bg-primary text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}" data-inline-categorie="${cat}">
+            ${cat}
+        </button>
+    `).join('');
+
+    // Material options for current category
+    const filteredMats = state.materiaux.filter(m => !data.categorie || m.categorie === data.categorie);
+    const materialOptions = filteredMats.map(mat => `
+        <option value="${mat.id}" data-friabilite="${mat.friabilite}" data-epaisseur="${mat.epaisseur_defaut}" ${mat.id == data.materiauId ? 'selected' : ''}>${mat.nom}</option>
+    `).join('');
+
+    // Friability badge
+    const friabiliteText = data.friabilite === 'friable' ? 'Friable' : 'Non friable';
+    const friabiliteClass = data.friabilite === 'friable' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600';
+
+    // Calculate current totals for display
+    const epaisseur = data.epaisseur || 0;
+    const surfaceTotal = state.inlineEditSurfaces.reduce((sum, s) => sum + (s.longueur * s.hauteur), 0);
+    const volumeTotal = state.inlineEditSurfaces.reduce((sum, s) => sum + (s.longueur * s.hauteur * (epaisseur / 12)), 0);
+    const risque = data.risqueOverride ? data.risque : determineRisque(volumeTotal, data.friabilite);
+
+    let risqueClass = 'bg-slate-200 text-slate-400';
+    let risqueText = '--';
+    if (risque === 'ÉLEVÉ') { risqueClass = 'risk-high'; risqueText = 'ÉLEVÉ'; }
+    else if (risque === 'ÉLEVÉ_ALLÉGÉ') { risqueClass = 'risk-allege'; risqueText = 'ÉLEVÉ ALLÉGÉ'; }
+    else if (risque === 'MODÉRÉ') { risqueClass = 'risk-moderate'; risqueText = 'MODÉRÉ'; }
+
+    card.innerHTML = `
+        <div class="space-y-4">
+            <!-- Header: Nom + Annuler -->
+            <div class="flex items-center gap-3">
+                <input type="text" class="inline-edit-nom flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-base font-bold text-slate-900 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                    value="${data.nom}" placeholder="Nom de la zone">
+                <button type="button" class="btn-inline-cancel w-9 h-9 flex items-center justify-center rounded-lg bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors" title="Annuler">
+                    <span class="material-symbols-outlined text-xl">close</span>
+                </button>
+            </div>
+
+            <!-- Catégorie (pills) -->
+            <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Catégorie</label>
+                <div class="flex flex-wrap gap-1.5">
+                    ${categoryPills}
+                </div>
+            </div>
+
+            <!-- Matériau + Épaisseur -->
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Matériau</label>
+                    <select class="inline-edit-materiau w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:border-primary focus:ring-1 focus:ring-primary/20">
+                        <option value="">Sélectionner...</option>
+                        ${materialOptions}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Épaisseur (po)</label>
+                    <input type="number" class="inline-edit-epaisseur w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 text-center focus:border-primary focus:ring-1 focus:ring-primary/20"
+                        value="${data.epaisseur || ''}" min="0" step="0.125" placeholder="0">
+                </div>
+            </div>
+
+            <!-- Friabilité badge -->
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${friabiliteClass}" data-inline="friabilite-badge">${friabiliteText}</span>
+                ${data.friabiliteOverride ? '<span class="text-amber-500 text-[10px]">(modifié)</span>' : ''}
+            </div>
+
+            <!-- Surfaces (murs) -->
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Surfaces (murs)</label>
+                    <button type="button" class="btn-inline-add-surface flex items-center gap-1 px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10 rounded transition-colors">
+                        <span class="material-symbols-outlined text-sm">add</span> Ajouter
+                    </button>
+                </div>
+                <div id="inline-surfaces-list" class="space-y-2"></div>
+            </div>
+
+            <!-- Calculs auto -->
+            <div class="grid grid-cols-3 gap-3 bg-slate-50 rounded-lg p-3">
+                <div class="text-center">
+                    <div class="text-[10px] font-bold text-slate-400 uppercase">Surface</div>
+                    <div class="text-sm font-bold text-slate-900" data-calc="surface">${surfaceTotal > 0 ? formatNumber(surfaceTotal, 1) + ' pi²' : '--'}</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-[10px] font-bold text-slate-400 uppercase">Volume</div>
+                    <div class="text-sm font-bold text-slate-900" data-calc="volume">${volumeTotal > 0 ? formatNumber(volumeTotal, 2) + ' pi³' : '--'}</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-[10px] font-bold text-slate-400 uppercase">Risque</div>
+                    <div data-calc="risque" class="inline-flex px-3 py-1 rounded-full text-xs font-bold ${risqueClass}">${risqueText}</div>
+                </div>
+            </div>
+
+            <!-- Boutons Sauvegarder / Annuler -->
+            <div class="flex items-center gap-2 pt-2 border-t border-slate-100">
+                <button type="button" class="btn-inline-save flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span class="material-symbols-outlined text-lg">check</span> Sauvegarder
+                </button>
+                <button type="button" class="btn-inline-cancel-bottom flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-semibold text-sm hover:bg-slate-200 transition-colors">
+                    <span class="material-symbols-outlined text-lg">close</span> Annuler
+                </button>
+            </div>
+        </div>
+    `;
+
+    // Render surfaces into the container
+    setTimeout(() => {
+        renderInlineSurfaces();
+        setupInlineEditDelegation(card);
+    }, 0);
+
+    return card;
+}
+
+function setupInlineEditDelegation(card) {
+    // Name input
+    const nomInput = card.querySelector('.inline-edit-nom');
+    nomInput?.addEventListener('input', (e) => {
+        state.inlineEditData.nom = e.target.value.trim();
+        recalcInlineZone();
+    });
+
+    // Category pills
+    card.querySelectorAll('.inline-cat-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const cat = btn.dataset.inlineCategorie;
+            state.inlineEditData.categorie = cat;
+
+            // Update pills visually
+            card.querySelectorAll('.inline-cat-btn').forEach(b => {
+                b.className = b.dataset.inlineCategorie === cat
+                    ? 'inline-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all bg-primary text-white shadow-sm'
+                    : 'inline-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all bg-slate-100 text-slate-600 hover:bg-slate-200';
+            });
+
+            // Re-filter materials
+            const select = card.querySelector('.inline-edit-materiau');
+            if (select) {
+                const filtered = state.materiaux.filter(m => !cat || m.categorie === cat);
+                select.innerHTML = '<option value="">Sélectionner...</option>' + filtered.map(mat => `
+                    <option value="${mat.id}" data-friabilite="${mat.friabilite}" data-epaisseur="${mat.epaisseur_defaut}">${mat.nom}</option>
+                `).join('');
+
+                // Reset material selection
+                state.inlineEditData.materiauId = '';
+                state.inlineEditData.materiauNom = '';
+                recalcInlineZone();
+            }
+        });
+    });
+
+    // Material select
+    const matSelect = card.querySelector('.inline-edit-materiau');
+    matSelect?.addEventListener('change', (e) => {
+        const opt = e.target.selectedOptions[0];
+        state.inlineEditData.materiauId = e.target.value;
+        state.inlineEditData.materiauNom = opt?.textContent || '';
+
+        if (opt && opt.value) {
+            const friabilite = opt.dataset.friabilite || 'non_friable';
+            const epaisseur = parseFloat(opt.dataset.epaisseur) || state.inlineEditData.epaisseur;
+
+            if (!state.inlineEditData.friabiliteOverride) {
+                state.inlineEditData.friabilite = friabilite;
+                // Update friability badge
+                const badge = card.querySelector('[data-inline="friabilite-badge"]');
+                if (badge) {
+                    badge.textContent = friabilite === 'friable' ? 'Friable' : 'Non friable';
+                    badge.className = `inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${friabilite === 'friable' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`;
+                }
+            }
+
+            // Auto-fill thickness
+            const epInput = card.querySelector('.inline-edit-epaisseur');
+            if (epInput && epaisseur) {
+                epInput.value = epaisseur;
+                state.inlineEditData.epaisseur = epaisseur;
+            }
+        }
+        recalcInlineZone();
+    });
+
+    // Thickness input
+    const epInput = card.querySelector('.inline-edit-epaisseur');
+    epInput?.addEventListener('input', (e) => {
+        state.inlineEditData.epaisseur = parseFloat(e.target.value) || 0;
+        recalcInlineZone();
+    });
+
+    // Add surface button
+    const btnAddSurface = card.querySelector('.btn-inline-add-surface');
+    btnAddSurface?.addEventListener('click', () => addInlineSurface());
+
+    // Save buttons
+    const btnSave = card.querySelector('.btn-inline-save');
+    btnSave?.addEventListener('click', () => saveInlineEdit());
+
+    // Cancel buttons
+    card.querySelectorAll('.btn-inline-cancel, .btn-inline-cancel-bottom').forEach(btn => {
+        btn.addEventListener('click', () => cancelInlineEdit());
+    });
+
+    // Delegate events on surfaces list
+    const surfacesList = card.querySelector('#inline-surfaces-list');
+    if (surfacesList) {
+        // Input events
+        surfacesList.addEventListener('input', (e) => {
+            const input = e.target.closest('.inline-surface-input');
+            if (input) {
+                const surfaceId = parseFloat(input.dataset.inlineSurfaceId);
+                const field = input.dataset.field;
+                const surface = state.inlineEditSurfaces.find(s => s.id === surfaceId);
+                if (surface) {
+                    surface[field] = parseFloat(input.value) || 0;
+                    surface.surface = surface.longueur * surface.hauteur;
+                    const ep = state.inlineEditData.epaisseur || 0;
+                    surface.volume = surface.longueur * surface.hauteur * (ep / 12);
+                    recalcInlineZone();
+                }
+            }
+        });
+
+        // Click events
+        surfacesList.addEventListener('click', (e) => {
+            // Photo button
+            const photoBtn = e.target.closest('.btn-inline-surface-photo');
+            if (photoBtn) {
+                e.stopPropagation();
+                const surfaceId = parseFloat(photoBtn.dataset.inlineSurfaceId);
+                openInlineSurfacePhotoUpload(surfaceId);
+                return;
+            }
+
+            // Remove surface button
+            const removeBtn = e.target.closest('.btn-inline-remove-surface');
+            if (removeBtn) {
+                e.stopPropagation();
+                const surfaceId = parseFloat(removeBtn.dataset.inlineSurfaceId);
+                removeInlineSurface(surfaceId);
+                return;
+            }
+
+            // Preview photo
+            const preview = e.target.closest('[data-action="preview-inline-photo"]');
+            if (preview) {
+                e.stopPropagation();
+                const surfaceId = parseFloat(preview.dataset.inlineSurfaceId);
+                const surface = state.inlineEditSurfaces.find(s => s.id === surfaceId);
+                if (surface?.photo?.dataUrl) {
+                    openLightbox(surface.photo.dataUrl, 'Photo');
+                }
+                return;
+            }
+
+            // Delete photo
+            const deleteBtn = e.target.closest('.btn-inline-photo-delete');
+            if (deleteBtn) {
+                e.stopPropagation();
+                const surfaceId = parseFloat(deleteBtn.dataset.inlineSurfaceId);
+                const surface = state.inlineEditSurfaces.find(s => s.id === surfaceId);
+                if (surface) {
+                    surface.photo = null;
+                    renderInlineSurfaces();
+                }
+                return;
+            }
+        });
+    }
 }
 
 function deleteZone(zoneId) {
@@ -1986,21 +2655,38 @@ function updateCarousel(card) {
     });
 }
 
-// Toggle manuel du risque par zone (feedback équipe 21 jan 2026)
+// Toggle manuel du risque par zone
+// Cycle: MODÉRÉ → ÉLEVÉ_ALLÉGÉ → ÉLEVÉ → retour au calcul auto
 function toggleZoneRisque(zoneId) {
     const zone = state.zones.find(z => z.id === zoneId);
     if (!zone) return;
 
-    if (zone.risqueOverride) {
-        // Retour au calcul automatique
-        delete zone.risqueOverride;
-        zone.risque = determineRisque(zone.volume, zone.friabilite);
-        console.log('🔄 Risque auto restauré pour zone:', zone.nom, '→', zone.risque);
-    } else {
-        // Toggle manuel : inverser le risque
+    if (!zone.risqueOverride) {
+        // Premier clic: passer au niveau supérieur
         zone.risqueOverride = true;
-        zone.risque = zone.risque === 'ÉLEVÉ' ? 'MODÉRÉ' : 'ÉLEVÉ';
+        if (zone.risque === 'MODÉRÉ') {
+            zone.risque = 'ÉLEVÉ_ALLÉGÉ';
+        } else if (zone.risque === 'ÉLEVÉ_ALLÉGÉ') {
+            zone.risque = 'ÉLEVÉ';
+        } else {
+            // Déjà ÉLEVÉ, redescendre à MODÉRÉ
+            zone.risque = 'MODÉRÉ';
+        }
         console.log('✏️ Risque modifié manuellement pour zone:', zone.nom, '→', zone.risque);
+    } else {
+        // Déjà en override: cycle vers le suivant ou retour auto
+        if (zone.risque === 'MODÉRÉ') {
+            zone.risque = 'ÉLEVÉ_ALLÉGÉ';
+            console.log('✏️ Risque modifié manuellement pour zone:', zone.nom, '→', zone.risque);
+        } else if (zone.risque === 'ÉLEVÉ_ALLÉGÉ') {
+            zone.risque = 'ÉLEVÉ';
+            console.log('✏️ Risque modifié manuellement pour zone:', zone.nom, '→', zone.risque);
+        } else {
+            // Retour au calcul automatique
+            delete zone.risqueOverride;
+            zone.risque = determineRisque(zone.volume, zone.friabilite);
+            console.log('🔄 Risque auto restauré pour zone:', zone.nom, '→', zone.risque);
+        }
     }
 
     renderZoneCards();
@@ -2082,7 +2768,18 @@ function editZone(zoneId) {
 
     // Mettre à jour le badge de friabilité
     updateFriabiliteBadge(zone.friabilite);
-    
+
+    // Restore friability override state if applicable
+    if (zone.friabiliteOverride) {
+        const overrideSelect = document.getElementById('friabilite-override');
+        const overrideSection = document.getElementById('friabilite-override-section');
+        const overrideControls = document.getElementById('friabilite-override-controls');
+        if (overrideSelect) overrideSelect.value = zone.friabilite;
+        if (overrideSection) overrideSection.classList.remove('hidden');
+        if (overrideControls) overrideControls.classList.remove('hidden');
+        if (materiauInput) materiauInput.dataset.friabiliteOverride = 'true';
+    }
+
     // Activer les boutons selon les valeurs pré-remplies
     updateZoneWizardButtonStates();
 
@@ -2115,11 +2812,11 @@ function updateFriabiliteBadge(friabilite) {
     if (friabilite === 'friable') {
         text.textContent = 'FRIABLE';
         text.className = 'inline-flex items-center px-4 py-2 rounded-full text-sm font-bold tracking-wider uppercase bg-red-100 text-red-600';
-        if (desc) desc.textContent = 'Risque élevé si volume > 3 pi³';
+        if (desc) desc.textContent = '> 1 pi³ = Élevé allégé, > 10 pi³ = Élevé';
     } else {
         text.textContent = 'NON FRIABLE';
         text.className = 'inline-flex items-center px-4 py-2 rounded-full text-sm font-bold tracking-wider uppercase bg-green-100 text-green-600';
-        if (desc) desc.textContent = 'Risque élevé si volume > 10 pi³';
+        if (desc) desc.textContent = '> 10 pi³ = Élevé';
     }
 }
 
@@ -2389,6 +3086,9 @@ function updateSurfaceTotals() {
         if (risque === 'ÉLEVÉ') {
             risqueEl.textContent = 'ÉLEVÉ';
             risqueEl.className = 'inline-block mt-1 px-4 py-2 rounded-xl text-sm font-bold bg-red-100 text-red-600';
+        } else if (risque === 'ÉLEVÉ_ALLÉGÉ') {
+            risqueEl.textContent = 'ÉLEVÉ ALLÉGÉ';
+            risqueEl.className = 'inline-block mt-1 px-4 py-2 rounded-xl text-sm font-bold bg-orange-100 text-orange-600';
         } else if (risque === 'MODÉRÉ') {
             risqueEl.textContent = 'MODÉRÉ';
             risqueEl.className = 'inline-block mt-1 px-4 py-2 rounded-xl text-sm font-bold bg-amber-100 text-amber-600';
@@ -2492,14 +3192,15 @@ function calculateZoneValues() {
 }
 
 function determineRisque(volume, friabilite) {
-    // CSTC Rules:
-    // CSTC Rules (corrigé selon feedback équipe 21 jan 2026):
-    // - Friable: > 3 pi³ = ÉLEVÉ
-    // - Non friable: > 10 pi³ = ÉLEVÉ
+    // CSTC Rules (mise à jour avec Élevé allégé):
+    // - Friable: ≤ 1 pi³ = MODÉRÉ, 1-10 pi³ = ÉLEVÉ_ALLÉGÉ, > 10 pi³ = ÉLEVÉ
+    // - Non friable: ≤ 10 pi³ = MODÉRÉ, > 10 pi³ = ÉLEVÉ
     if (volume <= 0) return null;
 
     if (friabilite === 'friable') {
-        return volume > 3 ? 'ÉLEVÉ' : 'MODÉRÉ';
+        if (volume <= 1) return 'MODÉRÉ';
+        if (volume <= 10) return 'ÉLEVÉ_ALLÉGÉ';
+        return 'ÉLEVÉ';
     } else {
         return volume > 10 ? 'ÉLEVÉ' : 'MODÉRÉ';
     }
@@ -2507,20 +3208,24 @@ function determineRisque(volume, friabilite) {
 
 /**
  * Détermine le risque global du projet (propagation du risque élevé)
- * Selon feedback équipe 21 jan 2026:
  * - Si UNE zone est à risque élevé, TOUT le projet est à risque élevé
+ * - Si UNE zone est à risque élevé allégé (et aucune élevé), projet = élevé allégé
  * - Les frais globaux (douche, tests, perte de temps) s'appliquent une seule fois
- * @returns {Object} { risque: 'ÉLEVÉ'|'MODÉRÉ', hasZoneElevee: boolean, zonesElevees: number }
+ * @returns {Object} { risque: 'ÉLEVÉ'|'ÉLEVÉ_ALLÉGÉ'|'MODÉRÉ', hasZoneElevee: boolean, hasZoneEleveAllegee: boolean, totalZones: number }
  */
 function getProjetRisque() {
     const zones = state.zones || [];
-    const zonesElevees = zones.filter(z => z.risque === 'ÉLEVÉ').length;
-    const hasZoneElevee = zonesElevees > 0;
-    
+    const hasEleve = zones.some(z => z.risque === 'ÉLEVÉ');
+    const hasEleveAllege = zones.some(z => z.risque === 'ÉLEVÉ_ALLÉGÉ');
+
+    let risque = 'MODÉRÉ';
+    if (hasEleve) risque = 'ÉLEVÉ';
+    else if (hasEleveAllege) risque = 'ÉLEVÉ_ALLÉGÉ';
+
     return {
-        risque: hasZoneElevee ? 'ÉLEVÉ' : 'MODÉRÉ',
-        hasZoneElevee,
-        zonesElevees,
+        risque,
+        hasZoneElevee: hasEleve,
+        hasZoneEleveAllegee: hasEleveAllege,
         totalZones: zones.length
     };
 }
@@ -2565,6 +3270,7 @@ function addZone() {
         materiauId,
         materiauNom,
         friabilite,
+        friabiliteOverride: materiauInput?.dataset.friabiliteOverride === 'true',
         epaisseur,
         surfaces, // Nouveau: tableau de surfaces
         surfaceTotal,
@@ -2657,6 +3363,14 @@ function resetZoneForm() {
 
     // Hide friability badge
     document.getElementById('friabilite-badge')?.classList.add('hidden');
+
+    // Reset friability override
+    const overrideSectionReset = document.getElementById('friabilite-override-section');
+    const overrideControlsReset = document.getElementById('friabilite-override-controls');
+    const overrideSelectReset = document.getElementById('friabilite-override');
+    if (overrideSectionReset) overrideSectionReset.classList.add('hidden');
+    if (overrideControlsReset) overrideControlsReset.classList.add('hidden');
+    if (overrideSelectReset) overrideSelectReset.value = '';
 
     // Disable continue buttons
     const btnNext3a = document.getElementById('btn-next-step3a');
@@ -3078,6 +3792,7 @@ async function loadConfig() {
             test_zone1: 600,
             test_zone_supp: 400,
             perte_temps_heures_par_jour: 2,
+            ventilateur_par_jour: 70,
             disposition_par_1000pi2: 400,
             assurance_petit: 250,
             assurance_grand: 500
@@ -3096,6 +3811,48 @@ function setupStep4Events() {
     btnContinue?.addEventListener('click', () => {
         goToStep(5);
     });
+
+    // Shower +/- buttons
+    document.getElementById('btn-douche-plus')?.addEventListener('click', () => {
+        const countEl = document.getElementById('douche-count');
+        const current = parseInt(countEl?.textContent || '0');
+        state.doucheCount = current + 1;
+        if (countEl) countEl.textContent = state.doucheCount;
+        recalculerDouches();
+    });
+
+    document.getElementById('btn-douche-minus')?.addEventListener('click', () => {
+        const countEl = document.getElementById('douche-count');
+        const current = parseInt(countEl?.textContent || '0');
+        state.doucheCount = Math.max(0, current - 1);
+        if (countEl) countEl.textContent = state.doucheCount;
+        recalculerDouches();
+    });
+}
+
+function recalculerDouches() {
+    const config = state.config;
+    const count = state.doucheCount ?? 1;
+
+    let prixDouches = 0;
+    if (count > 0) {
+        prixDouches = (config.douche_zone1 || 800);
+        if (count > 1) {
+            prixDouches += (count - 1) * (config.douche_zone_supp || 600);
+        }
+    }
+
+    // Update the input
+    const doucheInput = document.getElementById('prix-douches');
+    if (doucheInput) {
+        doucheInput.value = formatInputValue(prixDouches);
+    }
+
+    // Update state
+    state.prix.douches = prixDouches;
+
+    // Recalculate totals
+    recalculerTotaux();
 }
 
 function calculatePrix() {
@@ -3109,6 +3866,7 @@ function calculatePrix() {
 
     // Séparer zones par risque pour le calcul des frais de zones
     const zonesModere = zones.filter(z => z.risque === 'MODÉRÉ');
+    const zonesEleveAllege = zones.filter(z => z.risque === 'ÉLEVÉ_ALLÉGÉ');
     const zonesEleve = zones.filter(z => z.risque === 'ÉLEVÉ');
 
     // Surface totale (compatible ancien et nouveau format)
@@ -3116,15 +3874,16 @@ function calculatePrix() {
 
     // 1. Coûts des zones
     let prixZones = 0;
-    
-    // Zones modérées
-    if (zonesModere.length > 0) {
+
+    // Zones modérées + élevé allégé (même coût de zone)
+    const zonesModereEtAllege = [...zonesModere, ...zonesEleveAllege];
+    if (zonesModereEtAllege.length > 0) {
         prixZones += config.zone1_modere || 736;
-        if (zonesModere.length > 1) {
-            prixZones += (zonesModere.length - 1) * (config.zone_supp_modere || 368);
+        if (zonesModereEtAllege.length > 1) {
+            prixZones += (zonesModereEtAllege.length - 1) * (config.zone_supp_modere || 368);
         }
     }
-    
+
     // Zones élevées
     if (zonesEleve.length > 0) {
         prixZones += config.zone1_eleve || 1472;
@@ -3135,7 +3894,6 @@ function calculatePrix() {
 
     // 2. Prix démolition (selon surface totale)
     // NOTE: Le tarif de démolition au pi² reste le MÊME quel que soit le risque
-    // (confirmation feedback équipe 21 jan 2026)
     let prixDemo = 0;
     if (surfaceTotal <= 500) {
         prixDemo = surfaceTotal * (config.prix_demo_palier1 || 8);
@@ -3149,16 +3907,20 @@ function calculatePrix() {
     }
 
     // 3. Frais GLOBAUX risque élevé (s'appliquent UNE SEULE FOIS au projet)
-    // Selon feedback équipe 21 jan 2026:
-    // - Si UNE zone est élevée, tout le projet bascule en risque élevé
-    // - Les frais s'appliquent globalement, pas par zone élevée
+    // - Douches, tests, perte de temps: seulement pour ÉLEVÉ (pas ÉLEVÉ_ALLÉGÉ)
     let prixDouches = 0;
     let prixTests = 0;
     let prixPerteTemps = 0;
 
     if (projetRisque.hasZoneElevee) {
-        // Douches (frais global unique)
-        prixDouches = config.douche_zone1 || 800;
+        // Douches: use manual count if set, otherwise default to 1
+        const doucheCount = state.doucheCount ?? 1;
+        if (doucheCount > 0) {
+            prixDouches = config.douche_zone1 || 800;
+            if (doucheCount > 1) {
+                prixDouches += (doucheCount - 1) * (config.douche_zone_supp || 600);
+            }
+        }
 
         // Tests d'air (frais global unique: entrée + sortie = 2 tests)
         prixTests = (config.test_zone1 || 600) * 2;
@@ -3172,22 +3934,38 @@ function calculatePrix() {
         prixPerteTemps = joursHommes * heuresPerteParJour * tauxHoraire;
     }
 
-    // 4. Transport (dynamique selon durée du projet - feedback 21 jan 2026)
+    // 4. Transport (dynamique selon durée du projet)
     // Formule: (heures totales ÷ 3 gars ÷ 8h/jour) × 75$/jour
     const tauxHoraireTransport = config.taux_horaire || 92;
     const heuresTotalesProjet = prixDemo / tauxHoraireTransport;
     const nbEmployesEquipe = config.nb_employes_equipe || 3;
     const nbJoursProjet = Math.max(1, Math.ceil(heuresTotalesProjet / nbEmployesEquipe / 8)); // minimum 1 jour
-    const transportParJour = config.transport_50_100km || 75; // 75$/jour comme base
+    // Tarif transport selon la distance
+    let transportParJour;
+    if (distance > 100) {
+        transportParJour = config.transport_100km_plus || 75;
+    } else if (distance > 50) {
+        transportParJour = config.transport_50_100km || 75;
+    } else {
+        transportParJour = config.transport_0_50km || 55;
+    }
     let prixTransport = nbJoursProjet * transportParJour;
-    
+
     // Stocker les détails pour affichage
     const transportDetails = {
         heures: Math.round(heuresTotalesProjet),
         jours: nbJoursProjet,
         equipe: nbEmployesEquipe,
-        tarifJour: transportParJour
+        tarifJour: transportParJour,
+        distance: distance
     };
+
+    // 4b. Ventilateur HEPA (pour élevé allégé ET élevé)
+    let prixVentilateur = 0;
+    if (projetRisque.risque === 'ÉLEVÉ_ALLÉGÉ' || projetRisque.risque === 'ÉLEVÉ') {
+        const ventParJour = config.ventilateur_par_jour || 70;
+        prixVentilateur = nbJoursProjet * ventParJour;
+    }
 
     // 5. Disposition (par 1000 pi², minimum 400$)
     let prixDisposition = Math.ceil(surfaceTotal / 1000) * (config.disposition_par_1000pi2 || 400);
@@ -3202,7 +3980,7 @@ function calculatePrix() {
     }
 
     // Sous-total
-    const sousTotal = prixZones + prixDemo + prixDouches + prixTests + prixPerteTemps + prixTransport + prixDisposition + prixAssurance;
+    const sousTotal = prixZones + prixDemo + prixDouches + prixTests + prixPerteTemps + prixVentilateur + prixTransport + prixDisposition + prixAssurance;
 
     // Marge de profit
     // Handle both formats: 20 (percentage) or 0.2 (decimal)
@@ -3223,6 +4001,7 @@ function calculatePrix() {
         douches: prixDouches,
         tests: prixTests,
         perteTemps: prixPerteTemps,
+        ventilateur: prixVentilateur,
         transport: prixTransport,
         transportDetails: transportDetails,
         disposition: prixDisposition,
@@ -3254,7 +4033,11 @@ function renderRecap() {
     
     state.zones.forEach(zone => {
         const isEleve = zone.risque === 'ÉLEVÉ';
-        const riskClass = isEleve ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600';
+        const isAllege = zone.risque === 'ÉLEVÉ_ALLÉGÉ';
+        let riskClass;
+        if (isEleve) riskClass = 'bg-red-100 text-red-600';
+        else if (isAllege) riskClass = 'bg-orange-100 text-orange-600';
+        else riskClass = 'bg-amber-100 text-amber-600';
         
         // Nombre de surfaces et de photos
         const surfaceCount = zone.surfaces?.length || 1;
@@ -3271,7 +4054,7 @@ function renderRecap() {
                 <span class="font-medium text-slate-800">${zone.nom}</span>
                 <span class="text-sm text-slate-500">${formatNumber(zone.surface || zone.surfaceTotal || 0, 0)} pi² ${detailText}</span>
             </div>
-            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${riskClass}">${zone.risque}</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${riskClass}">${zone.risque === 'ÉLEVÉ_ALLÉGÉ' ? 'ÉLEVÉ ALLÉGÉ' : zone.risque}</span>
         `;
         zonesList.appendChild(div);
     });
@@ -3285,31 +4068,56 @@ function renderRecap() {
         risqueEl.textContent = 'ÉLEVÉ';
         risqueEl.className = 'inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase bg-red-100 text-red-600';
         document.getElementById('recap-warning-eleve')?.classList.remove('hidden');
+        document.getElementById('recap-warning-eleve-allege')?.classList.add('hidden');
         document.getElementById('prix-risque-eleve-section')?.classList.remove('hidden');
+        document.getElementById('prix-risque-eleve-allege-section')?.classList.add('hidden');
+    } else if (state.risqueGlobal === 'ÉLEVÉ_ALLÉGÉ') {
+        risqueEl.textContent = 'ÉLEVÉ ALLÉGÉ';
+        risqueEl.className = 'inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase bg-orange-100 text-orange-600';
+        document.getElementById('recap-warning-eleve')?.classList.add('hidden');
+        document.getElementById('recap-warning-eleve-allege')?.classList.remove('hidden');
+        document.getElementById('prix-risque-eleve-section')?.classList.add('hidden');
+        document.getElementById('prix-risque-eleve-allege-section')?.classList.remove('hidden');
     } else {
         risqueEl.textContent = 'MODÉRÉ';
         risqueEl.className = 'inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase bg-amber-100 text-amber-600';
         document.getElementById('recap-warning-eleve')?.classList.add('hidden');
+        document.getElementById('recap-warning-eleve-allege')?.classList.add('hidden');
         document.getElementById('prix-risque-eleve-section')?.classList.add('hidden');
+        document.getElementById('prix-risque-eleve-allege-section')?.classList.add('hidden');
     }
 
     // Prix details - Set values in inputs with formatted numbers (espaces milliers)
     document.getElementById('prix-zones').value = formatInputValue(state.prix.zones || 0);
     document.getElementById('prix-demolition').value = formatInputValue(state.prix.demolition || 0);
     document.getElementById('prix-douches').value = formatInputValue(state.prix.douches || 0);
+    // Update shower count display
+    const doucheCountEl = document.getElementById('douche-count');
+    if (doucheCountEl) {
+        doucheCountEl.textContent = state.doucheCount ?? 1;
+    }
     document.getElementById('prix-tests').value = formatInputValue(state.prix.tests || 0);
     document.getElementById('prix-perte-temps').value = formatInputValue(state.prix.perteTemps || 0);
+
+    // Ventilateur HEPA values - populate the correct input based on risk level
+    const ventValue = formatInputValue(state.prix.ventilateur || 0);
+    const ventAllegeInput = document.getElementById('prix-ventilateur-allege');
+    const ventEleveInput = document.getElementById('prix-ventilateur-eleve');
+    if (ventAllegeInput) ventAllegeInput.value = ventValue;
+    if (ventEleveInput) ventEleveInput.value = ventValue;
+
     document.getElementById('prix-transport').value = formatInputValue(state.prix.transport || 0);
-    
+
     // Afficher les détails du calcul transport
     if (state.prix.transportDetails) {
         const td = state.prix.transportDetails;
-        
+
         // Explication simple et lisible
-        const explication = `${td.jours} jour${td.jours > 1 ? 's' : ''} × ${td.equipe} employés × ${td.tarifJour}$/jour`;
+        const distanceInfo = td.distance ? ` (${td.distance} km)` : '';
+        const explication = `${td.jours} jour${td.jours > 1 ? 's' : ''} × ${td.tarifJour}$/jour${distanceInfo}`;
         document.getElementById('transport-explication').textContent = explication;
     }
-    
+
     document.getElementById('prix-disposition').value = formatInputValue(state.prix.disposition || 0);
     document.getElementById('prix-assurance').value = formatInputValue(state.prix.assurance || 0);
     document.getElementById('prix-sous-total').textContent = formatCurrency(state.prix.sousTotal);
@@ -3335,7 +4143,8 @@ function setupPrixInputListeners() {
     // All editable price inputs
     const prixInputIds = [
         'prix-zones', 'prix-demolition', 'prix-douches', 'prix-tests',
-        'prix-perte-temps', 'prix-transport', 'prix-disposition', 'prix-assurance'
+        'prix-perte-temps', 'prix-ventilateur-allege', 'prix-ventilateur-eleve',
+        'prix-transport', 'prix-disposition', 'prix-assurance'
     ];
 
     // Add listeners to recalculate when any price changes
@@ -3372,6 +4181,10 @@ function recalculerTotaux() {
     const douches = parseFormattedValue(document.getElementById('prix-douches')?.value);
     const tests = parseFormattedValue(document.getElementById('prix-tests')?.value);
     const perteTemps = parseFormattedValue(document.getElementById('prix-perte-temps')?.value);
+    // Ventilateur: read from whichever input is visible (allégé or élevé)
+    const ventAllege = parseFormattedValue(document.getElementById('prix-ventilateur-allege')?.value);
+    const ventEleve = parseFormattedValue(document.getElementById('prix-ventilateur-eleve')?.value);
+    const ventilateur = Math.max(ventAllege, ventEleve); // Use whichever is non-zero
     const transport = parseFormattedValue(document.getElementById('prix-transport')?.value);
     const disposition = parseFormattedValue(document.getElementById('prix-disposition')?.value);
     const assurance = parseFormattedValue(document.getElementById('prix-assurance')?.value);
@@ -3380,7 +4193,7 @@ function recalculerTotaux() {
     const margePourcent = margeValue !== '' && !isNaN(parseFloat(margeValue)) ? parseFloat(margeValue) : 20;
 
     // Calculate sous-total
-    const sousTotal = zones + demolition + douches + tests + perteTemps + transport + disposition + assurance;
+    const sousTotal = zones + demolition + douches + tests + perteTemps + ventilateur + transport + disposition + assurance;
 
     // Calculate marge
     const marge = sousTotal * (margePourcent / 100);
@@ -3399,6 +4212,7 @@ function recalculerTotaux() {
     state.prix.douches = douches;
     state.prix.tests = tests;
     state.prix.perteTemps = perteTemps;
+    state.prix.ventilateur = ventilateur;
     state.prix.transport = transport;
     state.prix.disposition = disposition;
     state.prix.assurance = assurance;
@@ -3421,11 +4235,14 @@ function onTotalDirectEdit() {
     const douches = parseFormattedValue(document.getElementById('prix-douches')?.value);
     const tests = parseFormattedValue(document.getElementById('prix-tests')?.value);
     const perteTemps = parseFormattedValue(document.getElementById('prix-perte-temps')?.value);
+    const ventAllege = parseFormattedValue(document.getElementById('prix-ventilateur-allege')?.value);
+    const ventEleve = parseFormattedValue(document.getElementById('prix-ventilateur-eleve')?.value);
+    const ventilateur = Math.max(ventAllege, ventEleve);
     const transport = parseFormattedValue(document.getElementById('prix-transport')?.value);
     const disposition = parseFormattedValue(document.getElementById('prix-disposition')?.value);
     const assurance = parseFormattedValue(document.getElementById('prix-assurance')?.value);
 
-    const sousTotal = zones + demolition + douches + tests + perteTemps + transport + disposition + assurance;
+    const sousTotal = zones + demolition + douches + tests + perteTemps + ventilateur + transport + disposition + assurance;
 
     // Calculate implied marge
     const marge = newTotal - sousTotal;
@@ -3450,11 +4267,14 @@ function onTotalDirectEdit() {
 function goToStep(step) {
     console.log(`Navigation vers étape ${step}`);
 
-    // Hide all steps (including sub-steps like 2a, 2b, etc.)
+    // Hide all steps (including sub-steps like 2a, 2b, 5a, 5b, 5c, etc.)
     document.querySelectorAll('.step-content').forEach(el => {
         el.classList.add('hidden');
     });
     document.querySelectorAll('[id^="step-2"]').forEach(el => {
+        el.classList.add('hidden');
+    });
+    document.querySelectorAll('[id^="step-5"]').forEach(el => {
         el.classList.add('hidden');
     });
 
@@ -3486,18 +4306,23 @@ function goToStep(step) {
         document.getElementById('btn-back-mobile')?.classList.remove('invisible');
     } else if (step === 4) {
         document.getElementById('step-4').classList.remove('hidden');
+        // Reset shower count so it auto-calculates fresh
+        state.doucheCount = null;
         // Calculate prices and render recap
         calculatePrix();
         renderRecap();
         // Show mobile back button
         document.getElementById('btn-back-mobile')?.classList.remove('invisible');
     } else if (step === 5) {
-        document.getElementById('step-5').classList.remove('hidden');
-        // Load config textes if not already loaded
+        // Recalculer les prix si nécessaire (ex: après restauration localStorage)
+        if (state.prix.total === 0 && state.zones.length > 0) {
+            calculatePrix();
+        }
+        // Load config textes if not already loaded, then show step 5a
         if (Object.keys(configTextes).length === 0) {
-            loadConfigTextes().then(() => renderStep5());
+            loadConfigTextes().then(() => goToFinalStep('5a'));
         } else {
-            renderStep5();
+            goToFinalStep('5a');
         }
         // Show mobile back button
         document.getElementById('btn-back-mobile')?.classList.remove('invisible');
@@ -3512,6 +4337,204 @@ function goToStep(step) {
     if (step > 1) {
         saveStateToStorage();
     }
+}
+
+// =====================================================
+// STEP 5 MULTI-WIZARD NAVIGATION (Phase 3)
+// =====================================================
+
+function goToFinalStep(subStep) {
+    // Hide all step-5 sub-steps
+    document.querySelectorAll('[id^="step-5"]').forEach(el => {
+        el.classList.add('hidden');
+    });
+
+    const stepEl = document.getElementById(`step-${subStep}`);
+    if (stepEl) {
+        stepEl.classList.remove('hidden');
+    }
+
+    if (subStep === '5a') {
+        renderStep5Preview();
+    } else if (subStep === '5b') {
+        // Pre-fill client info from state
+        const nomInput = document.getElementById('step5-client-nom');
+        const courrielInput = document.getElementById('step5-client-courriel');
+        const telephoneInput = document.getElementById('step5-client-telephone');
+
+        if (nomInput) nomInput.value = state.client.nom || '';
+        if (courrielInput) courrielInput.value = state.client.courriel || '';
+        if (telephoneInput) telephoneInput.value = state.client.telephone || '';
+
+        // Reset signature
+        clearSignature();
+        setTimeout(resizeSignatureCanvas, 100);
+    } else if (subStep === '5c') {
+        // Save edited client info from step 5b back to state
+        const nom = document.getElementById('step5-client-nom')?.value?.trim();
+        const courriel = document.getElementById('step5-client-courriel')?.value?.trim();
+        const telephone = document.getElementById('step5-client-telephone')?.value?.trim();
+
+        if (nom) state.client.nom = nom;
+        if (courriel) state.client.courriel = courriel;
+        if (telephone) state.client.telephone = telephone;
+
+        // Update email send info
+        document.getElementById('send-email-client-nom').textContent = state.client.nom || 'Client';
+        document.getElementById('send-email-client-courriel').textContent = state.client.courriel || 'Aucun courriel';
+
+        // Update summary stats
+        renderStep5Summary();
+
+        // Enable/disable send email button based on email
+        const btnSendEmail = document.getElementById('btn-send-email');
+        if (btnSendEmail) {
+            btnSendEmail.disabled = !state.client.courriel;
+        }
+    }
+
+    console.log(`Navigation step 5 → ${subStep}`);
+}
+
+function renderStep5Preview() {
+    // Warning si photos perdues
+    const photosWarning = document.getElementById('photos-warning');
+    if (photosWarning) {
+        photosWarning.classList.toggle('hidden', !state.photosOmitted);
+    }
+
+    // Set date
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('fr-CA', {
+        year: 'numeric', month: 'long', day: 'numeric'
+    });
+    document.getElementById('pdf-date').textContent = dateStr;
+
+    // Generate soumission number
+    if (!state.soumissionNumber) {
+        const soumissionNum = generateSoumissionNumber();
+        document.getElementById('pdf-numero-soumission').textContent = soumissionNum;
+        state.soumissionNumber = soumissionNum;
+    } else {
+        document.getElementById('pdf-numero-soumission').textContent = state.soumissionNumber;
+    }
+
+    // Set signature text
+    const texteSignature = configTextes.texte_signature ||
+        'Je, soussigné(e), reconnais avoir pris connaissance de la présente soumission et accepte les termes et conditions.';
+    document.getElementById('pdf-texte-signature').textContent = texteSignature;
+
+    // Render inclusions/exclusions
+    renderInclusionsExclusions();
+
+    // --- Client info ---
+    const clientInfo = document.getElementById('preview-client-info');
+    if (clientInfo) {
+        clientInfo.innerHTML = `
+            <div>
+                <p class="text-xs text-slate-400 uppercase font-semibold mb-0.5">Nom</p>
+                <p class="font-medium text-slate-900">${state.client.nom || 'N/A'}</p>
+            </div>
+            <div>
+                <p class="text-xs text-slate-400 uppercase font-semibold mb-0.5">Téléphone</p>
+                <p class="font-medium text-slate-900">${state.client.telephone || 'N/A'}</p>
+            </div>
+            <div>
+                <p class="text-xs text-slate-400 uppercase font-semibold mb-0.5">Courriel</p>
+                <p class="font-medium text-slate-900">${state.client.courriel || 'N/A'}</p>
+            </div>
+            <div>
+                <p class="text-xs text-slate-400 uppercase font-semibold mb-0.5">Adresse chantier</p>
+                <p class="font-medium text-slate-900">${state.client.adresseChantier || 'N/A'}</p>
+            </div>
+        `;
+    }
+
+    // --- Zones list ---
+    const zonesList = document.getElementById('preview-zones-list');
+    if (zonesList) {
+        zonesList.innerHTML = (state.zones || []).map(zone => {
+            const surfaceCount = zone.surfaces?.length || 1;
+            const photos = (zone.surfaces || []).filter(s => s.photo).length;
+            const risqueClass = zone.risque === 'ÉLEVÉ' ? 'risk-high' : zone.risque === 'ÉLEVÉ_ALLÉGÉ' ? 'risk-allege' : 'risk-moderate';
+            const risqueText = zone.risque === 'ÉLEVÉ' ? 'ÉLEVÉ' : zone.risque === 'ÉLEVÉ_ALLÉGÉ' ? 'ÉLEVÉ ALLÉGÉ' : 'MODÉRÉ';
+
+            // Show first photo thumbnail if any
+            const firstPhoto = (zone.surfaces || []).find(s => s.photo)?.photo;
+            const photoHtml = firstPhoto ? `
+                <img src="${firstPhoto.dataUrl}" alt="Photo" class="w-16 h-16 object-cover rounded-lg flex-shrink-0">
+            ` : '';
+
+            return `
+                <div class="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
+                    ${photoHtml}
+                    <div class="flex-1 min-w-0">
+                        <p class="font-semibold text-slate-900 text-sm">${zone.nom}</p>
+                        <p class="text-xs text-slate-500">${zone.materiauNom || 'N/A'} • ${surfaceCount} mur${surfaceCount > 1 ? 's' : ''} • ${formatNumber(zone.surfaceTotal || zone.surface || 0, 0)} pi²${photos > 0 ? ` • ${photos} photo${photos > 1 ? 's' : ''}` : ''}</p>
+                    </div>
+                    <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${risqueClass} flex-shrink-0">${risqueText}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // --- Prix detail ---
+    const prixDetail = document.getElementById('preview-prix-detail');
+    if (prixDetail && state.prix) {
+        const p = state.prix;
+        const prixOverrides = state.prixOverrides || {};
+        const lines = [];
+
+        const addLine = (label, key) => {
+            const val = prixOverrides[key] ?? p[key] ?? 0;
+            if (val > 0) lines.push(`<div class="flex justify-between text-sm"><span class="text-slate-600">${label}</span><span class="font-medium text-slate-900">${formatPrix(val)}</span></div>`);
+        };
+
+        addLine('Démolition', 'demolition');
+        addLine('Frais de zone', 'zones');
+        addLine('Douches de décontamination', 'douches');
+        addLine('Tests d\'air', 'tests');
+        addLine('Perte de temps', 'perteTemps');
+        addLine('Transport', 'transport');
+        addLine('Disposition', 'disposition');
+        addLine('Assurance', 'assurance');
+
+        const sousTotal = prixOverrides.sousTotal ?? p.sousTotal ?? 0;
+        const margePourcent = prixOverrides.margePourcent ?? p.margePourcent ?? 20;
+        const marge = prixOverrides.marge ?? p.marge ?? 0;
+        const total = prixOverrides.total ?? p.total ?? 0;
+
+        lines.push('<div class="border-t border-slate-200 my-2"></div>');
+        lines.push(`<div class="flex justify-between text-sm"><span class="text-slate-600">Sous-total</span><span class="font-medium text-slate-900">${formatPrix(sousTotal)}</span></div>`);
+        lines.push(`<div class="flex justify-between text-sm"><span class="text-slate-600">Marge (${margePourcent}%)</span><span class="font-medium text-slate-900">${formatPrix(marge)}</span></div>`);
+        lines.push('<div class="border-t border-slate-200 my-2"></div>');
+        lines.push(`<div class="flex justify-between text-base"><span class="font-bold text-slate-900">Total</span><span class="font-bold text-primary text-lg">${formatPrix(total)}</span></div>`);
+
+        prixDetail.innerHTML = lines.join('');
+    }
+}
+
+function renderStep5Summary() {
+    const zones = state.zones || [];
+    const photosCount = zones.reduce((count, zone) => {
+        const surfacePhotos = (zone.surfaces || []).filter(s => s.photo).length;
+        return count + surfacePhotos;
+    }, 0);
+
+    const resumeZones = document.getElementById('pdf-resume-zones');
+    const resumePhotos = document.getElementById('pdf-resume-photos');
+    const resumeTotal = document.getElementById('pdf-resume-total');
+    const resumePages = document.getElementById('pdf-resume-pages');
+
+    if (resumeZones) resumeZones.textContent = zones.length;
+    if (resumePhotos) resumePhotos.textContent = photosCount;
+    if (resumeTotal) resumeTotal.textContent = formatPrix(state.prix?.total || 0);
+
+    // Estimate pages
+    let pages = 3;
+    if (photosCount > 0) pages += Math.ceil(photosCount / 2);
+    pages += 1;
+    if (resumePages) resumePages.textContent = pages;
 }
 
 function updateProgressBar(step) {
@@ -3615,7 +4638,10 @@ function fillDevClientData() {
     if (adresseInput) adresseInput.value = data.adresseChantier;
     if (distanceInput) {
         distanceInput.value = data.distanceKm;
-        updateTransportCost(data.distanceKm);
+        const transportCostDisplay = document.getElementById('transport-cost-display');
+        if (transportCostDisplay) {
+            transportCostDisplay.textContent = getTransportCost(data.distanceKm);
+        }
     }
 
     console.log('📝 Données client pré-remplies');
@@ -3634,12 +4660,19 @@ function fillDevZoneData() {
         selectMateriauOption(mat);
     }
 
-    document.getElementById('zone-longueur').value = data.longueur;
-    document.getElementById('zone-largeur').value = data.largeur;
     document.getElementById('zone-epaisseur').value = data.epaisseur;
 
-    // Trigger calculation
-    calculateZoneValues();
+    // Initialiser une surface avec les données dev
+    state.currentSurfaces = [{
+        id: Date.now(),
+        longueur: data.longueur,
+        hauteur: data.largeur,
+        surface: data.longueur * data.largeur,
+        volume: 0,
+        photo: null
+    }];
+    renderSurfacesList();
+    updateSurfaceTotals();
 
     console.log('📝 Données zone pré-remplies');
 }
@@ -3672,15 +4705,23 @@ function devGoToStep(step) {
     document.querySelectorAll('[id^="step-2"]').forEach(el => {
         el.classList.add('hidden');
     });
+    document.querySelectorAll('[id^="step-5"]').forEach(el => {
+        el.classList.add('hidden');
+    });
 
     // Afficher l'étape demandée
-    const stepEl = document.getElementById(`step-${step}`);
-    if (stepEl) {
-        stepEl.classList.remove('hidden');
+    if (step === 5) {
+        // Step 5 uses sub-steps — show 5a
+        document.getElementById('step-5a')?.classList.remove('hidden');
     } else {
-        console.warn(`Étape ${step} pas encore implémentée`);
-        alert(`Étape ${step} pas encore implémentée`);
-        return;
+        const stepEl = document.getElementById(`step-${step}`);
+        if (stepEl) {
+            stepEl.classList.remove('hidden');
+        } else {
+            console.warn(`Étape ${step} pas encore implémentée`);
+            alert(`Étape ${step} pas encore implémentée`);
+            return;
+        }
     }
 
     // Actions spécifiques par étape
@@ -3692,9 +4733,9 @@ function devGoToStep(step) {
     } else if (step === 5) {
         calculatePrix();
         if (Object.keys(configTextes).length === 0) {
-            loadConfigTextes().then(() => renderStep5());
+            loadConfigTextes().then(() => renderStep5Preview());
         } else {
-            renderStep5();
+            renderStep5Preview();
         }
     }
 
@@ -3761,19 +4802,47 @@ let configTextes = {};
  * Setup Step 5 events and signature canvas
  */
 function setupStep5Events() {
-    const btnBack = document.getElementById('btn-back-step5');
-    const btnDownload = document.getElementById('btn-download-pdf');
-    const btnClearSignature = document.getElementById('btn-clear-signature');
-
-    btnBack?.addEventListener('click', () => {
+    // Step 5a navigation
+    document.getElementById('btn-back-step5a')?.addEventListener('click', () => {
         goToStep(4);
     });
+    document.getElementById('btn-next-step5a')?.addEventListener('click', () => {
+        goToFinalStep('5b');
+    });
 
-    btnDownload?.addEventListener('click', async () => {
+    // Step 5b navigation
+    document.getElementById('btn-back-step5b')?.addEventListener('click', () => {
+        goToFinalStep('5a');
+    });
+    document.getElementById('btn-next-step5b')?.addEventListener('click', () => {
+        goToFinalStep('5c');
+    });
+
+    // Step 5c navigation
+    document.getElementById('btn-back-step5c')?.addEventListener('click', () => {
+        goToFinalStep('5b');
+    });
+
+    // Download PDF
+    document.getElementById('btn-download-pdf')?.addEventListener('click', async () => {
         await generateAndDownloadPDF();
     });
 
-    btnClearSignature?.addEventListener('click', () => {
+    // Send email
+    document.getElementById('btn-send-email')?.addEventListener('click', async () => {
+        await sendSoumissionEmail();
+    });
+
+    // New soumission
+    document.getElementById('btn-new-soumission')?.addEventListener('click', () => {
+        if (confirm('Commencer une nouvelle soumission? Les données actuelles seront perdues.')) {
+            localStorage.removeItem('apex_soumission_state');
+            location.reload();
+        }
+    });
+
+    // Clear signature
+    document.getElementById('btn-clear-signature')?.addEventListener('click', () => {
         clearSignature();
     });
 
@@ -3933,7 +5002,7 @@ function clearSignature() {
 
 function updateSignatureStatus() {
     const statusEl = document.getElementById('signature-status');
-    const downloadBtn = document.getElementById('btn-download-pdf');
+    const nextBtn5b = document.getElementById('btn-next-step5b');
 
     if (hasSignature) {
         if (statusEl) {
@@ -3941,8 +5010,8 @@ function updateSignatureStatus() {
             statusEl.classList.remove('text-slate-400');
             statusEl.classList.add('text-green-600');
         }
-        if (downloadBtn) {
-            downloadBtn.disabled = false;
+        if (nextBtn5b) {
+            nextBtn5b.disabled = false;
         }
     } else {
         if (statusEl) {
@@ -3950,8 +5019,8 @@ function updateSignatureStatus() {
             statusEl.classList.remove('text-green-600');
             statusEl.classList.add('text-slate-400');
         }
-        if (downloadBtn) {
-            downloadBtn.disabled = true;
+        if (nextBtn5b) {
+            nextBtn5b.disabled = true;
         }
     }
 }
@@ -4197,4 +5266,101 @@ function downloadBlob(blob, filename) {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+}
+
+/**
+ * Convert a blob to base64 string
+ */
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+/**
+ * Send soumission PDF by email via Supabase Edge Function
+ */
+async function sendSoumissionEmail() {
+    const courriel = state.client.courriel;
+    if (!courriel) {
+        alert('Aucun courriel client défini.');
+        return;
+    }
+
+    const statusEl = document.getElementById('send-email-status');
+    const btnSend = document.getElementById('btn-send-email');
+
+    // Show sending state
+    if (btnSend) {
+        btnSend.disabled = true;
+        btnSend.innerHTML = '<span class="material-symbols-outlined text-lg animate-spin">progress_activity</span> Envoi en cours...';
+    }
+    if (statusEl) {
+        statusEl.classList.remove('hidden', 'text-green-600', 'text-red-500');
+        statusEl.classList.add('text-slate-500');
+        statusEl.textContent = 'Génération du PDF...';
+    }
+
+    try {
+        // Generate PDF blob
+        const { inclusions, exclusions } = getSelectedInclusionsExclusions();
+        const signatureDataUrl = getSignatureDataUrl();
+
+        const pdfBlob = await generatePDF({
+            state: state,
+            configTextes: configTextes,
+            signature: signatureDataUrl,
+            includePhotos: document.getElementById('pdf-option-photos')?.checked ?? true,
+            includeLegalDocs: document.getElementById('pdf-option-legaux')?.checked ?? true,
+            inclusions: inclusions,
+            exclusions: exclusions,
+            soumissionNumber: state.soumissionNumber,
+            date: new Date()
+        });
+
+        if (statusEl) statusEl.textContent = 'Envoi du courriel...';
+
+        // Convert to base64
+        const pdfBase64 = await blobToBase64(pdfBlob);
+
+        // Call Supabase Edge Function
+        const { data, error } = await supabaseClient.functions.invoke('send-soumission-email', {
+            body: {
+                to: courriel,
+                clientName: state.client.nom || 'Client',
+                soumissionNumber: state.soumissionNumber,
+                pdfBase64: pdfBase64,
+                fileName: `Soumission_${state.soumissionNumber}.pdf`
+            }
+        });
+
+        if (error) throw error;
+
+        // Success
+        if (statusEl) {
+            statusEl.classList.remove('text-slate-500', 'text-red-500');
+            statusEl.classList.add('text-green-600');
+            statusEl.textContent = `Soumission envoyée à ${courriel}`;
+        }
+        if (btnSend) {
+            btnSend.innerHTML = '<span class="material-symbols-outlined text-lg">check</span> Envoyé';
+        }
+
+        console.log('✅ Email envoyé:', courriel);
+
+    } catch (err) {
+        console.error('Erreur envoi email:', err);
+        if (statusEl) {
+            statusEl.classList.remove('text-slate-500', 'text-green-600');
+            statusEl.classList.add('text-red-500');
+            statusEl.textContent = `Erreur: ${err.message || 'Impossible d\'envoyer le courriel'}. Réessayez.`;
+        }
+        if (btnSend) {
+            btnSend.disabled = false;
+            btnSend.innerHTML = '<span class="material-symbols-outlined text-lg">send</span> Réessayer';
+        }
+    }
 }

@@ -1,6 +1,7 @@
 /* =====================================================
-   APEX SOUMISSIONS - PDF Generator
-   Génération de PDF professionnels pour les soumissions
+   APEX SOUMISSIONS - PDF Generator v3.0
+   Design basé sur le template Excel de Gabriel
+   (Modèle - Soumission 000XXX)
    ===================================================== */
 
 // Utilise jsPDF (global: jspdf.jsPDF)
@@ -14,35 +15,54 @@ const PDF_CONFIG = {
     // Dimensions (en mm, format Letter)
     pageWidth: 215.9,
     pageHeight: 279.4,
-    margin: 20,
-    
-    // Couleurs
-    primaryColor: [30, 115, 190],      // #1E73BE
-    textColor: [15, 23, 42],           // Slate 900
-    mutedColor: [100, 116, 139],       // Slate 500
-    lightGray: [241, 245, 249],        // Slate 100
-    greenColor: [34, 197, 94],         // Green 500
-    redColor: [239, 68, 68],           // Red 500
-    
-    // Polices
+    margin: 15,
+
+    // Couleurs — palette épurée noir/gris
+    primaryBlue: [0, 0, 0],              // Noir — titre, total
+    borderBlue: [180, 180, 180],         // Gris — bordures tableau
+    subtotalBorderBlue: [180, 180, 180], // Gris — bordures sous-total
+    accentTan: [0, 0, 0],               // Noir — labels secondaires
+    textColor: [0, 0, 0],               // Noir
+    mutedColor: [120, 120, 120],         // Gris moyen
+    lightGray: [243, 243, 243],          // #F3F3F3
+    redColor: [220, 50, 50],             // Rouge discret
+
+    // Polices — hiérarchie inspirée du template Excel
     fontSizes: {
-        title: 24,
-        subtitle: 16,
-        heading: 14,
-        body: 11,
-        small: 9
+        documentTitle: 26,     // "SOUMISSION 000XXX"
+        companyName: 18,       // "APEX DÉSAMIANTAGE INC."
+        sectionTitle: 10,      // Headers de section (soulignés)
+        tableHeader: 9,        // En-têtes colonnes tableau
+        body: 9,               // Texte courant
+        item: 8,               // Items de ligne
+        small: 8,              // Petit texte
+        label: 10,             // Labels ("Facturé à:")
+        footer: 6              // Footer validité
+    },
+
+    // Largeurs colonnes tableau (total = contentWidth ≈ 185.9mm)
+    tableColumns: {
+        description: 120,
+        prixUnit: 22,
+        qte: 22,
+        montant: 21.9
+    },
+
+    // Hauteurs de lignes
+    lineHeight: {
+        tableRow: 6,
+        sectionHeader: 8,
+        bodyText: 4.5
     }
 };
+
+// Variable de contexte pour les en-têtes de continuation
+let _currentSoumissionNumber = '';
 
 // =====================================================
 // FONCTION PRINCIPALE
 // =====================================================
 
-/**
- * Génère le PDF complet de la soumission
- * @param {Object} options - Options de génération
- * @returns {Blob} - Le PDF sous forme de Blob
- */
 async function generatePDF(options) {
     const {
         state,
@@ -56,7 +76,8 @@ async function generatePDF(options) {
         date
     } = options;
 
-    // Créer le document PDF
+    _currentSoumissionNumber = soumissionNumber;
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({
         orientation: 'portrait',
@@ -64,40 +85,29 @@ async function generatePDF(options) {
         format: 'letter'
     });
 
-    let currentPage = 1;
+    // 1. Document principal (en-tête, client, items, totaux, notes, exclusions)
+    await createMainDocument(doc, state, configTextes, soumissionNumber, date, exclusions);
 
-    // 1. Page de couverture
-    await createCoverPage(doc, state, configTextes, soumissionNumber, date);
-    
-    // 2. Page de récapitulatif des prix
-    doc.addPage();
-    currentPage++;
-    await createPricingPage(doc, state);
-
-    // 3. Pages photos et mesures (si option activée)
+    // 2. Pages photos et mesures (optionnel)
     if (includePhotos && state.zones && state.zones.length > 0) {
-        const hasPhotos = state.zones.some(zone => 
+        const hasPhotos = state.zones.some(zone =>
             zone.surfaces && zone.surfaces.some(s => s.photo)
         );
-        
         if (hasPhotos) {
             doc.addPage();
-            currentPage++;
             await createPhotosPages(doc, state.zones);
         }
     }
 
-    // 4. Page inclusions/exclusions
+    // 3. Contrat de services (8 sections)
     doc.addPage();
-    currentPage++;
-    await createInclusionsPage(doc, inclusions, exclusions, state, configTextes);
+    await createContractPages(doc, configTextes);
 
-    // 5. Page de signature
+    // 4. Paiement + Double signature
     doc.addPage();
-    currentPage++;
-    await createSignaturePage(doc, signature, configTextes, state.client, date);
+    await createPaymentAndSignaturePage(doc, signature, configTextes, state.client, date);
 
-    // 6. Annexer les documents légaux (si option activée)
+    // 5. Annexer documents légaux (licence RBQ, assurance)
     if (includeLegalDocs) {
         const pdfWithAnnexes = await appendLegalDocuments(doc);
         if (pdfWithAnnexes) {
@@ -105,306 +115,612 @@ async function generatePDF(options) {
         }
     }
 
-    // Retourner le PDF
     return doc.output('blob');
 }
 
 // =====================================================
-// PAGE 1: COUVERTURE
+// UTILITAIRES DE PAGINATION
 // =====================================================
 
-async function createCoverPage(doc, state, configTextes, soumissionNumber, date) {
-    const { margin, pageWidth, pageHeight, primaryColor, textColor, mutedColor } = PDF_CONFIG;
-    const contentWidth = pageWidth - (margin * 2);
-
-    // Logo Apex (en haut à gauche)
-    try {
-        const logoImg = await loadImage('assets/logo-apex.png');
-        doc.addImage(logoImg, 'PNG', margin, margin, 50, 20);
-    } catch (e) {
-        // Fallback: texte
-        doc.setFontSize(20);
-        doc.setTextColor(...primaryColor);
-        doc.text('APEX DÉSAMIANTAGE', margin, margin + 15);
+function checkPageBreak(doc, y, requiredSpace = 20) {
+    if (y + requiredSpace > PDF_CONFIG.pageHeight - 20) {
+        doc.addPage();
+        drawContinuationHeader(doc);
+        return PDF_CONFIG.margin + 12;
     }
+    return y;
+}
 
-    // Numéro de soumission (en haut à droite)
+function drawContinuationHeader(doc) {
+    const { margin, pageWidth, mutedColor } = PDF_CONFIG;
     doc.setFontSize(PDF_CONFIG.fontSizes.small);
     doc.setTextColor(...mutedColor);
-    doc.text('SOUMISSION', pageWidth - margin, margin + 5, { align: 'right' });
-    
-    doc.setFontSize(PDF_CONFIG.fontSizes.heading);
-    doc.setTextColor(...primaryColor);
-    doc.text(soumissionNumber, pageWidth - margin, margin + 12, { align: 'right' });
-    
-    doc.setFontSize(PDF_CONFIG.fontSizes.small);
+    doc.text(`SOUMISSION ${_currentSoumissionNumber} — Suite`, margin, margin);
+    doc.setDrawColor(...mutedColor);
+    doc.setLineWidth(0.2);
+    doc.line(margin, margin + 2, pageWidth - margin, margin + 2);
+}
+
+function drawPageFooter(doc, configTextes) {
+    const { margin, pageWidth, pageHeight, mutedColor } = PDF_CONFIG;
+    const footerY = pageHeight - 8;
+    doc.setFontSize(PDF_CONFIG.fontSizes.footer);
     doc.setTextColor(...mutedColor);
-    const dateStr = date.toLocaleDateString('fr-CA', { year: 'numeric', month: 'long', day: 'numeric' });
-    doc.text(dateStr, pageWidth - margin, margin + 18, { align: 'right' });
-
-    // Séparateur
-    doc.setDrawColor(...primaryColor);
-    doc.setLineWidth(0.5);
-    doc.line(margin, 50, pageWidth - margin, 50);
-
-    // Titre principal
-    let y = 70;
-    doc.setFontSize(PDF_CONFIG.fontSizes.title);
-    doc.setTextColor(...textColor);
-    doc.text('Soumission pour travaux', margin, y);
-    
-    y += 10;
-    doc.setFontSize(PDF_CONFIG.fontSizes.subtitle);
-    doc.setTextColor(...primaryColor);
-    doc.text('de désamiantage', margin, y);
-
-    // Informations client
-    y += 25;
-    doc.setFillColor(...PDF_CONFIG.lightGray);
-    doc.roundedRect(margin, y, contentWidth, 45, 3, 3, 'F');
-
-    y += 10;
-    doc.setFontSize(PDF_CONFIG.fontSizes.small);
-    doc.setTextColor(...mutedColor);
-    doc.text('CLIENT', margin + 5, y);
-
-    y += 8;
-    doc.setFontSize(PDF_CONFIG.fontSizes.heading);
-    doc.setTextColor(...textColor);
-    doc.text(state.client.nom || 'Client', margin + 5, y);
-
-    y += 7;
-    doc.setFontSize(PDF_CONFIG.fontSizes.body);
-    doc.setTextColor(...mutedColor);
-    doc.text(`${state.client.telephone || ''} • ${state.client.courriel || ''}`, margin + 5, y);
-
-    y += 7;
-    doc.setFontSize(PDF_CONFIG.fontSizes.body);
-    doc.setTextColor(...textColor);
-    doc.text(state.client.adresseChantier || 'Adresse du chantier', margin + 5, y);
-
-    // Résumé du projet
-    y += 25;
-    doc.setFontSize(PDF_CONFIG.fontSizes.small);
-    doc.setTextColor(...mutedColor);
-    doc.text('RÉSUMÉ DU PROJET', margin, y);
-
-    y += 10;
-    
-    // Grille de stats
-    const statsWidth = contentWidth / 4;
-    const stats = [
-        { label: 'Zones', value: (state.zones || []).length.toString() },
-        { label: 'Surface totale', value: `${formatNumber(state.prix?.surfaceTotal || 0)} pi²` },
-        { label: 'Risque', value: state.risqueGlobal || 'MODÉRÉ' },
-        { label: 'Distance', value: `${state.client.distanceKm || 0} km` }
-    ];
-
-    stats.forEach((stat, i) => {
-        const x = margin + (i * statsWidth);
-        
-        doc.setFontSize(PDF_CONFIG.fontSizes.title);
-        doc.setTextColor(...primaryColor);
-        doc.text(stat.value, x, y + 8);
-        
-        doc.setFontSize(PDF_CONFIG.fontSizes.small);
-        doc.setTextColor(...mutedColor);
-        doc.text(stat.label, x, y + 15);
-    });
-
-    // Zone de prix total
-    y += 40;
-    doc.setFillColor(...primaryColor);
-    doc.roundedRect(margin, y, contentWidth, 35, 3, 3, 'F');
-
-    doc.setFontSize(PDF_CONFIG.fontSizes.body);
-    doc.setTextColor(255, 255, 255);
-    doc.text('TOTAL ESTIMÉ', margin + 10, y + 12);
-
-    doc.setFontSize(PDF_CONFIG.fontSizes.title);
-    doc.text(`${formatNumber(state.prix?.total || 0)} $`, margin + 10, y + 25);
-
-    doc.setFontSize(PDF_CONFIG.fontSizes.small);
-    doc.text('Taxes en sus', pageWidth - margin - 10, y + 25, { align: 'right' });
-
-    // Pied de page avec informations entreprise
-    const footerY = pageHeight - 30;
-    doc.setFontSize(PDF_CONFIG.fontSizes.small);
-    doc.setTextColor(...mutedColor);
-    doc.text(configTextes.entreprise_nom || 'Apex Désamiantage', margin, footerY);
-    doc.text(configTextes.entreprise_adresse || '', margin, footerY + 5);
-    
-    const contact = [
-        configTextes.entreprise_telephone,
-        configTextes.entreprise_courriel
-    ].filter(Boolean).join(' • ');
-    if (contact) {
-        doc.text(contact, margin, footerY + 10);
-    }
-    
-    if (configTextes.entreprise_licence_rbq) {
-        doc.text(`Licence RBQ: ${configTextes.entreprise_licence_rbq}`, pageWidth - margin, footerY, { align: 'right' });
-    }
+    doc.text(
+        '*La soumission sera valide dans un délai de 30 jours.',
+        margin, footerY
+    );
+    doc.text(
+        "*Des frais d'administration seront facturés s'il y a annulation des travaux suite à l'acceptation de la soumission.",
+        margin, footerY + 3
+    );
 }
 
 // =====================================================
-// PAGE 2: DÉTAIL DES PRIX
+// CALCUL DES TAXES
 // =====================================================
 
-async function createPricingPage(doc, state) {
-    const { margin, pageWidth, primaryColor, textColor, mutedColor, lightGray } = PDF_CONFIG;
-    const contentWidth = pageWidth - (margin * 2);
+function calculateTaxes(preTaxTotal) {
+    const tps = Math.round(preTaxTotal * 0.05 * 100) / 100;
+    const tvq = Math.round(preTaxTotal * 0.09975 * 100) / 100;
+    return {
+        sousTotal: preTaxTotal,
+        tps,
+        tvq,
+        grandTotal: Math.round((preTaxTotal + tps + tvq) * 100) / 100
+    };
+}
+
+// =====================================================
+// CONSTRUCTION DES ITEMS DE LIGNE
+// =====================================================
+
+function buildLineItems(state) {
+    const travauxItems = [];
+    const fraisItems = [];
     const prix = state.prix || {};
+    const zones = state.zones || [];
+    const risqueGlobal = state.risqueGlobal || 'MODÉRÉ';
+
+    // ─── GROUPE 1 : Travaux de désamiantage (format liste) ───
+    zones.forEach(zone => {
+        const risqueLabel = zone.risque === 'ÉLEVÉ' ? 'risque élevé' :
+                           zone.risque === 'ÉLEVÉ_ALLÉGÉ' ? 'risque élevé allégé' :
+                           'risque modéré';
+        const surface = formatNumber(zone.surface || zone.surfaceTotal || 0);
+        travauxItems.push({
+            description: `Retrait de ${(zone.materiauNom || 'matériaux').toLowerCase()} contenant de l'amiante (${risqueLabel}) — ${zone.nom} (${surface} pi²)`
+        });
+    });
+
+    const zoneCount = `${zones.length} zone${zones.length > 1 ? 's' : ''}`;
+    travauxItems.push({ description: `Mise en place du confinement étanche avec polyéthylène (${zoneCount})` });
+    travauxItems.push({ description: "Utilisation d'outils et méthodes réduisant la libération de fibres (Forfait)" });
+    travauxItems.push({ description: "Gestion, ensachage et étiquetage des déchets d'amiante (Forfait)" });
+    travauxItems.push({ description: 'Nettoyage final avec aspirateur HEPA (Forfait)' });
+
+    if (risqueGlobal === 'ÉLEVÉ_ALLÉGÉ' || risqueGlobal === 'ÉLEVÉ') {
+        travauxItems.push({ description: 'Ventilateur HEPA à pression négative (Durée travaux)' });
+    }
+
+    if (risqueGlobal === 'ÉLEVÉ') {
+        travauxItems.push({ description: `Installation douche(s) de décontamination (${state.doucheCount ?? 1})` });
+        travauxItems.push({ description: "Tests d'air (entrée et sortie de zone) (Inclus)" });
+    }
+
+    const travauxTotalBrut = (prix.zones || 0) + (prix.demolition || 0) +
+                         (prix.ventilateur || 0) + (prix.douches || 0) +
+                         (prix.tests || 0) + (prix.perteTemps || 0);
+
+    // Marge intégrée invisiblement dans chaque prix affiché au client
+    const margeMultiplier = 1 + ((prix.margePourcent || 20) / 100);
+
+    // Ventilation des coûts travaux (avec marge intégrée)
+    const travauxCostBreakdown = [];
+    if (prix.demolition > 0) travauxCostBreakdown.push({ label: 'Démolition', amount: prix.demolition * margeMultiplier });
+    if (prix.zones > 0) travauxCostBreakdown.push({ label: 'Frais de zone', amount: prix.zones * margeMultiplier });
+    if (prix.douches > 0) travauxCostBreakdown.push({ label: 'Douches de décontamination', amount: prix.douches * margeMultiplier });
+    if (prix.tests > 0) travauxCostBreakdown.push({ label: "Tests d'air", amount: prix.tests * margeMultiplier });
+    if (prix.ventilateur > 0) travauxCostBreakdown.push({ label: 'Ventilateur HEPA', amount: prix.ventilateur * margeMultiplier });
+    if (prix.perteTemps > 0) travauxCostBreakdown.push({ label: 'Perte de temps', amount: prix.perteTemps * margeMultiplier });
+
+    const travauxTotal = travauxTotalBrut * margeMultiplier;
+
+    // ─── GROUPE 2 : Frais généraux (format tableau, avec marge intégrée) ───
+    fraisItems.push({
+        description: 'Assurance responsabilité civile 5 000 000 $',
+        qte: '1',
+        prixUnit: formatNumber((prix.assurance || 0) * margeMultiplier, 2) + ' $',
+        prixTotal: (prix.assurance || 0) * margeMultiplier
+    });
+
+    fraisItems.push({
+        description: 'Gestion et évacuation des rebuts',
+        qte: '1',
+        prixUnit: formatNumber((prix.disposition || 0) * margeMultiplier, 2) + ' $',
+        prixTotal: (prix.disposition || 0) * margeMultiplier
+    });
+
+    fraisItems.push({
+        description: 'Frais de déplacement',
+        qte: '1',
+        prixUnit: formatNumber((prix.transport || 0) * margeMultiplier, 2) + ' $',
+        prixTotal: (prix.transport || 0) * margeMultiplier
+    });
+
+    return { travauxItems, travauxCostBreakdown, travauxTotal, fraisItems };
+}
+
+// =====================================================
+// DOCUMENT PRINCIPAL (Pages 1+)
+// =====================================================
+
+async function createMainDocument(doc, state, configTextes, soumissionNumber, date, exclusions) {
+    const { margin, pageWidth, primaryBlue, textColor, accentTan, borderBlue } = PDF_CONFIG;
+    const contentWidth = pageWidth - (margin * 2);
 
     let y = margin;
 
-    // En-tête
-    doc.setFontSize(PDF_CONFIG.fontSizes.subtitle);
-    doc.setTextColor(...primaryColor);
-    doc.text('Détail des coûts', margin, y);
+    // ─── SECTION 1 : Titre de la soumission (aligné gauche, grand) ───
 
-    // Sous-titre
-    y += 8;
-    doc.setFontSize(PDF_CONFIG.fontSizes.body);
-    doc.setTextColor(...mutedColor);
-    doc.text('Ventilation des coûts estimés pour les travaux', margin, y);
-
-    y += 15;
-
-    // Tableau des prix
-    const rows = [
-        { label: 'Coûts des zones', value: prix.zones || 0 },
-        { label: 'Démolition', value: prix.demolition || 0 }
-    ];
-
-    // Frais risque élevé (seulement si applicable)
-    if (state.risqueGlobal === 'ÉLEVÉ') {
-        rows.push(
-            { label: 'Douches de décontamination', value: prix.douches || 0, highlight: true },
-            { label: "Tests d'air", value: prix.tests || 0, highlight: true },
-            { label: 'Perte de temps', value: prix.perteTemps || 0, highlight: true }
-        );
+    // Logo icône "A" en haut à droite
+    try {
+        const logoImg = await loadImage('assets/logo-apex-icon.png');
+        doc.addImage(logoImg, 'PNG', pageWidth - margin - 18, y, 18, 18);
+    } catch (e) {
+        // Pas de logo, on continue
     }
 
-    rows.push(
-        { label: 'Transport', value: prix.transport || 0 },
-        { label: 'Disposition des matériaux', value: prix.disposition || 0 },
-        { label: 'Assurance', value: prix.assurance || 0 }
-    );
+    // Titre "SOUMISSION 000XXX" — 26pt, bleu clair, aligné gauche
+    doc.setFontSize(PDF_CONFIG.fontSizes.documentTitle);
+    doc.setTextColor(...primaryBlue);
+    doc.text(`SOUMISSION ${soumissionNumber}`, margin, y + 12);
 
-    // Dessiner les lignes
-    rows.forEach((row, i) => {
-        const rowY = y + (i * 12);
-        
-        // Fond alterné
-        if (i % 2 === 0) {
-            doc.setFillColor(...lightGray);
-            doc.rect(margin, rowY - 4, contentWidth, 12, 'F');
-        }
+    y += 14;
 
-        // Highlight pour frais risque élevé
-        if (row.highlight) {
-            doc.setFillColor(254, 242, 242); // Red 50
-            doc.rect(margin, rowY - 4, contentWidth, 12, 'F');
-        }
+    // Bordure épaisse sous le titre
+    doc.setDrawColor(...textColor);
+    doc.setLineWidth(1.5);
+    doc.line(margin, y, pageWidth - margin - 25, y);
 
-        doc.setFontSize(PDF_CONFIG.fontSizes.body);
-        doc.setTextColor(...(row.highlight ? [239, 68, 68] : textColor));
-        doc.text(row.label, margin + 5, rowY + 3);
-        
-        doc.text(`${formatNumber(row.value)} $`, pageWidth - margin - 5, rowY + 3, { align: 'right' });
-    });
+    y += 6;
 
-    y += (rows.length * 12) + 10;
+    // Date
+    const dateStr = date.toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' });
+    doc.setFontSize(PDF_CONFIG.fontSizes.body);
+    doc.setTextColor(...textColor);
+    doc.text(dateStr, margin, y);
 
-    // Ligne séparatrice
-    doc.setDrawColor(...mutedColor);
+    y += 6;
+
+    // Nom entreprise — 18pt bold
+    doc.setFontSize(PDF_CONFIG.fontSizes.companyName);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(...textColor);
+    doc.text(configTextes.entreprise_nom || 'APEX DÉSAMIANTAGE INC.', margin, y);
+    doc.setFont(undefined, 'normal');
+
+    y += 2;
+
+    // Bordure fine sous le nom
+    doc.setDrawColor(...borderBlue);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, margin + 100, y);
+
+    y += 6;
+
+    // ─── SECTION 2 : Info client (2 colonnes, style épuré) ───
+
+    const colWidth = contentWidth / 2 - 5;
+    const leftX = margin;
+    const rightX = margin + colWidth + 10;
+
+    // Colonne gauche : Facturé à
+    doc.setFontSize(PDF_CONFIG.fontSizes.label);
+    doc.setTextColor(...textColor);
+    doc.text('Facturé à:', leftX, y);
+
+    // Colonne droite : Adresse des travaux
+    doc.text('Adresse des travaux:', rightX, y);
+
+    y += 6;
+
+    // Client info — couleur tan
+    doc.setFontSize(PDF_CONFIG.fontSizes.body);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(...accentTan);
+    doc.text(state.client.nom || 'Client', leftX, y);
+    doc.setFont(undefined, 'normal');
+
+    // Adresse travaux
+    doc.setFont(undefined, 'bold');
+    if (state.client.adresseChantier) {
+        doc.text(state.client.adresseChantier, rightX, y);
+    }
+    doc.setFont(undefined, 'normal');
+
+    y += 5;
+    doc.setFontSize(PDF_CONFIG.fontSizes.small);
+
+    // Adresse facturation
+    let clientY = y;
+    const billingAddr = state.client.adresseFacturation || state.client.adresseChantier || '';
+    if (billingAddr) {
+        doc.text(billingAddr, leftX, clientY);
+        clientY += 4;
+    }
+    const billingCity = state.client.villeFacturation || '';
+    if (billingCity) {
+        doc.text(billingCity, leftX, clientY);
+        clientY += 4;
+    }
+    if (state.client.courriel) {
+        doc.text(state.client.courriel, leftX, clientY);
+        clientY += 4;
+    }
+    if (state.client.telephone) {
+        doc.text(state.client.telephone, leftX, clientY);
+        clientY += 4;
+    }
+
+    // Description projet à droite
+    let siteY = y + 5;
+    if (state.client.descriptionProjet) {
+        doc.setTextColor(...accentTan);
+        const projLines = doc.splitTextToSize(state.client.descriptionProjet, colWidth - 5);
+        doc.text(projLines, rightX, siteY);
+    }
+
+    y = Math.max(clientY, siteY) + 5;
+
+    // Ligne de séparation légère
+    doc.setDrawColor(...PDF_CONFIG.borderBlue);
     doc.setLineWidth(0.2);
     doc.line(margin, y, pageWidth - margin, y);
 
-    // Sous-total
-    y += 12;
-    doc.setFontSize(PDF_CONFIG.fontSizes.body);
-    doc.setTextColor(...textColor);
-    doc.text('Sous-total', margin + 5, y);
-    doc.setFont(undefined, 'bold');
-    doc.text(`${formatNumber(prix.sousTotal || 0)} $`, pageWidth - margin - 5, y, { align: 'right' });
-    doc.setFont(undefined, 'normal');
+    y += 5;
 
-    // Total
-    y += 20;
-    doc.setFillColor(...primaryColor);
-    doc.roundedRect(margin, y - 5, contentWidth, 20, 2, 2, 'F');
+    // ─── SECTION 3 : Tableau d'items ───
+    const lineData = buildLineItems(state);
+    y = drawLineItemsTable(doc, lineData, y);
 
-    doc.setFontSize(PDF_CONFIG.fontSizes.heading);
-    doc.setTextColor(255, 255, 255);
-    doc.text('TOTAL ESTIMÉ', margin + 5, y + 7);
-    doc.setFont(undefined, 'bold');
-    doc.text(`${formatNumber(prix.total || 0)} $`, pageWidth - margin - 5, y + 7, { align: 'right' });
-    doc.setFont(undefined, 'normal');
+    // ─── SECTION 4 : Totaux avec taxes ───
+    y = checkPageBreak(doc, y, 40);
+    y = drawTotals(doc, state, configTextes, y);
 
-    // Note sur les taxes
-    y += 30;
-    doc.setFontSize(PDF_CONFIG.fontSizes.small);
-    doc.setTextColor(...mutedColor);
-    doc.text('* Les prix indiqués sont avant taxes (TPS et TVQ en sus)', margin, y);
+    // ─── SECTION 5 : Non inclus, notes et exclusions ───
+    y += 2;
+    y = drawNotesAndExclusions(doc, exclusions, configTextes, state, y);
 
-    // Détail par zone (si plusieurs zones)
-    if (state.zones && state.zones.length > 0) {
-        y += 20;
-        doc.setFontSize(PDF_CONFIG.fontSizes.heading);
-        doc.setTextColor(...primaryColor);
-        doc.text('Détail par zone', margin, y);
-
-        y += 10;
-        state.zones.forEach((zone, i) => {
-            if (y > 250) {
-                doc.addPage();
-                y = margin;
-            }
-
-            const risqueColor = zone.risque === 'ÉLEVÉ' ? PDF_CONFIG.redColor : [245, 158, 11]; // Amber
-
-            doc.setFillColor(...lightGray);
-            doc.roundedRect(margin, y, contentWidth, 20, 2, 2, 'F');
-
-            doc.setFontSize(PDF_CONFIG.fontSizes.body);
-            doc.setTextColor(...textColor);
-            doc.text(`${i + 1}. ${zone.nom}`, margin + 5, y + 8);
-
-            doc.setFontSize(PDF_CONFIG.fontSizes.small);
-            doc.setTextColor(...mutedColor);
-            doc.text(`${zone.materiauNom || zone.categorie} • ${formatNumber(zone.surface || zone.surfaceTotal || 0)} pi²`, margin + 5, y + 15);
-
-            // Badge risque
-            doc.setFillColor(...risqueColor);
-            doc.roundedRect(pageWidth - margin - 30, y + 5, 25, 10, 2, 2, 'F');
-            doc.setFontSize(8);
-            doc.setTextColor(255, 255, 255);
-            doc.text(zone.risque || 'MODÉRÉ', pageWidth - margin - 17.5, y + 12, { align: 'center' });
-
-            y += 25;
-        });
-    }
+    // Pied de page
+    drawPageFooter(doc, configTextes);
 }
 
 // =====================================================
-// PAGE 3+: PHOTOS ET MESURES
+// TABLEAU D'ITEMS (style Excel : bordures bleu fines)
+// =====================================================
+
+function drawLineItemsTable(doc, data, startY) {
+    const { margin, pageWidth, textColor, borderBlue } = PDF_CONFIG;
+    const contentWidth = pageWidth - (margin * 2);
+    const cols = PDF_CONFIG.tableColumns;
+
+    let y = startY;
+
+    // ─── PARTIE 1 : Travaux de désamiantage (format liste) ───
+
+    // Titre de section
+    doc.setFontSize(PDF_CONFIG.fontSizes.sectionTitle);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(...textColor);
+    doc.text('Travaux de désamiantage', margin + 2, y);
+    doc.setFont(undefined, 'normal');
+    y += 5;
+
+    // Items en liste simple
+    doc.setFontSize(PDF_CONFIG.fontSizes.item);
+    doc.setTextColor(...textColor);
+
+    data.travauxItems.forEach(item => {
+        y = checkPageBreak(doc, y, 7);
+        const descLines = doc.splitTextToSize(item.description, contentWidth - 10);
+        doc.text(descLines, margin + 5, y);
+        y += descLines.length > 1 ? descLines.length * 4 + 1 : PDF_CONFIG.lineHeight.tableRow;
+    });
+
+    // ─── Ventilation des coûts travaux ───
+    if (data.travauxCostBreakdown && data.travauxCostBreakdown.length > 0) {
+        y += 2;
+        doc.setFontSize(PDF_CONFIG.fontSizes.item);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...textColor);
+        doc.text('Ventilation des coûts', margin + 5, y);
+        doc.setFont(undefined, 'normal');
+        y += 4;
+
+        doc.setFontSize(PDF_CONFIG.fontSizes.item);
+        doc.setTextColor(...textColor);
+
+        data.travauxCostBreakdown.forEach(item => {
+            y = checkPageBreak(doc, y, 5);
+            doc.text(item.label, margin + 8, y);
+            doc.text(
+                `${formatNumber(item.amount, 2)} $`,
+                pageWidth - margin - 2, y,
+                { align: 'right' }
+            );
+            y += 4;
+        });
+    }
+
+    // Sous-total travaux
+    y += 1;
+    doc.setDrawColor(...borderBlue);
+    doc.setLineWidth(0.3);
+    doc.line(pageWidth - margin - 70, y, pageWidth - margin, y);
+    y += 4;
+
+    doc.setFontSize(PDF_CONFIG.fontSizes.item);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(...textColor);
+    doc.text('Sous-total travaux de désamiantage', margin + 5, y);
+    doc.text(
+        `${formatNumber(data.travauxTotal, 2)} $`,
+        pageWidth - margin - 2, y,
+        { align: 'right' }
+    );
+    doc.setFont(undefined, 'normal');
+    y += 6;
+
+    // ─── PARTIE 2 : Frais généraux (format tableau) ───
+
+    const colX = {
+        description: margin,
+        prixUnit: margin + cols.description,
+        qte: margin + cols.description + cols.prixUnit,
+        montant: margin + cols.description + cols.prixUnit + cols.qte
+    };
+
+    // Titre de section
+    doc.setFontSize(PDF_CONFIG.fontSizes.sectionTitle);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(...textColor);
+    doc.text('Frais généraux', margin + 2, y);
+    doc.setFont(undefined, 'normal');
+    y += 4;
+
+    // En-tête du tableau
+    const headerY = y;
+    doc.setFontSize(PDF_CONFIG.fontSizes.tableHeader);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(...textColor);
+    doc.text('Description', colX.description + 2, y + 4);
+    doc.text('Prix unitaire', colX.prixUnit + 2, y + 4);
+    doc.text('Quantité', colX.qte + 2, y + 4);
+    doc.text('Montant', colX.montant + 2, y + 4);
+    doc.setFont(undefined, 'normal');
+    y += 6;
+
+    // Ligne sous le header
+    doc.setDrawColor(...borderBlue);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 1;
+
+    // Lignes de données
+    doc.setFontSize(PDF_CONFIG.fontSizes.item);
+    doc.setTextColor(...textColor);
+
+    data.fraisItems.forEach(item => {
+        y += 4;
+        doc.text(item.description, colX.description + 3, y);
+        if (item.prixUnit) doc.text(item.prixUnit, colX.prixUnit + 2, y);
+        if (item.qte) doc.text(item.qte, colX.qte + 2, y);
+        if (typeof item.prixTotal === 'number') {
+            doc.text(
+                `${formatNumber(item.prixTotal, 2)} $`,
+                pageWidth - margin - 2, y,
+                { align: 'right' }
+            );
+        }
+        y += 2;
+
+        // Ligne horizontale entre les rangées
+        doc.setDrawColor(...borderBlue);
+        doc.setLineWidth(0.15);
+        doc.line(margin, y, pageWidth - margin, y);
+    });
+
+    // Bordures verticales du tableau frais généraux
+    doc.setDrawColor(...borderBlue);
+    doc.setLineWidth(0.2);
+    doc.line(margin, headerY - 1, margin, y);
+    doc.line(colX.prixUnit, headerY - 1, colX.prixUnit, y);
+    doc.line(colX.qte, headerY - 1, colX.qte, y);
+    doc.line(colX.montant, headerY - 1, colX.montant, y);
+    doc.line(pageWidth - margin, headerY - 1, pageWidth - margin, y);
+
+    // Bordure supérieure du tableau
+    doc.line(margin, headerY - 1, pageWidth - margin, headerY - 1);
+
+    return y + 5;
+}
+
+// =====================================================
+// TOTAUX AVEC TAXES (style tan du template Excel)
+// =====================================================
+
+function drawTotals(doc, state, configTextes, y) {
+    const { margin, pageWidth, primaryBlue, textColor, accentTan, subtotalBorderBlue } = PDF_CONFIG;
+    const prix = state.prix || {};
+
+    const preTaxTotal = prix.total || 0;
+    const taxes = calculateTaxes(preTaxTotal);
+
+    const rightX = pageWidth - margin - 2;
+    const labelX = pageWidth - margin - 65;
+
+    // Bordure bleu à gauche de la zone totaux
+    doc.setDrawColor(...subtotalBorderBlue);
+    doc.setLineWidth(0.3);
+
+    // Sous-total
+    doc.setFontSize(PDF_CONFIG.fontSizes.item);
+    doc.setTextColor(...accentTan);
+    doc.text('Sous-total:', labelX, y);
+    doc.text(`${formatNumber(taxes.sousTotal, 2)} $`, rightX, y, { align: 'right' });
+
+    // Bordure droite
+    doc.line(rightX + 1, y - 4, rightX + 1, y + 1);
+
+    y += 5;
+
+    // TPS avec numéro
+    const tpsNum = configTextes.numero_tps || '74641 3558 RT0001';
+    doc.text(`${tpsNum}  TPS/THV 5%`, labelX, y);
+    doc.text(`${formatNumber(taxes.tps, 2)} $`, rightX, y, { align: 'right' });
+    doc.line(rightX + 1, y - 4, rightX + 1, y + 1);
+
+    y += 5;
+
+    // TVQ avec numéro
+    const tvqNum = configTextes.numero_tvq || '123 136 8511 TQ0001';
+    doc.text(`${tvqNum}  TVQ 9,975%`, labelX, y);
+    doc.text(`${formatNumber(taxes.tvq, 2)} $`, rightX, y, { align: 'right' });
+    doc.line(rightX + 1, y - 4, rightX + 1, y + 1);
+
+    y += 2;
+
+    // Bordure sous TVQ
+    doc.setDrawColor(...subtotalBorderBlue);
+    doc.setLineWidth(0.3);
+    doc.line(labelX, y, rightX + 1, y);
+
+    y += 6;
+
+    // Total — 10pt, bleu clair, PAS de box plein
+    doc.setFontSize(PDF_CONFIG.fontSizes.label);
+    doc.setTextColor(...primaryBlue);
+    doc.text('Total:', labelX, y);
+    doc.text(`${formatNumber(taxes.grandTotal, 2)} $`, rightX, y, { align: 'right' });
+
+    // Bordure bleu sous le total
+    doc.setDrawColor(...primaryBlue);
+    doc.setLineWidth(0.5);
+    doc.line(labelX, y + 2, rightX + 1, y + 2);
+
+    return y + 5;
+}
+
+// =====================================================
+// NOTES ET EXCLUSIONS (sections soulignées)
+// =====================================================
+
+function drawNotesAndExclusions(doc, exclusions, configTextes, state, y) {
+    const { margin, pageWidth, textColor, accentTan } = PDF_CONFIG;
+    const contentWidth = pageWidth - (margin * 2);
+
+    // Non inclus — en premier pour rester sur la page 1 avec les totaux
+    if (exclusions && exclusions.length > 0) {
+        y = checkPageBreak(doc, y, 10);
+
+        doc.setFontSize(PDF_CONFIG.fontSizes.sectionTitle);
+        doc.setTextColor(...textColor);
+        const exclTitle = 'Non inclus';
+        doc.text(exclTitle, margin + 3, y);
+        const eTitleWidth = doc.getTextWidth(exclTitle);
+        doc.setDrawColor(...textColor);
+        doc.setLineWidth(0.2);
+        doc.line(margin + 3, y + 1, margin + 3 + eTitleWidth, y + 1);
+
+        y += 5;
+        doc.setFontSize(PDF_CONFIG.fontSizes.item);
+        doc.setTextColor(...textColor);
+        exclusions.forEach(item => {
+            y = checkPageBreak(doc, y, 5);
+            doc.text(`•  ${item}`, margin + 5, y);
+            y += 4;
+        });
+        y += 2;
+    }
+
+    // Notes techniques
+    const notes = configTextes.notes_techniques || '';
+    if (notes && notes !== '[À configurer dans Settings]') {
+        y = checkPageBreak(doc, y, 20);
+
+        // Section header souligné
+        doc.setFontSize(PDF_CONFIG.fontSizes.sectionTitle);
+        doc.setTextColor(...textColor);
+        const notesTitle = 'Notes & documentation consultée';
+        doc.text(notesTitle, margin + 3, y);
+        const titleWidth = doc.getTextWidth(notesTitle);
+        doc.setDrawColor(...textColor);
+        doc.setLineWidth(0.2);
+        doc.line(margin + 3, y + 1, margin + 3 + titleWidth, y + 1);
+
+        y += 6;
+        doc.setFontSize(PDF_CONFIG.fontSizes.item);
+        doc.setTextColor(...textColor);
+        const noteLines = doc.splitTextToSize(notes, contentWidth - 8);
+        doc.text(noteLines, margin + 5, y);
+        y += noteLines.length * PDF_CONFIG.lineHeight.bodyText + 6;
+    }
+
+    // Description technique selon le risque
+    let descriptif;
+    if (state.risqueGlobal === 'ÉLEVÉ') {
+        descriptif = configTextes.descriptif_risque_eleve || '';
+    } else if (state.risqueGlobal === 'ÉLEVÉ_ALLÉGÉ') {
+        descriptif = configTextes.descriptif_risque_eleve_allege || configTextes.descriptif_risque_modere || '';
+    } else {
+        descriptif = configTextes.descriptif_risque_modere || '';
+    }
+
+    if (descriptif && descriptif !== '[À configurer dans Settings]') {
+        y = checkPageBreak(doc, y, 20);
+
+        doc.setFontSize(PDF_CONFIG.fontSizes.sectionTitle);
+        doc.setTextColor(...textColor);
+        const descTitle = 'Description des travaux';
+        doc.text(descTitle, margin + 3, y);
+        const dTitleWidth = doc.getTextWidth(descTitle);
+        doc.setDrawColor(...textColor);
+        doc.setLineWidth(0.2);
+        doc.line(margin + 3, y + 1, margin + 3 + dTitleWidth, y + 1);
+
+        y += 6;
+        doc.setFontSize(PDF_CONFIG.fontSizes.item);
+        doc.setTextColor(...textColor);
+        const descLines = doc.splitTextToSize(descriptif, contentWidth - 8);
+        doc.text(descLines, margin + 5, y);
+        y += descLines.length * PDF_CONFIG.lineHeight.bodyText + 6;
+    }
+
+    return y;
+}
+
+// =====================================================
+// PAGES PHOTOS ET MESURES
 // =====================================================
 
 async function createPhotosPages(doc, zones) {
-    const { margin, pageWidth, pageHeight, primaryColor, textColor, mutedColor, lightGray } = PDF_CONFIG;
+    const { margin, pageWidth, pageHeight, primaryBlue, textColor, accentTan } = PDF_CONFIG;
     const contentWidth = pageWidth - (margin * 2);
 
     let y = margin;
-    let isFirstPage = true;
 
     // En-tête
-    doc.setFontSize(PDF_CONFIG.fontSizes.subtitle);
-    doc.setTextColor(...primaryColor);
-    doc.text('Photos et mesures', margin, y);
+    doc.setFontSize(PDF_CONFIG.fontSizes.sectionTitle);
+    doc.setTextColor(...primaryBlue);
+    const photosTitle = 'Photos et mesures';
+    doc.text(photosTitle, margin, y);
+    const ptWidth = doc.getTextWidth(photosTitle);
+    doc.setDrawColor(...primaryBlue);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y + 1, margin + ptWidth, y + 1);
 
-    y += 15;
+    y += 10;
 
     for (const zone of zones) {
         if (!zone.surfaces) continue;
@@ -412,228 +728,308 @@ async function createPhotosPages(doc, zones) {
         const surfacesWithPhotos = zone.surfaces.filter(s => s.photo);
         if (surfacesWithPhotos.length === 0) continue;
 
-        // Titre de la zone
         if (y > pageHeight - 80) {
             doc.addPage();
-            y = margin;
+            drawContinuationHeader(doc);
+            y = margin + 12;
         }
 
-        doc.setFontSize(PDF_CONFIG.fontSizes.heading);
+        // Nom de zone
+        doc.setFontSize(PDF_CONFIG.fontSizes.body);
+        doc.setFont(undefined, 'bold');
         doc.setTextColor(...textColor);
         doc.text(zone.nom, margin, y);
+        doc.setFont(undefined, 'normal');
 
-        y += 8;
-        doc.setFontSize(PDF_CONFIG.fontSizes.small);
-        doc.setTextColor(...mutedColor);
+        y += 5;
+        doc.setFontSize(PDF_CONFIG.fontSizes.item);
+        doc.setTextColor(...accentTan);
         doc.text(`${zone.materiauNom || zone.categorie} • ${formatNumber(zone.surface || zone.surfaceTotal || 0)} pi²`, margin, y);
 
-        y += 12;
+        y += 8;
 
-        // Photos de la zone
         for (const surface of surfacesWithPhotos) {
             if (y > pageHeight - 100) {
                 doc.addPage();
-                y = margin;
+                drawContinuationHeader(doc);
+                y = margin + 12;
             }
 
             try {
-                // Ajouter l'image
                 const imgWidth = contentWidth / 2 - 5;
                 const imgHeight = 60;
 
                 doc.addImage(surface.photo.dataUrl, 'JPEG', margin, y, imgWidth, imgHeight);
 
-                // Infos à côté de l'image
                 const infoX = margin + imgWidth + 10;
 
                 doc.setFontSize(PDF_CONFIG.fontSizes.body);
                 doc.setTextColor(...textColor);
                 doc.text(surface.nom || 'Surface', infoX, y + 10);
 
-                doc.setFontSize(PDF_CONFIG.fontSizes.small);
-                doc.setTextColor(...mutedColor);
-                doc.text(`Dimensions: ${surface.longueur || 0}' x ${surface.hauteur || 0}'`, infoX, y + 20);
-                doc.text(`Surface: ${formatNumber(surface.surface || 0)} pi²`, infoX, y + 28);
-                doc.text(`Épaisseur: ${zone.epaisseur || 0}"`, infoX, y + 36);
+                doc.setFontSize(PDF_CONFIG.fontSizes.item);
+                doc.setTextColor(...accentTan);
+                doc.text(`Dimensions: ${surface.longueur || 0}' x ${surface.hauteur || 0}'`, infoX, y + 18);
+                doc.text(`Surface: ${formatNumber(surface.surface || 0)} pi²`, infoX, y + 25);
+                doc.text(`Épaisseur: ${zone.epaisseur || 0}"`, infoX, y + 32);
 
                 y += imgHeight + 10;
-
             } catch (e) {
                 console.warn('Erreur ajout photo:', e);
             }
         }
 
-        y += 10;
+        y += 6;
     }
 }
 
 // =====================================================
-// PAGE N: INCLUSIONS / EXCLUSIONS
+// CONTRAT DE SERVICES (8 sections)
 // =====================================================
 
-async function createInclusionsPage(doc, inclusions, exclusions, state, configTextes) {
-    const { margin, pageWidth, primaryColor, textColor, mutedColor, greenColor, redColor, lightGray } = PDF_CONFIG;
+async function createContractPages(doc, configTextes) {
+    const { margin, pageWidth, primaryBlue, textColor } = PDF_CONFIG;
     const contentWidth = pageWidth - (margin * 2);
 
     let y = margin;
 
-    // En-tête
-    doc.setFontSize(PDF_CONFIG.fontSizes.subtitle);
-    doc.setTextColor(...primaryColor);
-    doc.text('Inclusions et exclusions', margin, y);
+    // Titre — style souligné comme le template
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(...primaryBlue);
+    doc.text('CONTRAT DE SERVICES', margin, y);
+    doc.setFont(undefined, 'normal');
 
-    y += 15;
-
-    // Descriptif technique selon le risque
-    const descriptif = state.risqueGlobal === 'ÉLEVÉ' 
-        ? (configTextes.descriptif_risque_eleve || '')
-        : (configTextes.descriptif_risque_modere || '');
-
-    if (descriptif && descriptif !== '[À configurer dans Settings]') {
-        doc.setFontSize(PDF_CONFIG.fontSizes.small);
-        doc.setTextColor(...mutedColor);
-        doc.text('DESCRIPTION DES TRAVAUX', margin, y);
-
-        y += 8;
-        doc.setFontSize(PDF_CONFIG.fontSizes.body);
-        doc.setTextColor(...textColor);
-
-        // Word wrap pour le descriptif
-        const lines = doc.splitTextToSize(descriptif, contentWidth);
-        doc.text(lines, margin, y);
-        y += lines.length * 5 + 15;
-    }
-
-    // Section Inclus
-    doc.setFillColor(...lightGray);
-    doc.roundedRect(margin, y, contentWidth, 8, 2, 2, 'F');
-
-    doc.setFontSize(PDF_CONFIG.fontSizes.small);
-    doc.setTextColor(...greenColor);
-    doc.text('✓ INCLUS DANS CETTE SOUMISSION', margin + 5, y + 5.5);
-
-    y += 15;
-
-    inclusions.forEach((item, i) => {
-        doc.setFontSize(PDF_CONFIG.fontSizes.body);
-        doc.setTextColor(...textColor);
-        doc.text(`• ${item}`, margin + 5, y);
-        y += 7;
-    });
+    y += 2;
+    doc.setDrawColor(...primaryBlue);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, margin + doc.getTextWidth('CONTRAT DE SERVICES'), y);
 
     y += 10;
 
-    // Section Exclus
-    doc.setFillColor(...lightGray);
-    doc.roundedRect(margin, y, contentWidth, 8, 2, 2, 'F');
+    // Textes par défaut des 8 sections
+    const defaultTexts = {
+        1: "Le présent contrat lie l'Entrepreneur et le Client identifiés en en-tête de la présente soumission. L'Entrepreneur s'engage à réaliser les travaux décrits pour le prix total stipulé ci-haut, conformément au Code de construction du Québec et aux règles de l'art.",
+        2: "Un échéancier détaillé sera fourni par l'Entrepreneur lors de la signature. Les délais sont sujets à révision en cas de force majeure, météo ou retards d'approvisionnement. Le Client s'engage à fournir un accès libre au chantier et aux services (eau/électricité).",
+        3: "L'obtention et les frais de tous les permis municipaux ou autorisations nécessaires sont la responsabilité exclusive du Client. Les travaux ne débuteront qu'une fois les permis obtenus et remis à l'Entrepreneur. Le Client garantit que les travaux sont conformes aux règlements de zonage ou de copropriété.",
+        4: "Le prix soumis n'inclut pas la correction de conditions préexistantes non apparentes (ex: structure non conforme, présence d'amiante supplémentaire, moisissure, plomberie/électricité désuète). Si de telles conditions sont découvertes, les travaux seront suspendus et un avenant écrit sera requis avant de poursuivre.",
+        5: "Acompte: 10% à la signature pour contrats de plus de 25 000 $. Paiements progressifs selon l'avancement défini à l'échéancier. Solde exigible immédiatement à la fin des travaux. Aucune retenue sans entente écrite préalable.",
+        6: "Toute demande de travaux additionnels fera l'objet d'un avenant écrit détaillant les coûts et délais supplémentaires avant l'exécution. Sans approbation écrite de la part du client, ces travaux ne seront pas effectués.",
+        7: "L'Entrepreneur détient une assurance responsabilité civile de 5 000 000 $ avec avenant pollution et une licence RBQ valide. Les travaux sont couverts par la garantie légale (Art. 2118 et 2120 du Code civil du Québec). Le Client peut résilier le contrat selon l'Art. 2125 du C.c.Q., moyennant le paiement des frais, travaux exécutés et profits perdus de l'Entrepreneur.",
+        8: "En signant ci-dessous, le Client confirme avoir lu, compris et accepté les termes de la présente soumission et du présent contrat."
+    };
 
-    doc.setFontSize(PDF_CONFIG.fontSizes.small);
-    doc.setTextColor(...redColor);
-    doc.text('✗ NON INCLUS', margin + 5, y + 5.5);
+    const sectionTitles = {
+        1: 'CADRE LÉGAL ET OBJET',
+        2: 'ÉCHÉANCIER ET ACCÈS',
+        3: 'PERMIS ET RÈGLEMENTS',
+        4: 'CONDITIONS IMPRÉVUES',
+        5: 'MODALITÉS DE PAIEMENT',
+        6: 'AJUSTEMENTS DE COÛTS',
+        7: 'OBLIGATIONS ET GARANTIES',
+        8: 'ACCEPTATION'
+    };
 
-    y += 15;
+    for (let i = 1; i <= 8; i++) {
+        const text = configTextes[`contrat_section_${i}`] || defaultTexts[i];
+        if (!text || text === '[À configurer dans Settings]') continue;
 
-    exclusions.forEach((item, i) => {
+        const textLines = doc.splitTextToSize(text, contentWidth - 5);
+        const neededSpace = 10 + textLines.length * PDF_CONFIG.lineHeight.bodyText;
+
+        y = checkPageBreak(doc, y, Math.min(neededSpace, 40));
+
+        // Titre de section — numéroté, bold
         doc.setFontSize(PDF_CONFIG.fontSizes.body);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...primaryBlue);
+        doc.text(`${i}. ${sectionTitles[i]}`, margin, y);
+        doc.setFont(undefined, 'normal');
+
+        y += 5;
+
+        // Contenu
+        doc.setFontSize(PDF_CONFIG.fontSizes.item);
         doc.setTextColor(...textColor);
-        doc.text(`• ${item}`, margin + 5, y);
-        y += 7;
-    });
+        doc.text(textLines, margin + 3, y);
 
-    // Instructions de paiement
-    y += 15;
-    const paiement = configTextes.instructions_paiement || '';
-    
-    if (paiement && paiement !== '[À configurer dans Settings]') {
-        doc.setFontSize(PDF_CONFIG.fontSizes.small);
-        doc.setTextColor(...mutedColor);
-        doc.text('MODALITÉS DE PAIEMENT', margin, y);
-
-        y += 8;
-        doc.setFontSize(PDF_CONFIG.fontSizes.body);
-        doc.setTextColor(...textColor);
-
-        const paiementLines = doc.splitTextToSize(paiement, contentWidth);
-        doc.text(paiementLines, margin, y);
+        y += textLines.length * PDF_CONFIG.lineHeight.bodyText + 6;
     }
 }
 
 // =====================================================
-// PAGE N+1: SIGNATURE
+// PAIEMENT + DOUBLE SIGNATURE (style Excel)
 // =====================================================
 
-async function createSignaturePage(doc, signatureDataUrl, configTextes, client, date) {
-    const { margin, pageWidth, pageHeight, primaryColor, textColor, mutedColor, lightGray } = PDF_CONFIG;
+async function createPaymentAndSignaturePage(doc, signatureDataUrl, configTextes, client, date) {
+    const { margin, pageWidth, pageHeight, primaryBlue, textColor, accentTan, lightGray } = PDF_CONFIG;
     const contentWidth = pageWidth - (margin * 2);
 
     let y = margin;
 
-    // En-tête
-    doc.setFontSize(PDF_CONFIG.fontSizes.subtitle);
-    doc.setTextColor(...primaryColor);
-    doc.text('Acceptation de la soumission', margin, y);
+    // ─── PARTIE 1 : Modalités de paiement ───
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(...primaryBlue);
+    const payTitle = 'PAIEMENT DE VOTRE FACTURE';
+    doc.text(payTitle, margin, y);
+    doc.setFont(undefined, 'normal');
 
-    y += 20;
+    y += 2;
+    doc.setDrawColor(...primaryBlue);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, margin + doc.getTextWidth(payTitle), y);
 
-    // Texte légal
-    const texteSignature = configTextes.texte_signature || 
-        'Je, soussigné(e), reconnais avoir pris connaissance de la présente soumission et accepte les termes et conditions.';
+    y += 8;
 
+    // Par chèque
     doc.setFontSize(PDF_CONFIG.fontSizes.body);
+    doc.setFont(undefined, 'bold');
     doc.setTextColor(...textColor);
-    const lines = doc.splitTextToSize(texteSignature, contentWidth);
-    doc.text(lines, margin, y);
+    doc.text('Par chèque:', margin, y);
+    doc.setFont(undefined, 'normal');
 
-    y += lines.length * 5 + 20;
+    y += 5;
+    doc.setFontSize(PDF_CONFIG.fontSizes.item);
+    doc.setTextColor(...accentTan);
+    const chequeDestinataire = configTextes.paiement_cheque_destinataire || 'Apex Désamiantage Inc.';
+    const chequeAdresse = configTextes.paiement_cheque_adresse || '689 rue des Caryers, Québec, QC, G3G 2B4';
+    doc.text(chequeDestinataire, margin + 5, y);
+    y += 4;
+    doc.text(chequeAdresse, margin + 5, y);
 
-    // Zone de signature
-    doc.setFillColor(...lightGray);
-    doc.roundedRect(margin, y, contentWidth, 50, 3, 3, 'F');
+    y += 8;
 
-    // Ajouter la signature si présente
+    // Par virement Interac
+    doc.setFontSize(PDF_CONFIG.fontSizes.body);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(...textColor);
+    doc.text('Par virement Interac:', margin, y);
+    doc.setFont(undefined, 'normal');
+
+    y += 5;
+    doc.setFontSize(PDF_CONFIG.fontSizes.item);
+    doc.setTextColor(...accentTan);
+    doc.text(configTextes.paiement_interac_courriel || 'info@apexdesamiantage.com', margin + 5, y);
+
+    y += 8;
+
+    // Par virement bancaire
+    doc.setFontSize(PDF_CONFIG.fontSizes.body);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(...textColor);
+    doc.text('Par virement bancaire:', margin, y);
+    doc.setFont(undefined, 'normal');
+
+    y += 5;
+    doc.setFontSize(PDF_CONFIG.fontSizes.item);
+    doc.setTextColor(...accentTan);
+    doc.text(`Transit: ${configTextes.paiement_virement_transit || '20088'}`, margin + 5, y);
+    y += 4;
+    doc.text(`Institution: ${configTextes.paiement_virement_institution || '815'}`, margin + 5, y);
+    y += 4;
+    doc.text(`Compte: ${configTextes.paiement_virement_compte || '0984757'}`, margin + 5, y);
+
+    y += 15;
+
+    // ─── PARTIE 2 : Signatures (2 colonnes, style Excel) ───
+
+    if (y > pageHeight - 80) {
+        doc.addPage();
+        y = margin;
+    }
+
+    const signataireName = configTextes.signataire_nom || 'Gabriel Maranda';
+    const signataireTitre = configTextes.signataire_titre || 'Apex Désamiantage inc.';
+
+    const halfWidth = contentWidth / 2 - 10;
+    const leftCol = margin;
+    const rightCol = margin + halfWidth + 20;
+
+    // "AUTRES INFORMATIONS" — aligné droite, bleu
+    doc.setFontSize(PDF_CONFIG.fontSizes.label);
+    doc.setTextColor(...primaryBlue);
+    doc.text('AUTRES INFORMATIONS', pageWidth - margin, y, { align: 'right' });
+
+    y += 8;
+
+    // Signature client à gauche
+    doc.setFontSize(PDF_CONFIG.fontSizes.item);
+    doc.setTextColor(...textColor);
+    doc.text('Signature du client:', leftCol, y);
+
+    // Info entreprise à droite (tan)
+    doc.setTextColor(...accentTan);
+    const entrepriseLines = [
+        configTextes.entreprise_nom || 'Apex Désamiantage inc.',
+        configTextes.entreprise_adresse || '689 rue des Caryers',
+        configTextes.entreprise_ville || 'Québec (QC) G3G 2B4',
+        configTextes.entreprise_telephone || '',
+        configTextes.entreprise_courriel || '',
+        configTextes.entreprise_site_web || ''
+    ].filter(Boolean);
+
+    let infoY = y;
+    entrepriseLines.forEach(line => {
+        doc.text(line, pageWidth - margin, infoY, { align: 'right' });
+        infoY += 4;
+    });
+
+    y += 5;
+
+    // Zone signature client (avec image si disponible)
     if (signatureDataUrl) {
         try {
-            doc.addImage(signatureDataUrl, 'PNG', margin + 10, y + 5, contentWidth - 20, 40);
+            doc.addImage(signatureDataUrl, 'PNG', leftCol, y, halfWidth, 25);
         } catch (e) {
-            console.warn('Erreur ajout signature:', e);
+            console.warn('Erreur ajout signature client:', e);
         }
     }
 
-    y += 55;
+    y += 28;
 
-    // Ligne pour le nom
-    doc.setDrawColor(...mutedColor);
-    doc.line(margin, y, margin + 80, y);
-    doc.setFontSize(PDF_CONFIG.fontSizes.small);
-    doc.setTextColor(...mutedColor);
-    doc.text('Nom du client', margin, y + 5);
-
-    // Nom du client
-    doc.setFontSize(PDF_CONFIG.fontSizes.body);
+    // Ligne de signature client
+    doc.setDrawColor(...textColor);
+    doc.setLineWidth(0.3);
+    doc.line(leftCol, y, leftCol + halfWidth, y);
+    y += 4;
+    doc.setFontSize(PDF_CONFIG.fontSizes.item);
     doc.setTextColor(...textColor);
-    doc.text(client.nom || '', margin, y - 3);
+    doc.text(client.nom || '', leftCol, y);
 
-    // Ligne pour la date
-    doc.setDrawColor(...mutedColor);
-    doc.line(margin + 100, y, margin + 160, y);
-    doc.setFontSize(PDF_CONFIG.fontSizes.small);
-    doc.setTextColor(...mutedColor);
-    doc.text('Date', margin + 100, y + 5);
+    y += 10;
 
-    // Date
-    const dateStr = date.toLocaleDateString('fr-CA');
-    doc.setFontSize(PDF_CONFIG.fontSizes.body);
+    // Signature entrepreneur
+    doc.text('Signature de l\'entrepreneur:', leftCol, y);
+    y += 8;
+    doc.line(leftCol, y + 20, leftCol + halfWidth, y + 20);
+
+    const entreY = y + 24;
+    doc.text(signataireName, leftCol, entreY);
+    doc.setFontSize(PDF_CONFIG.fontSizes.item);
+    doc.setTextColor(...accentTan);
+    doc.text(signataireTitre, leftCol, entreY + 4);
+
+    // RBQ
+    const rbq = configTextes.entreprise_licence_rbq || '5847-5401-01';
+    doc.text(`RBQ: ${rbq}`, leftCol, entreY + 8);
+
+    // Dates
+    y = entreY + 15;
+    doc.setFontSize(PDF_CONFIG.fontSizes.item);
     doc.setTextColor(...textColor);
-    doc.text(dateStr, margin + 100, y - 3);
 
-    // Validité de la soumission
-    y += 30;
-    doc.setFillColor(254, 249, 195); // Yellow 100
-    doc.roundedRect(margin, y, contentWidth, 15, 2, 2, 'F');
-    
-    doc.setFontSize(PDF_CONFIG.fontSizes.small);
-    doc.setTextColor(161, 98, 7); // Yellow 700
-    doc.text('Cette soumission est valide pour une période de 30 jours à compter de la date ci-dessus.', margin + 5, y + 9);
+    if (date) {
+        const dateStr = date.toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' });
+        doc.text(`Date: ${dateStr}`, leftCol, y);
+    }
+
+    // Footer validité
+    y = pageHeight - 12;
+    doc.setFontSize(PDF_CONFIG.fontSizes.footer);
+    doc.setTextColor(...PDF_CONFIG.mutedColor);
+    doc.text('*La soumission sera valide dans un délai de 30 jours.', margin, y);
+    doc.text("*Des frais d'administration seront facturés s'il y a annulation des travaux suite à l'acceptation de la soumission.", margin, y + 3);
 }
 
 // =====================================================
@@ -641,17 +1037,15 @@ async function createSignaturePage(doc, signatureDataUrl, configTextes, client, 
 // =====================================================
 
 async function appendLegalDocuments(doc) {
-    // Récupérer les documents depuis localStorage
-    const docs = ['licence', 'assurance', 'contrat'];
+    const docTypes = ['licence', 'assurance'];
     const pdfBuffers = [];
 
-    for (const docType of docs) {
+    for (const docType of docTypes) {
         const docInfo = localStorage.getItem(`apex_doc_${docType}`);
         if (docInfo) {
             try {
                 const info = JSON.parse(docInfo);
                 if (info.data) {
-                    // Extraire le base64 (enlever le préfixe data:application/pdf;base64,)
                     const base64 = info.data.split(',')[1];
                     const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
                     pdfBuffers.push(bytes);
@@ -663,19 +1057,15 @@ async function appendLegalDocuments(doc) {
     }
 
     if (pdfBuffers.length === 0) {
-        return null; // Pas de documents à annexer
+        return null;
     }
 
     try {
         const { PDFDocument } = PDFLib;
 
-        // Convertir le PDF jsPDF en buffer
         const mainPdfBytes = doc.output('arraybuffer');
-
-        // Créer le document final
         const mergedPdf = await PDFDocument.load(mainPdfBytes);
 
-        // Ajouter chaque document annexe
         for (const buffer of pdfBuffers) {
             try {
                 const annexePdf = await PDFDocument.load(buffer);
@@ -686,7 +1076,6 @@ async function appendLegalDocuments(doc) {
             }
         }
 
-        // Retourner le PDF fusionné
         const mergedPdfBytes = await mergedPdf.save();
         return new Blob([mergedPdfBytes], { type: 'application/pdf' });
 
@@ -700,9 +1089,6 @@ async function appendLegalDocuments(doc) {
 // UTILITAIRES
 // =====================================================
 
-/**
- * Charge une image et retourne une promesse
- */
 function loadImage(src) {
     return new Promise((resolve, reject) => {
         const img = new Image();
@@ -713,15 +1099,12 @@ function loadImage(src) {
     });
 }
 
-/**
- * Formate un nombre avec espaces (séparateur milliers)
- */
 function formatNumber(num, decimals = 0) {
     if (num === null || num === undefined || isNaN(num)) return '0';
-    
+
     const fixed = Number(num).toFixed(decimals);
     const [intPart, decPart] = fixed.split('.');
     const formatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-    
+
     return decPart ? `${formatted},${decPart}` : formatted;
 }

@@ -215,6 +215,32 @@
             </div>
         </details>
 
+        <!-- Risque élevé allégé -->
+        <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-orange-500">air</span>
+                    <span class="font-medium text-slate-900">Risque élevé allégé</span>
+                </div>
+                <span class="material-symbols-outlined text-slate-400 transition-transform duration-300 group-open:rotate-180">expand_more</span>
+            </summary>
+            <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
+                <div class="flex items-center gap-2 mb-1">
+                    <div class="w-1 h-4 bg-orange-500 rounded-full"></div>
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Risque élevé allégé</span>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Ventilateur HEPA (par jour)</label>
+                    <div class="relative">
+                        <input id="config-ventilateur_par_jour" class="param-input" type="number" step="1" min="0" value="70"/>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">$/jour</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </details>
+
         <!-- Coûts par zone - Risque élevé -->
         <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
@@ -360,6 +386,92 @@
             </div>
         </details>
 
+        <!-- ==================== MATÉRIAUX ==================== -->
+        <div class="border-t border-slate-200 mt-6 pt-6 mb-6">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="material-symbols-outlined text-primary">science</span>
+                <h2 class="text-lg font-bold text-slate-800">Matériaux amiantés</h2>
+            </div>
+            <p class="text-sm text-slate-500 mb-4">Gérez la liste des matériaux disponibles dans le wizard de soumission.</p>
+        </div>
+
+        <details class="group" id="materiaux-section">
+            <summary class="flex items-center justify-between w-full py-4 text-left cursor-pointer hover:bg-slate-50 rounded-xl px-3 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="w-2 h-2 rounded-full bg-primary"></span>
+                    <span class="font-semibold text-slate-800">Liste des matériaux</span>
+                    <span id="materiaux-count" class="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">0</span>
+                </div>
+                <span class="material-symbols-outlined text-slate-400 transition-transform group-open:rotate-180">expand_more</span>
+            </summary>
+            <div class="pb-4 pl-3 pr-3">
+                <!-- Materials table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm" id="materiaux-table">
+                        <thead>
+                            <tr class="text-left text-xs font-medium text-slate-400 uppercase tracking-wider border-b border-slate-200">
+                                <th class="pb-2 pr-2">Matériau</th>
+                                <th class="pb-2 pr-2">Catégorie</th>
+                                <th class="pb-2 pr-2">Friabilité</th>
+                                <th class="pb-2 pr-2">Épaisseur</th>
+                                <th class="pb-2 pr-2">Risque typique</th>
+                                <th class="pb-2 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="materiaux-tbody">
+                            <!-- Dynamically populated -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Add material form (hidden by default) -->
+                <div id="add-materiau-form" class="hidden mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <h4 class="font-semibold text-slate-700 mb-3">Nouveau matériau</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">Nom</label>
+                            <input type="text" id="new-mat-nom" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none" placeholder="Nom du matériau">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">Catégorie</label>
+                            <select id="new-mat-categorie" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none bg-white">
+                                <option value="Isolants">Isolants</option>
+                                <option value="Murs et Plafonds">Murs et Plafonds</option>
+                                <option value="Sols">Sols</option>
+                                <option value="Extérieur">Extérieur</option>
+                                <option value="Mécanique">Mécanique</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">Friabilité</label>
+                            <select id="new-mat-friabilite" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none bg-white">
+                                <option value="non_friable">Non friable</option>
+                                <option value="friable">Friable</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">Épaisseur par défaut (pouces)</label>
+                            <input type="number" id="new-mat-epaisseur" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none" value="0.5" step="0.0625" min="0">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-medium text-slate-500 mb-1">Niveau de risque typique</label>
+                            <input type="text" id="new-mat-risque" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none" placeholder="Ex: Modéré, Élevé, Modéré à Élevé...">
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-2 mt-4">
+                        <button type="button" onclick="cancelAddMateriau()" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Annuler</button>
+                        <button type="button" onclick="saveNewMateriau()" class="px-4 py-2 text-sm text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors font-medium">Ajouter</button>
+                    </div>
+                </div>
+
+                <!-- Add button -->
+                <button type="button" id="btn-add-materiau" onclick="showAddMateriauForm()" class="mt-4 w-full py-3 border-2 border-dashed border-slate-300 hover:border-primary text-slate-500 hover:text-primary rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-lg">add</span>
+                    Ajouter un matériau
+                </button>
+            </div>
+        </details>
+
         <!-- Separator -->
         <div class="flex items-center gap-4 my-4">
             <div class="flex-1 h-px bg-slate-200"></div>
@@ -407,6 +519,165 @@
             </div>
         </details>
 
+        <!-- Numéros de taxes -->
+        <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary">receipt_long</span>
+                    <span class="font-medium text-slate-900">Numéros de taxes</span>
+                </div>
+                <span class="material-symbols-outlined text-slate-400 transition-transform duration-300 group-open:rotate-180">expand_more</span>
+            </summary>
+            <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Ville / Code postal</label>
+                    <input id="config-entreprise_ville" class="param-input" type="text" placeholder="Québec (QC) G3G 2B4"/>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Numéro TPS</label>
+                    <input id="config-numero_tps" class="param-input" type="text" placeholder="74641 3558 RT0001"/>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Numéro TVQ</label>
+                    <input id="config-numero_tvq" class="param-input" type="text" placeholder="123 136 8511 TQ0001"/>
+                </div>
+            </div>
+        </details>
+
+        <!-- Contrat et conditions légales -->
+        <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary">gavel</span>
+                    <span class="font-medium text-slate-900">Contrat et conditions légales</span>
+                </div>
+                <span class="material-symbols-outlined text-slate-400 transition-transform duration-300 group-open:rotate-180">expand_more</span>
+            </summary>
+            <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Nom du signataire</label>
+                    <input id="config-signataire_nom" class="param-input" type="text" placeholder="Gabriel Maranda"/>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Titre du signataire</label>
+                    <input id="config-signataire_titre" class="param-input" type="text" placeholder="Apex Désamiantage inc."/>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Validité de la soumission (jours)</label>
+                    <input id="config-validite_jours" class="param-input" type="number" step="1" min="1" placeholder="30"/>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-2">Notes techniques</label>
+                    <textarea id="config-notes_techniques" rows="4"
+                        class="block w-full rounded-lg border-slate-300 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all"
+                        placeholder="Une procédure de désamiantage selon les normes du CSTC sera fournie avant d'effectuer les travaux. L'ouverture de chantier auprès de la CNESST relève de l'entrepreneur général."></textarea>
+                </div>
+                <div class="border-t border-slate-100 pt-4">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Sections du contrat</p>
+                    <div class="grid gap-5">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-2">1. Cadre légal et objet</label>
+                            <textarea id="config-contrat_section_1" rows="4"
+                                class="block w-full rounded-lg border-slate-300 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all"
+                                placeholder="Le présent contrat lie l'Entrepreneur et le Client identifiés en en-tête de la présente soumission. L'Entrepreneur s'engage à réaliser les travaux décrits pour le prix total stipulé ci-haut, conformément au Code de construction du Québec et aux règles de l'art."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-2">2. Échéancier et accès au chantier</label>
+                            <textarea id="config-contrat_section_2" rows="4"
+                                class="block w-full rounded-lg border-slate-300 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all"
+                                placeholder="Un échéancier détaillé sera fourni par l'Entrepreneur lors de la signature. Les délais sont sujets à révision en cas de force majeure, météo ou retards d'approvisionnement. Le Client s'engage à fournir un accès libre au chantier et aux services (eau/électricité)."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-2">3. Permis et autorisations</label>
+                            <textarea id="config-contrat_section_3" rows="4"
+                                class="block w-full rounded-lg border-slate-300 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all"
+                                placeholder="L'obtention et les frais de tous les permis municipaux ou autorisations nécessaires sont la responsabilité exclusive du Client. Les travaux ne débuteront qu'une fois les permis obtenus et remis à l'Entrepreneur."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-2">4. Conditions imprévues</label>
+                            <textarea id="config-contrat_section_4" rows="4"
+                                class="block w-full rounded-lg border-slate-300 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all"
+                                placeholder="Le prix soumis n'inclut pas la correction de conditions préexistantes non apparentes (ex: structure non conforme, présence d'amiante supplémentaire, moisissure). Si de telles conditions sont découvertes, les travaux seront suspendus et un avenant écrit sera requis avant de poursuivre."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-2">5. Modalités de paiement</label>
+                            <textarea id="config-contrat_section_5" rows="4"
+                                class="block w-full rounded-lg border-slate-300 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all"
+                                placeholder="Acompte: 10% à la signature pour contrats > 25 000 $. Paiements progressifs selon l'avancement défini à l'échéancier. Solde exigible immédiatement à la fin des travaux. Aucune retenue sans entente écrite."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-2">6. Travaux supplémentaires</label>
+                            <textarea id="config-contrat_section_6" rows="4"
+                                class="block w-full rounded-lg border-slate-300 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all"
+                                placeholder="Toute demande de travaux additionnels fera l'objet d'un avenant écrit détaillant les coûts et délais supplémentaires avant l'exécution. Sans approbation écrite du client, ces travaux ne seront pas effectués."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-2">7. Assurances et garanties</label>
+                            <textarea id="config-contrat_section_7" rows="4"
+                                class="block w-full rounded-lg border-slate-300 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all"
+                                placeholder="L'Entrepreneur détient une assurance responsabilité civile 5 000 000 $ avec avenant pollution et une licence RBQ valide. Les travaux sont couverts par la garantie légale (Art. 2118 et 2120 du Code civil). Le Client peut résilier le contrat selon l'Art. 2125 du C.c.Q., moyennant le paiement des frais, travaux exécutés et profits perdus."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-2">8. Acceptation</label>
+                            <textarea id="config-contrat_section_8" rows="4"
+                                class="block w-full rounded-lg border-slate-300 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all"
+                                placeholder="En signant ci-dessous, le Client confirme avoir lu, compris et accepté les termes de la présente soumission et du présent contrat."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <!-- Informations de paiement -->
+        <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary">account_balance</span>
+                    <span class="font-medium text-slate-900">Informations de paiement</span>
+                </div>
+                <span class="material-symbols-outlined text-slate-400 transition-transform duration-300 group-open:rotate-180">expand_more</span>
+            </summary>
+            <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
+                <div class="border-b border-slate-100 pb-4">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Chèque</p>
+                    <div class="grid gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1.5">Destinataire</label>
+                            <input id="config-paiement_cheque_destinataire" class="param-input" type="text" placeholder="Apex Désamiantage Inc."/>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1.5">Adresse</label>
+                            <input id="config-paiement_cheque_adresse" class="param-input" type="text" placeholder="689 rue des Caryers, Québec, QC, G3G 2B4"/>
+                        </div>
+                    </div>
+                </div>
+                <div class="border-b border-slate-100 pb-4">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Virement Interac</p>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-1.5">Courriel Interac</label>
+                        <input id="config-paiement_interac_courriel" class="param-input" type="email" placeholder="info@apexdesamiantage.com"/>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Virement bancaire</p>
+                    <div class="grid gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1.5">Numéro de transit</label>
+                            <input id="config-paiement_virement_transit" class="param-input" type="text" placeholder="20088"/>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1.5">Numéro d'institution</label>
+                            <input id="config-paiement_virement_institution" class="param-input" type="text" placeholder="815"/>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1.5">Numéro de compte</label>
+                            <input id="config-paiement_virement_compte" class="param-input" type="text" placeholder="0984757"/>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </details>
+
         <!-- Descriptifs techniques -->
         <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
@@ -428,10 +699,19 @@
                 </div>
                 <div>
                     <div class="flex items-center gap-2 mb-2">
+                        <div class="w-1 h-4 bg-orange-500 rounded-full"></div>
+                        <label class="text-sm font-medium text-slate-600">Texte - Risque élevé allégé</label>
+                    </div>
+                    <textarea id="config-descriptif_risque_eleve_allege" rows="5"
+                        class="block w-full rounded-lg border-slate-300 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all"
+                        placeholder="Texte décrivant les travaux à risque élevé allégé (ventilateur HEPA)..."></textarea>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2 mb-2">
                         <div class="w-1 h-4 bg-red-500 rounded-full"></div>
                         <label class="text-sm font-medium text-slate-600">Texte - Risque élevé</label>
                     </div>
-                    <textarea id="config-descriptif_risque_eleve" rows="5" 
+                    <textarea id="config-descriptif_risque_eleve" rows="5"
                         class="block w-full rounded-lg border-slate-300 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all"
                         placeholder="Texte décrivant les travaux à risque élevé..."></textarea>
                 </div>

@@ -74,6 +74,16 @@ textarea:focus {
     /* red-800 */
 }
 
+.risk-allege {
+    background-color: #fff7ed;
+    color: #ea580c;
+}
+
+.risque-eleve-allege {
+    background-color: #fff7ed;
+    color: #ea580c;
+}
+
 /* Zone cards */
 .zone-card {
     transition: all 0.2s ease;
@@ -81,6 +91,28 @@ textarea:focus {
 
 .zone-card:hover {
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Inline edit expanded card */
+.zone-card-expanded {
+    animation: expandIn 0.25s ease-out;
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.3), 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    border: 2px solid #f97316;
+}
+
+.zone-card-expanded:hover {
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.3), 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes expandIn {
+    from {
+        opacity: 0.8;
+        transform: scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 /* Price lines animation */

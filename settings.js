@@ -63,7 +63,8 @@ const CONFIG_KEYS = {
     'config-perte_temps_heures': 'perte_temps_heures_par_jour',
     'config-disposition_par_1000pi2': 'disposition_par_1000pi2',
     'config-assurance_petit': 'assurance_petit',
-    'config-assurance_grand': 'assurance_grand'
+    'config-assurance_grand': 'assurance_grand',
+    'config-ventilateur_par_jour': 'ventilateur_par_jour'
 };
 
 // Config keys mapping for config_textes table (PDF configuration)
@@ -75,9 +76,35 @@ const CONFIG_TEXTES_KEYS = {
     'config-entreprise_licence_rbq': 'entreprise_licence_rbq',
     'config-numero_prefix': 'numero_prefix',
     'config-descriptif_risque_modere': 'descriptif_risque_modere',
+    'config-descriptif_risque_eleve_allege': 'descriptif_risque_eleve_allege',
     'config-descriptif_risque_eleve': 'descriptif_risque_eleve',
     'config-instructions_paiement': 'instructions_paiement',
-    'config-texte_signature': 'texte_signature'
+    'config-texte_signature': 'texte_signature',
+    // Entreprise / Taxes
+    'config-entreprise_ville': 'entreprise_ville',
+    'config-numero_tps': 'numero_tps',
+    'config-numero_tvq': 'numero_tvq',
+    'config-signataire_nom': 'signataire_nom',
+    'config-signataire_titre': 'signataire_titre',
+    'config-validite_jours': 'validite_jours',
+    // Paiement
+    'config-paiement_cheque_destinataire': 'paiement_cheque_destinataire',
+    'config-paiement_cheque_adresse': 'paiement_cheque_adresse',
+    'config-paiement_interac_courriel': 'paiement_interac_courriel',
+    'config-paiement_virement_transit': 'paiement_virement_transit',
+    'config-paiement_virement_institution': 'paiement_virement_institution',
+    'config-paiement_virement_compte': 'paiement_virement_compte',
+    // Contrat (8 sections)
+    'config-contrat_section_1': 'contrat_section_1',
+    'config-contrat_section_2': 'contrat_section_2',
+    'config-contrat_section_3': 'contrat_section_3',
+    'config-contrat_section_4': 'contrat_section_4',
+    'config-contrat_section_5': 'contrat_section_5',
+    'config-contrat_section_6': 'contrat_section_6',
+    'config-contrat_section_7': 'contrat_section_7',
+    'config-contrat_section_8': 'contrat_section_8',
+    // Notes techniques
+    'config-notes_techniques': 'notes_techniques'
 };
 
 // Special handling for JSON arrays (inclusions/exclusions)
@@ -103,15 +130,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Authentification anonyme (requis pour RLS)
     const isAuthenticated = await ensureAuthenticated();
     if (!isAuthenticated) {
-        console.error('❌ Impossible de s\'authentifier - L\'application ne fonctionnera pas correctement');
-        alert('Erreur de connexion. Veuillez rafraîchir la page.');
-        return;
+        console.warn('⚠️ Authentification échouée - certaines fonctions pourraient ne pas fonctionner');
     }
 
     // Load config from Supabase
     await loadConfig();
     await loadConfigTextes();
     await loadDocumentsStatus();
+    await loadMateriauxSettings();
 
     // Setup save button
     document.getElementById('btn-save')?.addEventListener('click', saveAllConfig);
@@ -425,3 +451,270 @@ async function saveConfigTextes() {
 async function saveConfig() {
     return saveAllConfig();
 }
+
+// =====================================================
+// MATÉRIAUX CRUD
+// =====================================================
+
+const MATERIAUX_FALLBACK = [
+    { id: 1, nom: 'Flocage (ignifugation projetée)', friabilite: 'friable', epaisseur_defaut: 2.0, categorie: 'Isolants', niveau_risque_typique: 'Élevé', actif: true },
+    { id: 2, nom: 'Calorifugeage (tuyauterie, coudes)', friabilite: 'friable', epaisseur_defaut: 1.0, categorie: 'Isolants', niveau_risque_typique: 'Élevé (Modéré si < 1m linéaire)', actif: true },
+    { id: 3, nom: 'Vermiculite (isolant en vrac)', friabilite: 'friable', epaisseur_defaut: 4.0, categorie: 'Isolants', niveau_risque_typique: 'Élevé', actif: true },
+    { id: 4, nom: 'Isolant de chaudière / réservoir', friabilite: 'friable', epaisseur_defaut: 2.0, categorie: 'Isolants', niveau_risque_typique: 'Élevé', actif: true },
+    { id: 5, nom: 'Plâtre cimentaire / Plâtre sur lattes', friabilite: 'friable', epaisseur_defaut: 0.875, categorie: 'Murs et Plafonds', niveau_risque_typique: 'Élevé (si > 10 pi³)', actif: true },
+    { id: 6, nom: 'Stucco / Plafond "Popcorn"', friabilite: 'friable', epaisseur_defaut: 0.5, categorie: 'Murs et Plafonds', niveau_risque_typique: 'Modéré à Élevé', actif: true },
+    { id: 7, nom: 'Gypse et composé à joint', friabilite: 'non_friable', epaisseur_defaut: 0.5, categorie: 'Murs et Plafonds', niveau_risque_typique: 'Modéré', actif: true },
+    { id: 8, nom: 'Tuiles de plafond suspendu', friabilite: 'friable', epaisseur_defaut: 0.5, categorie: 'Murs et Plafonds', niveau_risque_typique: 'Modéré', actif: true },
+    { id: 9, nom: 'Linoléum avec endos de feutre', friabilite: 'friable', epaisseur_defaut: 0.125, categorie: 'Sols', niveau_risque_typique: 'Élevé (si arraché)', actif: true },
+    { id: 10, nom: 'Dalles de vinyle-amiante (V.A.T.)', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Sols', niveau_risque_typique: 'Modéré', actif: true },
+    { id: 11, nom: 'Mastic / Colle noire (sous dalles/bois)', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Sols', niveau_risque_typique: 'Modéré', actif: true },
+    { id: 12, nom: 'Bardeau / Déclin de ciment (Transite)', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Extérieur', niveau_risque_typique: 'Modéré', actif: true },
+    { id: 13, nom: 'Bardeaux de toiture en asphalte', friabilite: 'non_friable', epaisseur_defaut: 0.125, categorie: 'Extérieur', niveau_risque_typique: 'Faible à Modéré', actif: true },
+    { id: 14, nom: 'Calfeutrant de fenêtres / portes', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Extérieur', niveau_risque_typique: 'Faible à Modéré', actif: true },
+    { id: 15, nom: 'Stucco extérieur', friabilite: 'non_friable', epaisseur_defaut: 0.5, categorie: 'Extérieur', niveau_risque_typique: 'Modéré', actif: true },
+    { id: 16, nom: 'Conduits de ventilation (Transite)', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Mécanique', niveau_risque_typique: 'Modéré', actif: true },
+    { id: 17, nom: 'Tuyaux de drainage / égout (Transite)', friabilite: 'non_friable', epaisseur_defaut: 1.0, categorie: 'Mécanique', niveau_risque_typique: 'Modéré (Élevé si scié)', actif: true },
+    { id: 18, nom: 'Tissus de joints de dilatation', friabilite: 'friable', epaisseur_defaut: 0.125, categorie: 'Mécanique', niveau_risque_typique: 'Modéré à Élevé', actif: true },
+    { id: 19, nom: 'Panneaux électriques (Ébène)', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Mécanique', niveau_risque_typique: 'Modéré', actif: true },
+];
+
+async function loadMateriauxSettings() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('materiaux')
+            .select('*')
+            .order('ordre');
+
+        if (error) throw error;
+
+        const materiaux = (data && data.length > 0) ? data : MATERIAUX_FALLBACK;
+        renderMateriauxTable(materiaux);
+
+        const countEl = document.getElementById('materiaux-count');
+        if (countEl) countEl.textContent = materiaux.length;
+
+        console.log(`✅ ${materiaux.length} matériaux chargés dans settings`);
+    } catch (err) {
+        console.error('Erreur chargement matériaux settings:', err);
+        // Fallback si Supabase échoue
+        renderMateriauxTable(MATERIAUX_FALLBACK);
+        const countEl = document.getElementById('materiaux-count');
+        if (countEl) countEl.textContent = MATERIAUX_FALLBACK.length;
+        console.log(`⚠️ Fallback: ${MATERIAUX_FALLBACK.length} matériaux affichés`);
+    }
+}
+
+function renderMateriauxTable(materiaux) {
+    const tbody = document.getElementById('materiaux-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    materiaux.forEach(mat => {
+        const tr = document.createElement('tr');
+        tr.className = `border-b border-slate-100 ${!mat.actif ? 'opacity-40' : ''} hover:bg-slate-50 transition-colors`;
+        tr.dataset.id = mat.id;
+
+        const friabiliteClass = mat.friabilite === 'friable' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600';
+        const friabiliteText = mat.friabilite === 'friable' ? 'Friable' : 'Non friable';
+
+        tr.innerHTML = `
+            <td class="py-2.5 pr-2">
+                <span class="font-medium text-slate-800">${mat.nom}</span>
+            </td>
+            <td class="py-2.5 pr-2 text-slate-500">${mat.categorie || '-'}</td>
+            <td class="py-2.5 pr-2">
+                <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${friabiliteClass}">${friabiliteText}</span>
+            </td>
+            <td class="py-2.5 pr-2 text-slate-500">${mat.epaisseur_defaut}"</td>
+            <td class="py-2.5 pr-2 text-slate-500 text-xs">${mat.niveau_risque_typique || '-'}</td>
+            <td class="py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1">
+                    <button onclick="editMateriau('${mat.id}')" class="p-1.5 text-slate-400 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors" title="Modifier">
+                        <span class="material-symbols-outlined text-base">edit</span>
+                    </button>
+                    <button onclick="toggleMateriauActif('${mat.id}', ${mat.actif})" class="p-1.5 ${mat.actif ? 'text-slate-400 hover:text-red-500 hover:bg-red-50' : 'text-green-500 hover:text-green-600 hover:bg-green-50'} rounded-lg transition-colors" title="${mat.actif ? 'Désactiver' : 'Activer'}">
+                        <span class="material-symbols-outlined text-base">${mat.actif ? 'visibility_off' : 'visibility'}</span>
+                    </button>
+                </div>
+            </td>
+        `;
+
+        tbody.appendChild(tr);
+    });
+}
+
+function showAddMateriauForm() {
+    const form = document.getElementById('add-materiau-form');
+    const btn = document.getElementById('btn-add-materiau');
+    if (form) form.classList.remove('hidden');
+    if (btn) btn.classList.add('hidden');
+    // Reset form
+    document.getElementById('new-mat-nom').value = '';
+    document.getElementById('new-mat-categorie').value = 'Murs et Plafonds';
+    document.getElementById('new-mat-friabilite').value = 'non_friable';
+    document.getElementById('new-mat-epaisseur').value = '0.5';
+    document.getElementById('new-mat-risque').value = '';
+}
+
+function cancelAddMateriau() {
+    const form = document.getElementById('add-materiau-form');
+    const btn = document.getElementById('btn-add-materiau');
+    if (form) form.classList.add('hidden');
+    if (btn) btn.classList.remove('hidden');
+}
+
+async function saveNewMateriau() {
+    const nom = document.getElementById('new-mat-nom').value.trim();
+    const categorie = document.getElementById('new-mat-categorie').value;
+    const friabilite = document.getElementById('new-mat-friabilite').value;
+    const epaisseur = parseFloat(document.getElementById('new-mat-epaisseur').value) || 0.5;
+    const risque = document.getElementById('new-mat-risque').value.trim();
+
+    if (!nom) {
+        alert('Veuillez entrer un nom de matériau.');
+        return;
+    }
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('materiaux')
+            .insert({
+                nom,
+                categorie,
+                friabilite,
+                epaisseur_defaut: epaisseur,
+                niveau_risque_typique: risque || null,
+                actif: true,
+                ordre: 99
+            })
+            .select();
+
+        if (error) throw error;
+
+        console.log('✅ Matériau ajouté:', data);
+        cancelAddMateriau();
+        await loadMateriauxSettings();
+    } catch (err) {
+        console.error('Erreur ajout matériau:', err);
+        alert('Erreur lors de l\'ajout du matériau.');
+    }
+}
+
+async function editMateriau(id) {
+    // Find the row and make it editable inline
+    const row = document.querySelector(`tr[data-id="${id}"]`);
+    if (!row) return;
+
+    // Fetch current data
+    try {
+        const { data, error } = await supabaseClient
+            .from('materiaux')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error) throw error;
+
+        const mat = data;
+        row.innerHTML = `
+            <td class="py-2 pr-2">
+                <input type="text" value="${mat.nom}" class="edit-mat-nom w-full px-2 py-1 border border-slate-200 rounded text-sm" data-id="${id}">
+            </td>
+            <td class="py-2 pr-2">
+                <select class="edit-mat-categorie px-2 py-1 border border-slate-200 rounded text-sm bg-white" data-id="${id}">
+                    <option value="Isolants" ${mat.categorie === 'Isolants' ? 'selected' : ''}>Isolants</option>
+                    <option value="Murs et Plafonds" ${mat.categorie === 'Murs et Plafonds' ? 'selected' : ''}>Murs et Plafonds</option>
+                    <option value="Sols" ${mat.categorie === 'Sols' ? 'selected' : ''}>Sols</option>
+                    <option value="Extérieur" ${mat.categorie === 'Extérieur' ? 'selected' : ''}>Extérieur</option>
+                    <option value="Mécanique" ${mat.categorie === 'Mécanique' ? 'selected' : ''}>Mécanique</option>
+                </select>
+            </td>
+            <td class="py-2 pr-2">
+                <select class="edit-mat-friabilite px-2 py-1 border border-slate-200 rounded text-sm bg-white" data-id="${id}">
+                    <option value="non_friable" ${mat.friabilite === 'non_friable' ? 'selected' : ''}>Non friable</option>
+                    <option value="friable" ${mat.friabilite === 'friable' ? 'selected' : ''}>Friable</option>
+                </select>
+            </td>
+            <td class="py-2 pr-2">
+                <input type="number" value="${mat.epaisseur_defaut}" class="edit-mat-epaisseur w-20 px-2 py-1 border border-slate-200 rounded text-sm" step="0.0625" data-id="${id}">
+            </td>
+            <td class="py-2 pr-2">
+                <input type="text" value="${mat.niveau_risque_typique || ''}" class="edit-mat-risque w-full px-2 py-1 border border-slate-200 rounded text-sm" data-id="${id}">
+            </td>
+            <td class="py-2 text-right">
+                <div class="flex items-center justify-end gap-1">
+                    <button onclick="saveEditMateriau('${id}')" class="p-1.5 text-green-500 hover:bg-green-50 rounded-lg" title="Sauvegarder">
+                        <span class="material-symbols-outlined text-base">check</span>
+                    </button>
+                    <button onclick="loadMateriauxSettings()" class="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg" title="Annuler">
+                        <span class="material-symbols-outlined text-base">close</span>
+                    </button>
+                </div>
+            </td>
+        `;
+    } catch (err) {
+        console.error('Erreur chargement matériau pour édition:', err);
+    }
+}
+
+async function saveEditMateriau(id) {
+    const row = document.querySelector(`tr[data-id="${id}"]`);
+    if (!row) return;
+
+    const nom = row.querySelector('.edit-mat-nom').value.trim();
+    const categorie = row.querySelector('.edit-mat-categorie').value;
+    const friabilite = row.querySelector('.edit-mat-friabilite').value;
+    const epaisseur = parseFloat(row.querySelector('.edit-mat-epaisseur').value) || 0.5;
+    const risque = row.querySelector('.edit-mat-risque').value.trim();
+
+    if (!nom) {
+        alert('Le nom ne peut pas être vide.');
+        return;
+    }
+
+    try {
+        const { error } = await supabaseClient
+            .from('materiaux')
+            .update({
+                nom,
+                categorie,
+                friabilite,
+                epaisseur_defaut: epaisseur,
+                niveau_risque_typique: risque || null
+            })
+            .eq('id', id);
+
+        if (error) throw error;
+
+        console.log('✅ Matériau mis à jour:', id);
+        await loadMateriauxSettings();
+    } catch (err) {
+        console.error('Erreur mise à jour matériau:', err);
+        alert('Erreur lors de la mise à jour.');
+    }
+}
+
+async function toggleMateriauActif(id, currentState) {
+    try {
+        const { error } = await supabaseClient
+            .from('materiaux')
+            .update({ actif: !currentState })
+            .eq('id', id);
+
+        if (error) throw error;
+
+        console.log(`✅ Matériau ${!currentState ? 'activé' : 'désactivé'}:`, id);
+        await loadMateriauxSettings();
+    } catch (err) {
+        console.error('Erreur toggle matériau:', err);
+    }
+}
+
+// Expose materials functions globally for onclick handlers
+window.showAddMateriauForm = showAddMateriauForm;
+window.cancelAddMateriau = cancelAddMateriau;
+window.saveNewMateriau = saveNewMateriau;
+window.editMateriau = editMateriau;
+window.saveEditMateriau = saveEditMateriau;
+window.toggleMateriauActif = toggleMateriauActif;
+window.loadMateriauxSettings = loadMateriauxSettings;
