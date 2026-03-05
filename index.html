@@ -1140,38 +1140,6 @@
                 </div>
                 </div>
 
-                <!-- Friabilité badge -->
-                <div id="friabilite-badge" class="hidden">
-                    <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
-                        <div class="flex flex-col items-center text-center gap-2">
-                            <span id="friabilite-text"
-                                class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold tracking-wider uppercase"></span>
-                            <p id="friabilite-desc" class="text-sm text-slate-500"></p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Friabilité override -->
-                <div id="friabilite-override-section" class="hidden">
-                    <div class="bg-amber-50 rounded-2xl p-4 border border-amber-100 mt-3">
-                        <button type="button" id="btn-toggle-friabilite" class="flex items-center gap-2 text-sm text-amber-700 hover:text-amber-900 font-medium transition-colors">
-                            <span class="material-symbols-outlined text-base">tune</span>
-                            Modifier la friabilité manuellement
-                        </button>
-                        <div id="friabilite-override-controls" class="hidden mt-3">
-                            <select id="friabilite-override" class="w-full px-4 py-3 bg-white border-2 border-amber-200 rounded-xl text-base focus:border-amber-400 focus:ring-4 focus:ring-amber-100 transition-all">
-                                <option value="">Par défaut (automatique)</option>
-                                <option value="friable">Friable</option>
-                                <option value="non_friable">Non friable</option>
-                            </select>
-                            <p class="text-xs text-amber-600 mt-2 flex items-center gap-1">
-                                <span class="material-symbols-outlined text-xs">warning</span>
-                                Override manuel — le calcul de risque sera recalculé
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="mobile-sticky-footer flex items-center justify-between pt-4">
                     <button type="button" id="btn-back-step3c"
                         class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
@@ -1251,6 +1219,38 @@
                     <!-- Container pour les surfaces -->
                     <div id="surfaces-list" class="space-y-3">
                         <!-- Les surfaces seront ajoutées ici dynamiquement -->
+                    </div>
+                </div>
+
+                <!-- Friabilité badge -->
+                <div id="friabilite-badge" class="hidden">
+                    <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                        <div class="flex flex-col items-center text-center gap-2">
+                            <span id="friabilite-text"
+                                class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold tracking-wider uppercase"></span>
+                            <p id="friabilite-desc" class="text-sm text-slate-500"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Friabilité override -->
+                <div id="friabilite-override-section" class="hidden">
+                    <div class="bg-amber-50 rounded-2xl p-4 border border-amber-100 mt-3">
+                        <button type="button" id="btn-toggle-friabilite" class="flex items-center gap-2 text-sm text-amber-700 hover:text-amber-900 font-medium transition-colors">
+                            <span class="material-symbols-outlined text-base">tune</span>
+                            Modifier la friabilité manuellement
+                        </button>
+                        <div id="friabilite-override-controls" class="hidden mt-3">
+                            <select id="friabilite-override" class="w-full px-4 py-3 bg-white border-2 border-amber-200 rounded-xl text-base focus:border-amber-400 focus:ring-4 focus:ring-amber-100 transition-all">
+                                <option value="">Par défaut (automatique)</option>
+                                <option value="friable">Friable</option>
+                                <option value="non_friable">Non friable</option>
+                            </select>
+                            <p class="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-xs">warning</span>
+                                Override manuel — le calcul de risque sera recalculé
+                            </p>
+                        </div>
                     </div>
                 </div>
 
