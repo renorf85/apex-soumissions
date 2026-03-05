@@ -1400,15 +1400,25 @@ function filterMateriauxByCategorie(categorie) {
     // Clear existing options
     optionsList.innerHTML = '';
     
+    // Mapping entre catégories UI et catégories Supabase
+    const categorieMapping = {
+        'Isolants': ['Isolants', 'Isolation'],
+        'Murs et Plafonds': ['Murs et Plafonds', 'Mur/Plafond'],
+        'Sols': ['Sols', 'Plancher'],
+        'Extérieur': ['Extérieur', 'Revêtement extérieur/Toiture'],
+        'Mécanique': ['Mécanique', 'Autre'],
+    };
+
     // Filter materials by category
     const filteredMateriaux = state.materiaux.filter(mat => {
         // If no category filter, show all
         if (!categorie) return true;
-        
+
         // Check if material has a category that matches
         if (!mat.categorie) return true; // Show materials without category defined
-        
-        return mat.categorie === categorie;
+
+        const acceptedCategories = categorieMapping[categorie] || [categorie];
+        return acceptedCategories.includes(mat.categorie);
     });
     
     // Populate dropdown with filtered materials
