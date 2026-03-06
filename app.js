@@ -78,6 +78,7 @@ const state = {
     materiaux: [],
     config: {},
     risqueGlobal: null,
+    risqueGlobalOverride: null, // null = auto, 'MODÉRÉ' | 'ÉLEVÉ_ALLÉGÉ' | 'ÉLEVÉ' = override manuel
     doucheCount: null, // null = auto-calculated, number = manual override
     // Multi-surfaces : surfaces temporaires lors de la création/édition d'une zone
     currentSurfaces: [],
@@ -3838,6 +3839,16 @@ function setupStep4Events() {
         if (countEl) countEl.textContent = state.doucheCount;
         recalculerDouches();
     });
+
+    // Toggle risque global override
+    document.getElementById('recap-risque-global')?.addEventListener('click', () => {
+        const cycle = [null, 'MODÉRÉ', 'ÉLEVÉ_ALLÉGÉ', 'ÉLEVÉ'];
+        const currentIndex = cycle.indexOf(state.risqueGlobalOverride || null);
+        const nextIndex = (currentIndex + 1) % cycle.length;
+        state.risqueGlobalOverride = cycle[nextIndex];
+        calculatePrix();
+        renderRecap();
+    });
 }
 
 function recalculerDouches() {
@@ -3872,7 +3883,8 @@ function calculatePrix() {
 
     // Utiliser la fonction de risque projet (propagation)
     const projetRisque = getProjetRisque();
-    state.risqueGlobal = projetRisque.risque;
+    // Si override manuel du risque global, utiliser l'override
+    state.risqueGlobal = state.risqueGlobalOverride || projetRisque.risque;
 
     // Séparer zones par risque pour le calcul des frais de zones
     const zonesModere = zones.filter(z => z.risque === 'MODÉRÉ');
@@ -3922,7 +3934,11 @@ function calculatePrix() {
     let prixTests = 0;
     let prixPerteTemps = 0;
 
-    if (projetRisque.hasZoneElevee) {
+    const risqueEffectif = state.risqueGlobal;
+    const hasEleveEffectif = risqueEffectif === 'ÉLEVÉ' || (projetRisque.hasZoneElevee && !state.risqueGlobalOverride);
+    const hasEleveAllegeEffectif = risqueEffectif === 'ÉLEVÉ_ALLÉGÉ' || risqueEffectif === 'ÉLEVÉ';
+
+    if (hasEleveEffectif) {
         // Douches: use manual count if set, otherwise default to 1
         const doucheCount = state.doucheCount ?? 1;
         if (doucheCount > 0) {
@@ -3972,7 +3988,7 @@ function calculatePrix() {
 
     // 4b. Ventilateur HEPA (pour élevé allégé ET élevé)
     let prixVentilateur = 0;
-    if (projetRisque.risque === 'ÉLEVÉ_ALLÉGÉ' || projetRisque.risque === 'ÉLEVÉ') {
+    if (hasEleveAllegeEffectif) {
         const ventParJour = config.ventilateur_par_jour || 70;
         prixVentilateur = nbJoursProjet * ventParJour;
     }
@@ -4074,23 +4090,26 @@ function renderRecap() {
 
     // Risque global
     const risqueEl = document.getElementById('recap-risque-global');
+    const isOverride = !!state.risqueGlobalOverride;
+    const overrideLabel = isOverride ? ' ✎' : '';
+    const cursorClass = 'cursor-pointer hover:opacity-80 transition-opacity';
     if (state.risqueGlobal === 'ÉLEVÉ') {
-        risqueEl.textContent = 'ÉLEVÉ';
-        risqueEl.className = 'inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase bg-red-100 text-red-600';
+        risqueEl.textContent = 'ÉLEVÉ' + overrideLabel;
+        risqueEl.className = `inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase bg-red-100 text-red-600 ${cursorClass}`;
         document.getElementById('recap-warning-eleve')?.classList.remove('hidden');
         document.getElementById('recap-warning-eleve-allege')?.classList.add('hidden');
         document.getElementById('prix-risque-eleve-section')?.classList.remove('hidden');
         document.getElementById('prix-risque-eleve-allege-section')?.classList.add('hidden');
     } else if (state.risqueGlobal === 'ÉLEVÉ_ALLÉGÉ') {
-        risqueEl.textContent = 'ÉLEVÉ ALLÉGÉ';
-        risqueEl.className = 'inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase bg-orange-100 text-orange-600';
+        risqueEl.textContent = 'ÉLEVÉ ALLÉGÉ' + overrideLabel;
+        risqueEl.className = `inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase bg-orange-100 text-orange-600 ${cursorClass}`;
         document.getElementById('recap-warning-eleve')?.classList.add('hidden');
         document.getElementById('recap-warning-eleve-allege')?.classList.remove('hidden');
         document.getElementById('prix-risque-eleve-section')?.classList.add('hidden');
         document.getElementById('prix-risque-eleve-allege-section')?.classList.remove('hidden');
     } else {
-        risqueEl.textContent = 'MODÉRÉ';
-        risqueEl.className = 'inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase bg-amber-100 text-amber-600';
+        risqueEl.textContent = (isOverride ? 'MODÉRÉ ✎' : 'MODÉRÉ');
+        risqueEl.className = `inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase bg-amber-100 text-amber-600 ${cursorClass}`;
         document.getElementById('recap-warning-eleve')?.classList.add('hidden');
         document.getElementById('recap-warning-eleve-allege')?.classList.add('hidden');
         document.getElementById('prix-risque-eleve-section')?.classList.add('hidden');
