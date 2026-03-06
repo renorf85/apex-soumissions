@@ -87,7 +87,7 @@ async function generatePDF(options) {
     });
 
     // 1. Document principal (en-tête, client, items, totaux, notes, exclusions)
-    await createMainDocument(doc, state, configTextes, soumissionNumber, date, exclusions);
+    let lastY = await createMainDocument(doc, state, configTextes, soumissionNumber, date, exclusions);
 
     // 2. Pages photos et mesures (optionnel)
     if (includePhotos && state.zones && state.zones.length > 0) {
@@ -97,12 +97,12 @@ async function generatePDF(options) {
         if (hasPhotos) {
             doc.addPage();
             await createPhotosPages(doc, state.zones);
+            lastY = PDF_CONFIG.margin; // reset after photos page
         }
     }
 
-    // 3. Contrat de services (8 sections)
-    doc.addPage();
-    await createContractPages(doc, configTextes);
+    // 3. Contrat de services (8 sections) — coule après le contenu précédent
+    await createContractPages(doc, configTextes, lastY);
 
     // 4. Paiement + Double signature
     doc.addPage();
@@ -815,11 +815,12 @@ async function createPhotosPages(doc, zones) {
 // CONTRAT DE SERVICES (8 sections)
 // =====================================================
 
-async function createContractPages(doc, configTextes) {
+async function createContractPages(doc, configTextes, startY) {
     const { margin, pageWidth, primaryBlue, textColor } = PDF_CONFIG;
     const contentWidth = pageWidth - (margin * 2);
 
-    let y = margin;
+    // Espace nécessaire pour le titre + au moins la 1re section (~40mm)
+    let y = checkPageBreak(doc, startY + 10, 40);
 
     // Titre — style souligné comme le template
     doc.setFontSize(14);
