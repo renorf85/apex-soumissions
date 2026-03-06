@@ -769,6 +769,65 @@
             </div>
         </details>
 
+        <!-- Signature de l'entreprise -->
+        <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden" id="company-sig-details">
+            <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary">draw</span>
+                    <span class="font-medium text-slate-900">Signature de l'entreprise</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="company-sig-status-badge" class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-500">Non configurée</span>
+                    <span class="material-symbols-outlined text-slate-400 transition-transform duration-300 group-open:rotate-180">expand_more</span>
+                </div>
+            </summary>
+            <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
+                <p class="text-sm text-slate-500">
+                    Signez une seule fois ci-dessous. Cette signature sera automatiquement apposée dans la section
+                    «&nbsp;Signature de l'entrepreneur&nbsp;» de chaque soumission PDF générée.
+                </p>
+
+                <div class="relative">
+                    <div id="company-sig-container" class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl overflow-hidden">
+                        <canvas id="company-sig-canvas" class="w-full touch-none" style="height: 200px;"></canvas>
+                    </div>
+                    <div id="company-sig-placeholder" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none transition-opacity">
+                        <span class="material-symbols-outlined text-4xl text-slate-300 mb-2">stylus_note</span>
+                        <p class="text-sm text-slate-400">Signez ici avec votre doigt ou stylet</p>
+                    </div>
+                </div>
+
+                <!-- Aperçu de la signature enregistrée -->
+                <div id="company-sig-preview" class="hidden">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Signature enregistrée</p>
+                    <div class="bg-white border border-slate-200 rounded-lg p-3">
+                        <img id="company-sig-preview-img" class="max-h-24 mx-auto" alt="Signature de l'entreprise"/>
+                    </div>
+                    <button type="button" id="btn-remove-company-sig"
+                        class="mt-2 text-sm text-red-500 hover:text-red-700 flex items-center gap-1 transition-colors">
+                        <span class="material-symbols-outlined text-lg">delete</span>
+                        Supprimer la signature enregistrée
+                    </button>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <button type="button" id="btn-clear-company-sig"
+                        class="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1 transition-colors">
+                        <span class="material-symbols-outlined text-lg">refresh</span>
+                        Effacer
+                    </button>
+                    <div class="flex items-center gap-3">
+                        <span id="company-sig-status" class="text-xs text-slate-400">Aucune signature</span>
+                        <button type="button" id="btn-save-company-sig"
+                            class="hidden text-sm font-medium text-white bg-primary hover:bg-primary-dark px-4 py-2 rounded-lg transition-colors flex items-center gap-1">
+                            <span class="material-symbols-outlined text-lg">save</span>
+                            Enregistrer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </details>
+
         <!-- Documents légaux -->
         <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <summary class="flex items-center justify-between p-5 cursor-pointer select-none bg-white active:bg-slate-50 transition-colors">

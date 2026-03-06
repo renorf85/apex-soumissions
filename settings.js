@@ -142,6 +142,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Setup save button
     document.getElementById('btn-save')?.addEventListener('click', saveAllConfig);
 
+    // Setup company signature canvas
+    setupCompanySignatureCanvas();
+
     console.log('Settings - Prêt!');
 });
 
@@ -718,3 +721,197 @@ window.editMateriau = editMateriau;
 window.saveEditMateriau = saveEditMateriau;
 window.toggleMateriauActif = toggleMateriauActif;
 window.loadMateriauxSettings = loadMateriauxSettings;
+
+// =====================================================
+// COMPANY SIGNATURE CANVAS
+// =====================================================
+
+let companySigCanvas = null;
+let companySigCtx = null;
+let companySigIsDrawing = false;
+let companySigHasNewDrawing = false;
+let companySigLastX = 0;
+let companySigLastY = 0;
+
+function setupCompanySignatureCanvas() {
+    companySigCanvas = document.getElementById('company-sig-canvas');
+    if (!companySigCanvas) return;
+
+    companySigCtx = companySigCanvas.getContext('2d');
+
+    // Mouse events
+    companySigCanvas.addEventListener('mousedown', companySigStartDrawing);
+    companySigCanvas.addEventListener('mousemove', companySigDraw);
+    companySigCanvas.addEventListener('mouseup', companySigStopDrawing);
+    companySigCanvas.addEventListener('mouseout', companySigStopDrawing);
+
+    // Touch events
+    companySigCanvas.addEventListener('touchstart', (e) => { e.preventDefault(); companySigStartDrawing(e); }, { passive: false });
+    companySigCanvas.addEventListener('touchmove', (e) => { e.preventDefault(); companySigDraw(e); }, { passive: false });
+    companySigCanvas.addEventListener('touchend', companySigStopDrawing);
+    companySigCanvas.addEventListener('touchcancel', companySigStopDrawing);
+
+    // Pointer events (stylus)
+    companySigCanvas.addEventListener('pointerdown', companySigStartDrawing);
+    companySigCanvas.addEventListener('pointermove', companySigDraw);
+    companySigCanvas.addEventListener('pointerup', companySigStopDrawing);
+    companySigCanvas.addEventListener('pointercancel', companySigStopDrawing);
+
+    // Clear / Save / Remove buttons
+    document.getElementById('btn-clear-company-sig')?.addEventListener('click', clearCompanySignature);
+    document.getElementById('btn-save-company-sig')?.addEventListener('click', saveCompanySignature);
+    document.getElementById('btn-remove-company-sig')?.addEventListener('click', removeCompanySignature);
+
+    // Resize canvas when <details> section is opened (getBoundingClientRect returns 0 when closed)
+    const detailsEl = document.getElementById('company-sig-details');
+    if (detailsEl) {
+        detailsEl.addEventListener('toggle', () => {
+            if (detailsEl.open) {
+                setTimeout(resizeCompanySigCanvas, 50);
+            }
+        });
+    }
+
+    // Load existing saved signature
+    loadCompanySignature();
+}
+
+function resizeCompanySigCanvas() {
+    if (!companySigCanvas || !companySigCtx) return;
+    const container = companySigCanvas.parentElement;
+    const rect = container.getBoundingClientRect();
+    if (rect.width === 0) return; // still hidden
+
+    const dpr = window.devicePixelRatio || 1;
+    companySigCanvas.width = rect.width * dpr;
+    companySigCanvas.height = 200 * dpr;
+    companySigCanvas.style.width = rect.width + 'px';
+    companySigCanvas.style.height = '200px';
+    companySigCtx.scale(dpr, dpr);
+    companySigCtx.strokeStyle = '#1E73BE';
+    companySigCtx.lineWidth = 2;
+    companySigCtx.lineCap = 'round';
+    companySigCtx.lineJoin = 'round';
+}
+
+function companySigGetCoords(e) {
+    const rect = companySigCanvas.getBoundingClientRect();
+    if (e.touches && e.touches.length > 0) {
+        return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+    }
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+function companySigStartDrawing(e) {
+    companySigIsDrawing = true;
+    const coords = companySigGetCoords(e);
+    companySigLastX = coords.x;
+    companySigLastY = coords.y;
+    // Hide placeholder
+    document.getElementById('company-sig-placeholder')?.classList.add('opacity-0');
+}
+
+function companySigDraw(e) {
+    if (!companySigIsDrawing) return;
+    const coords = companySigGetCoords(e);
+    companySigCtx.beginPath();
+    companySigCtx.moveTo(companySigLastX, companySigLastY);
+    companySigCtx.lineTo(coords.x, coords.y);
+    companySigCtx.stroke();
+    companySigLastX = coords.x;
+    companySigLastY = coords.y;
+    if (!companySigHasNewDrawing) {
+        companySigHasNewDrawing = true;
+        updateCompanySigStatus();
+    }
+}
+
+function companySigStopDrawing() {
+    companySigIsDrawing = false;
+}
+
+function clearCompanySignature() {
+    if (!companySigCanvas || !companySigCtx) return;
+    const dpr = window.devicePixelRatio || 1;
+    companySigCtx.clearRect(0, 0, companySigCanvas.width / dpr, companySigCanvas.height / dpr);
+    companySigHasNewDrawing = false;
+    document.getElementById('company-sig-placeholder')?.classList.remove('opacity-0');
+    updateCompanySigStatus();
+}
+
+function saveCompanySignature() {
+    if (!companySigCanvas || !companySigHasNewDrawing) return;
+    const dataUrl = companySigCanvas.toDataURL('image/png');
+    localStorage.setItem('apex_company_signature', dataUrl);
+
+    // Show preview
+    showCompanySigPreview(dataUrl);
+
+    // Reset drawing state
+    companySigHasNewDrawing = false;
+    clearCompanySignature();
+    updateCompanySigStatus();
+
+    console.log('Signature entreprise enregistrée');
+}
+
+function removeCompanySignature() {
+    localStorage.removeItem('apex_company_signature');
+    document.getElementById('company-sig-preview')?.classList.add('hidden');
+    clearCompanySignature();
+    updateCompanySigStatus();
+    console.log('Signature entreprise supprimée');
+}
+
+function loadCompanySignature() {
+    const saved = localStorage.getItem('apex_company_signature');
+    if (saved) {
+        showCompanySigPreview(saved);
+    }
+    updateCompanySigStatus();
+}
+
+function showCompanySigPreview(dataUrl) {
+    const preview = document.getElementById('company-sig-preview');
+    const img = document.getElementById('company-sig-preview-img');
+    if (preview && img) {
+        img.src = dataUrl;
+        preview.classList.remove('hidden');
+    }
+}
+
+function updateCompanySigStatus() {
+    const statusEl = document.getElementById('company-sig-status');
+    const saveBtn = document.getElementById('btn-save-company-sig');
+    const badge = document.getElementById('company-sig-status-badge');
+    const saved = localStorage.getItem('apex_company_signature');
+
+    if (companySigHasNewDrawing) {
+        if (statusEl) {
+            statusEl.textContent = 'Nouvelle signature';
+            statusEl.className = 'text-xs text-amber-600';
+        }
+        if (saveBtn) saveBtn.classList.remove('hidden');
+    } else {
+        if (saveBtn) saveBtn.classList.add('hidden');
+        if (saved) {
+            if (statusEl) {
+                statusEl.textContent = 'Signature enregistrée';
+                statusEl.className = 'text-xs text-green-600';
+            }
+            if (badge) {
+                badge.textContent = 'Configurée';
+                badge.className = 'text-xs px-2 py-1 rounded-full bg-green-100 text-green-600';
+            }
+        } else {
+            if (statusEl) {
+                statusEl.textContent = 'Aucune signature';
+                statusEl.className = 'text-xs text-slate-400';
+            }
+            if (badge) {
+                badge.textContent = 'Non configurée';
+                badge.className = 'text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-500';
+            }
+        }
+    }
+}

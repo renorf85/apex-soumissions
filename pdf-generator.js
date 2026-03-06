@@ -68,6 +68,7 @@ async function generatePDF(options) {
         state,
         configTextes,
         signature,
+        companySignature,
         includePhotos,
         includeLegalDocs,
         inclusions,
@@ -105,7 +106,7 @@ async function generatePDF(options) {
 
     // 4. Paiement + Double signature
     doc.addPage();
-    await createPaymentAndSignaturePage(doc, signature, configTextes, state.client, date);
+    await createPaymentAndSignaturePage(doc, signature, companySignature, configTextes, state.client, date);
 
     // 5. Annexer documents légaux (licence RBQ, assurance)
     if (includeLegalDocs) {
@@ -861,7 +862,7 @@ async function createContractPages(doc, configTextes) {
 // PAIEMENT + DOUBLE SIGNATURE (style Excel)
 // =====================================================
 
-async function createPaymentAndSignaturePage(doc, signatureDataUrl, configTextes, client, date) {
+async function createPaymentAndSignaturePage(doc, signatureDataUrl, companySignatureDataUrl, configTextes, client, date) {
     const { margin, pageWidth, pageHeight, primaryBlue, textColor, accentTan, lightGray } = PDF_CONFIG;
     const contentWidth = pageWidth - (margin * 2);
 
@@ -934,7 +935,7 @@ async function createPaymentAndSignaturePage(doc, signatureDataUrl, configTextes
 
     // ─── PARTIE 2 : Signatures (2 colonnes, style Excel) ───
 
-    if (y > pageHeight - 80) {
+    if (y > pageHeight - 110) {
         doc.addPage();
         y = margin;
     }
@@ -1001,10 +1002,21 @@ async function createPaymentAndSignaturePage(doc, signatureDataUrl, configTextes
 
     // Signature entrepreneur
     doc.text('Signature de l\'entrepreneur:', leftCol, y);
-    y += 8;
-    doc.line(leftCol, y + 20, leftCol + halfWidth, y + 20);
+    y += 5;
 
-    const entreY = y + 24;
+    // Company signature image (if available from Settings)
+    if (companySignatureDataUrl) {
+        try {
+            doc.addImage(companySignatureDataUrl, 'PNG', leftCol, y, halfWidth, 25);
+        } catch (e) {
+            console.warn('Erreur ajout signature entrepreneur:', e);
+        }
+    }
+
+    y += 28;
+    doc.line(leftCol, y, leftCol + halfWidth, y);
+
+    const entreY = y + 4;
     doc.text(signataireName, leftCol, entreY);
     doc.setFontSize(PDF_CONFIG.fontSizes.item);
     doc.setTextColor(...accentTan);

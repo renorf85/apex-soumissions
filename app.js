@@ -460,6 +460,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadMateriaux();
     await loadConfig();
 
+    // Load company signature from settings
+    loadCompanySignature();
+
     // Setup event listeners
     setupStep1Events();
     setupStep2Events();
@@ -4816,6 +4819,13 @@ function parseFormattedValue(str) {
 // STEP 5: PDF GENERATION & SIGNATURE
 // =====================================================
 
+// Company signature (loaded from localStorage, set in Settings)
+let companySignatureDataUrl = null;
+
+function loadCompanySignature() {
+    companySignatureDataUrl = localStorage.getItem('apex_company_signature') || null;
+}
+
 // Signature canvas state
 let signatureCanvas = null;
 let signatureCtx = null;
@@ -5124,9 +5134,19 @@ function renderStep5() {
     state.soumissionNumber = soumissionNum;
 
     // Set signature text
-    const texteSignature = configTextes.texte_signature || 
+    const texteSignature = configTextes.texte_signature ||
         'Je, soussigné(e), reconnais avoir pris connaissance de la présente soumission et accepte les termes et conditions.';
     document.getElementById('pdf-texte-signature').textContent = texteSignature;
+
+    // Show company signature preview if available
+    const companySigPreview = document.getElementById('company-sig-step5-preview');
+    const companySigImg = document.getElementById('company-sig-step5-img');
+    if (companySigPreview && companySigImg && companySignatureDataUrl) {
+        companySigImg.src = companySignatureDataUrl;
+        companySigPreview.classList.remove('hidden');
+    } else if (companySigPreview) {
+        companySigPreview.classList.add('hidden');
+    }
 
     // Render inclusions/exclusions
     renderInclusionsExclusions();
@@ -5260,6 +5280,7 @@ async function generateAndDownloadPDF() {
             state: state,
             configTextes: configTextes,
             signature: signatureDataUrl,
+            companySignature: companySignatureDataUrl,
             includePhotos: includePhotos,
             includeLegalDocs: includeLegalDocs,
             inclusions: inclusions,
@@ -5342,6 +5363,7 @@ async function sendSoumissionEmail() {
             state: state,
             configTextes: configTextes,
             signature: signatureDataUrl,
+            companySignature: companySignatureDataUrl,
             includePhotos: document.getElementById('pdf-option-photos')?.checked ?? true,
             includeLegalDocs: document.getElementById('pdf-option-legaux')?.checked ?? true,
             inclusions: inclusions,
