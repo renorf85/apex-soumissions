@@ -404,6 +404,45 @@ function showRestoreModal() {
     });
 }
 
+function showTransitionModal() {
+    const modal = document.createElement('div');
+    modal.id = 'transition-modal';
+    modal.className = 'fixed inset-0 z-[200] flex items-center justify-center p-4';
+    modal.innerHTML = `
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span class="material-symbols-outlined text-3xl text-green-600">verified_user</span>
+                </div>
+                <h2 class="text-xl font-bold text-slate-900 mb-2">Prêt à présenter au client</h2>
+                <p class="text-sm text-slate-500 leading-relaxed">La prochaine étape peut être présentée au client en toute confiance. Aucune information confidentielle (marge, coûts détaillés) n'y sera visible.</p>
+            </div>
+
+            <div class="flex flex-col gap-3">
+                <button id="btn-transition-continue" class="w-full py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
+                    Suivant
+                    <span class="material-symbols-outlined text-lg">arrow_forward</span>
+                </button>
+                <button id="btn-transition-back" class="w-full py-2 text-sm font-medium text-text-muted hover:text-slate-900 transition-colors">
+                    Retour
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    document.getElementById('btn-transition-continue')?.addEventListener('click', () => {
+        modal.remove();
+        goToStep(5);
+    });
+
+    document.getElementById('btn-transition-back')?.addEventListener('click', () => {
+        modal.remove();
+    });
+}
+
 function getTimeAgo(date) {
     const now = new Date();
     const diff = now - date;
@@ -3823,7 +3862,7 @@ function setupStep4Events() {
     });
 
     btnContinue?.addEventListener('click', () => {
-        goToStep(5);
+        showTransitionModal();
     });
 
     // Shower +/- buttons
@@ -3851,6 +3890,15 @@ function setupStep4Events() {
         state.risqueGlobalOverride = cycle[nextIndex];
         calculatePrix();
         renderRecap();
+    });
+
+    // Click on "Manuel" label to reset to auto
+    document.getElementById('recap-risque-mode')?.addEventListener('click', () => {
+        if (state.risqueGlobalOverride) {
+            state.risqueGlobalOverride = null;
+            calculatePrix();
+            renderRecap();
+        }
     });
 }
 
@@ -4094,29 +4142,42 @@ function renderRecap() {
     // Risque global
     const risqueEl = document.getElementById('recap-risque-global');
     const isOverride = !!state.risqueGlobalOverride;
-    const overrideLabel = isOverride ? ' ✎' : '';
     const cursorClass = 'cursor-pointer hover:opacity-80 transition-opacity';
     if (state.risqueGlobal === 'ÉLEVÉ') {
-        risqueEl.textContent = 'ÉLEVÉ' + overrideLabel;
+        risqueEl.textContent = 'ÉLEVÉ';
         risqueEl.className = `inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase bg-red-100 text-red-600 ${cursorClass}`;
         document.getElementById('recap-warning-eleve')?.classList.remove('hidden');
         document.getElementById('recap-warning-eleve-allege')?.classList.add('hidden');
         document.getElementById('prix-risque-eleve-section')?.classList.remove('hidden');
         document.getElementById('prix-risque-eleve-allege-section')?.classList.add('hidden');
     } else if (state.risqueGlobal === 'ÉLEVÉ_ALLÉGÉ') {
-        risqueEl.textContent = 'ÉLEVÉ ALLÉGÉ' + overrideLabel;
+        risqueEl.textContent = 'ÉLEVÉ ALLÉGÉ';
         risqueEl.className = `inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase bg-orange-100 text-orange-600 ${cursorClass}`;
         document.getElementById('recap-warning-eleve')?.classList.add('hidden');
         document.getElementById('recap-warning-eleve-allege')?.classList.remove('hidden');
         document.getElementById('prix-risque-eleve-section')?.classList.add('hidden');
         document.getElementById('prix-risque-eleve-allege-section')?.classList.remove('hidden');
     } else {
-        risqueEl.textContent = (isOverride ? 'MODÉRÉ ✎' : 'MODÉRÉ');
+        risqueEl.textContent = 'MODÉRÉ';
         risqueEl.className = `inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase bg-amber-100 text-amber-600 ${cursorClass}`;
         document.getElementById('recap-warning-eleve')?.classList.add('hidden');
         document.getElementById('recap-warning-eleve-allege')?.classList.add('hidden');
         document.getElementById('prix-risque-eleve-section')?.classList.add('hidden');
         document.getElementById('prix-risque-eleve-allege-section')?.classList.add('hidden');
+    }
+
+    // Mode indicator (Automatique / Manuel)
+    const modeEl = document.getElementById('recap-risque-mode');
+    if (modeEl) {
+        if (isOverride) {
+            modeEl.textContent = 'Manuel';
+            modeEl.className = 'block text-[10px] mt-1 text-amber-600 font-medium cursor-pointer hover:underline';
+            modeEl.title = 'Cliquer pour revenir en automatique';
+        } else {
+            modeEl.textContent = 'Automatique';
+            modeEl.className = 'block text-[10px] mt-1 text-slate-400';
+            modeEl.title = '';
+        }
     }
 
     // Prix details - Set values in inputs with formatted numbers (espaces milliers)
