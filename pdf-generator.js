@@ -381,6 +381,33 @@ async function createMainDocument(doc, state, configTextes, soumissionNumber, da
 
     y += 5;
 
+    // ─── BANDEAU NIVEAU DE RISQUE ───
+    const risqueGlobal = state.risqueGlobal || 'MODÉRÉ';
+    let risqueBgColor, risqueTextColor, risqueText;
+    if (risqueGlobal === 'ÉLEVÉ') {
+        risqueBgColor = [220, 38, 38];
+        risqueTextColor = [255, 255, 255];
+        risqueText = 'NIVEAU DE RISQUE : ÉLEVÉ';
+    } else if (risqueGlobal === 'ÉLEVÉ_ALLÉGÉ') {
+        risqueBgColor = [234, 138, 30];
+        risqueTextColor = [255, 255, 255];
+        risqueText = 'NIVEAU DE RISQUE : ÉLEVÉ ALLÉGÉ';
+    } else {
+        risqueBgColor = [34, 120, 74];
+        risqueTextColor = [255, 255, 255];
+        risqueText = 'NIVEAU DE RISQUE : MODÉRÉ';
+    }
+    const bandeauWidth = pageWidth - (margin * 2);
+    doc.setFillColor(...risqueBgColor);
+    doc.roundedRect(margin, y, bandeauWidth, 9, 1.5, 1.5, 'F');
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(...risqueTextColor);
+    doc.text(risqueText, pageWidth / 2, y + 6, { align: 'center' });
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(...PDF_CONFIG.textColor);
+    y += 14;
+
     // ─── SECTION 3 : Tableau d'items ───
     const lineData = buildLineItems(state);
     y = drawLineItemsTable(doc, lineData, y);
