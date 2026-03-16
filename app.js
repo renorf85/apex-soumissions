@@ -2157,7 +2157,8 @@ function toggleZoneInlineEdit(zoneId) {
         friabiliteOverride: zone.friabiliteOverride || false,
         epaisseur: zone.epaisseur,
         risqueOverride: zone.risqueOverride || false,
-        risque: zone.risque
+        risque: zone.risque,
+        photo: zone.photo ? { ...zone.photo } : null
     };
     state.inlineEditSurfaces = (zone.surfaces || []).map(s => ({
         id: s.id || Date.now() + Math.random(),
@@ -2233,7 +2234,8 @@ function saveInlineEdit() {
         surface: surfaceTotal,
         volume: volumeTotal,
         risque: risque,
-        risqueOverride: data.risqueOverride
+        risqueOverride: data.risqueOverride,
+        photo: data.photo || null
     };
 
     console.log('✅ Zone inline mise à jour:', state.zones[index].nom);
@@ -2395,6 +2397,30 @@ function openInlineSurfacePhotoUpload(surfaceId) {
     input.click();
 }
 
+function openInlineZonePhotoUpload() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+
+    input.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const compressedDataUrl = await compressImage(event.target.result);
+            if (state.inlineEditData) {
+                state.inlineEditData.photo = { name: file.name, dataUrl: compressedDataUrl };
+                renderZoneCards();
+            }
+        };
+        reader.readAsDataURL(file);
+    });
+
+    input.click();
+}
+
 function createZoneCardExpanded(zone) {
     const card = document.createElement('div');
     card.className = 'zone-card zone-card-expanded';
@@ -2473,6 +2499,28 @@ function createZoneCardExpanded(zone) {
             <div class="flex items-center gap-2">
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${friabiliteClass}" data-inline="friabilite-badge">${friabiliteText}</span>
                 ${data.friabiliteOverride ? '<span class="text-amber-500 text-[10px]">(modifié)</span>' : ''}
+            </div>
+
+            <!-- Photo de zone -->
+            <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Photo de la zone</label>
+                ${data.photo ? `
+                    <div class="relative rounded-lg overflow-hidden bg-slate-100 border border-slate-200">
+                        <img src="${data.photo.dataUrl}" alt="Photo zone"
+                            class="w-full object-contain max-h-40">
+                        <div class="absolute top-1 right-1 flex gap-1">
+                            <button type="button" class="btn-inline-zone-photo-delete w-7 h-7 flex items-center justify-center bg-white/90 shadow text-red-500 hover:text-red-700 rounded-full transition-colors" title="Supprimer photo">
+                                <span class="material-symbols-outlined text-sm">delete</span>
+                            </button>
+                        </div>
+                        <div class="px-2 py-1 text-[10px] text-slate-500 truncate">${data.photo.name || 'Photo zone'}</div>
+                    </div>
+                ` : `
+                    <button type="button" class="btn-inline-zone-photo w-full flex items-center justify-center gap-2 px-3 py-3 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 hover:border-primary hover:text-primary transition-colors">
+                        <span class="material-symbols-outlined text-lg">add_a_photo</span>
+                        <span class="text-xs font-semibold">Ajouter photo de zone</span>
+                    </button>
+                `}
             </div>
 
             <!-- Surfaces (murs) -->
@@ -2596,6 +2644,16 @@ function setupInlineEditDelegation(card) {
     epInput?.addEventListener('input', (e) => {
         state.inlineEditData.epaisseur = parseFloat(e.target.value) || 0;
         recalcInlineZone();
+    });
+
+    // Zone photo buttons
+    const btnZonePhoto = card.querySelector('.btn-inline-zone-photo');
+    btnZonePhoto?.addEventListener('click', () => openInlineZonePhotoUpload());
+
+    const btnZonePhotoDelete = card.querySelector('.btn-inline-zone-photo-delete');
+    btnZonePhotoDelete?.addEventListener('click', () => {
+        state.inlineEditData.photo = null;
+        renderZoneCards();
     });
 
     // Add surface button
@@ -2833,15 +2891,30 @@ function editZone(zoneId) {
         if (materiauInput) materiauInput.dataset.friabiliteOverride = 'true';
     }
 
+    // Restaurer la photo de zone si elle existe
+    if (zone.photo?.dataUrl) {
+        currentZonePhoto = { name: zone.photo.name, dataUrl: zone.photo.dataUrl };
+        const placeholder = document.getElementById('zone-photo-placeholder');
+        const preview = document.getElementById('zone-photo-preview');
+        const previewImg = document.getElementById('zone-photo-img');
+        const photoName = document.getElementById('zone-photo-name');
+        if (placeholder) placeholder.classList.add('hidden');
+        if (preview) preview.classList.remove('hidden');
+        if (previewImg) previewImg.src = zone.photo.dataUrl;
+        if (photoName) photoName.textContent = zone.photo.name || 'Photo zone';
+    } else {
+        clearZonePhoto();
+    }
+
     // Activer les boutons selon les valeurs pré-remplies
     updateZoneWizardButtonStates();
 
     // Naviguer vers le wizard zone (étape 3a - nom)
     goToZoneStep('3a');
-    
+
     // Mettre à jour le titre pour indiquer le mode édition
     updateZoneWizardTitle();
-    
+
     // En mode édition, marquer toutes les étapes comme complétées
     updateZoneNavSteps('3a', true);
 }
@@ -3317,6 +3390,7 @@ function addZone() {
     }));
 
     // Créer l'objet zone avec la nouvelle structure multi-surfaces
+    const zonePhoto = getZonePhoto();
     const zoneData = {
         nom,
         categorie,
@@ -3329,6 +3403,7 @@ function addZone() {
         surfaceTotal,
         volumeTotal,
         risque,
+        photo: zonePhoto ? { name: zonePhoto.name, dataUrl: zonePhoto.dataUrl } : null,
         // Compatibilité avec l'ancien système (pour les calculs de prix)
         surface: surfaceTotal,
         volume: volumeTotal
@@ -3523,11 +3598,12 @@ function handleZonePhotoFile(file) {
         return;
     }
 
-    // Read file and create preview
+    // Read file, compress, and create preview
     const reader = new FileReader();
-    reader.onload = (e) => {
-        const dataUrl = e.target.result;
-        
+    reader.onload = async (e) => {
+        const rawDataUrl = e.target.result;
+        const dataUrl = await compressImage(rawDataUrl);
+
         // Store photo data
         currentZonePhoto = {
             name: file.name,
@@ -3547,7 +3623,7 @@ function handleZonePhotoFile(file) {
         if (previewImg) previewImg.src = dataUrl;
         if (photoName) photoName.textContent = file.name;
 
-        console.log('📷 Photo ajoutée:', file.name);
+        console.log('📷 Photo zone ajoutée:', file.name);
     };
 
     reader.readAsDataURL(file);
@@ -4489,121 +4565,94 @@ function goToFinalStep(subStep) {
     console.log(`Navigation step 5 → ${subStep}`);
 }
 
-function renderStep5Preview() {
+async function renderStep5Preview() {
     // Warning si photos perdues
     const photosWarning = document.getElementById('photos-warning');
     if (photosWarning) {
         photosWarning.classList.toggle('hidden', !state.photosOmitted);
     }
 
-    // Set date
-    const today = new Date();
-    const dateStr = today.toLocaleDateString('fr-CA', {
-        year: 'numeric', month: 'long', day: 'numeric'
-    });
-    document.getElementById('pdf-date').textContent = dateStr;
-
-    // Generate soumission number
+    // Generate soumission number (used by PDF generator)
     if (!state.soumissionNumber) {
-        const soumissionNum = generateSoumissionNumber();
-        document.getElementById('pdf-numero-soumission').textContent = soumissionNum;
-        state.soumissionNumber = soumissionNum;
-    } else {
-        document.getElementById('pdf-numero-soumission').textContent = state.soumissionNumber;
+        state.soumissionNumber = generateSoumissionNumber();
+    }
+
+    // Load config textes if needed
+    if (!configTextes || Object.keys(configTextes).length === 0) {
+        await loadConfigTextes();
     }
 
     // Set signature text
     const texteSignature = configTextes.texte_signature ||
         'Je, soussigné(e), reconnais avoir pris connaissance de la présente soumission et accepte les termes et conditions.';
-    document.getElementById('pdf-texte-signature').textContent = texteSignature;
+    const texteSignatureEl = document.getElementById('pdf-texte-signature');
+    if (texteSignatureEl) texteSignatureEl.textContent = texteSignature;
 
-    // Render inclusions/exclusions
-    renderInclusionsExclusions();
+    // Generate PDF preview
+    await generatePreviewPDF();
+}
 
-    // --- Client info ---
-    const clientInfo = document.getElementById('preview-client-info');
-    if (clientInfo) {
-        clientInfo.innerHTML = `
-            <div>
-                <p class="text-xs text-slate-400 uppercase font-semibold mb-0.5">Nom</p>
-                <p class="font-medium text-slate-900">${state.client.nom || 'N/A'}</p>
-            </div>
-            <div>
-                <p class="text-xs text-slate-400 uppercase font-semibold mb-0.5">Téléphone</p>
-                <p class="font-medium text-slate-900">${state.client.telephone || 'N/A'}</p>
-            </div>
-            <div>
-                <p class="text-xs text-slate-400 uppercase font-semibold mb-0.5">Courriel</p>
-                <p class="font-medium text-slate-900">${state.client.courriel || 'N/A'}</p>
-            </div>
-            <div>
-                <p class="text-xs text-slate-400 uppercase font-semibold mb-0.5">Adresse chantier</p>
-                <p class="font-medium text-slate-900">${state.client.adresseChantier || 'N/A'}</p>
-            </div>
+/**
+ * Generate a preview PDF and display it in the iframe
+ */
+async function generatePreviewPDF() {
+    const loading = document.getElementById('pdf-preview-loading');
+    const iframe = document.getElementById('pdf-preview-iframe');
+
+    // Show loading
+    if (loading) {
+        loading.innerHTML = `
+            <span class="material-symbols-outlined text-4xl mb-2 animate-spin">progress_activity</span>
+            <p class="text-sm">Génération du PDF en cours...</p>
         `;
+        loading.classList.remove('hidden');
     }
+    if (iframe) iframe.classList.add('hidden');
 
-    // --- Zones list ---
-    const zonesList = document.getElementById('preview-zones-list');
-    if (zonesList) {
-        zonesList.innerHTML = (state.zones || []).map(zone => {
-            const surfaceCount = zone.surfaces?.length || 1;
-            const photos = (zone.surfaces || []).filter(s => s.photo).length;
-            const risqueClass = zone.risque === 'ÉLEVÉ' ? 'risk-high' : zone.risque === 'ÉLEVÉ_ALLÉGÉ' ? 'risk-allege' : 'risk-moderate';
-            const risqueText = zone.risque === 'ÉLEVÉ' ? 'ÉLEVÉ' : zone.risque === 'ÉLEVÉ_ALLÉGÉ' ? 'ÉLEVÉ ALLÉGÉ' : 'MODÉRÉ';
+    try {
+        // Ensure config textes are loaded
+        if (!configTextes || Object.keys(configTextes).length === 0) {
+            await loadConfigTextes();
+        }
 
-            // Show first photo thumbnail if any
-            const firstPhoto = (zone.surfaces || []).find(s => s.photo)?.photo;
-            const photoHtml = firstPhoto ? `
-                <img src="${firstPhoto.dataUrl}" alt="Photo" class="w-16 h-16 object-cover rounded-lg flex-shrink-0">
-            ` : '';
+        // Get options
+        const includePhotos = document.getElementById('pdf-option-photos')?.checked ?? true;
+        const includeLegalDocs = document.getElementById('pdf-option-legaux')?.checked ?? true;
 
-            return `
-                <div class="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
-                    ${photoHtml}
-                    <div class="flex-1 min-w-0">
-                        <p class="font-semibold text-slate-900 text-sm">${zone.nom}</p>
-                        <p class="text-xs text-slate-500">${zone.materiauNom || 'N/A'} • ${surfaceCount} mur${surfaceCount > 1 ? 's' : ''} • ${formatNumber(zone.surfaceTotal || zone.surface || 0, 0)} pi²${photos > 0 ? ` • ${photos} photo${photos > 1 ? 's' : ''}` : ''}</p>
-                    </div>
-                    <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${risqueClass} flex-shrink-0">${risqueText}</span>
-                </div>
+        // Get selected inclusions/exclusions
+        const { inclusions, exclusions } = getSelectedInclusionsExclusions();
+
+        // Generate PDF WITHOUT client signature (preview mode)
+        const pdfBlob = await generatePDF({
+            state: state,
+            configTextes: configTextes,
+            signature: null,  // No client signature for preview
+            companySignature: companySignatureDataUrl,
+            includePhotos: includePhotos,
+            includeLegalDocs: includeLegalDocs,
+            inclusions: inclusions,
+            exclusions: exclusions,
+            soumissionNumber: state.soumissionNumber,
+            date: new Date()
+        });
+
+        // Display in iframe
+        const blobUrl = URL.createObjectURL(pdfBlob);
+        if (iframe) {
+            iframe.src = blobUrl + '#page=1&view=FitV';
+            iframe.classList.remove('hidden');
+        }
+        if (loading) loading.classList.add('hidden');
+
+    } catch (error) {
+        console.error('Erreur génération aperçu PDF:', error);
+        if (loading) {
+            loading.innerHTML = `
+                <span class="material-symbols-outlined text-4xl mb-2 text-red-400">error</span>
+                <p class="text-sm text-red-500">Erreur lors de la génération du PDF</p>
+                <button onclick="generatePreviewPDF()" class="mt-2 text-xs text-primary hover:underline">Réessayer</button>
             `;
-        }).join('');
-    }
-
-    // --- Prix detail ---
-    const prixDetail = document.getElementById('preview-prix-detail');
-    if (prixDetail && state.prix) {
-        const p = state.prix;
-        const prixOverrides = state.prixOverrides || {};
-        const lines = [];
-
-        const addLine = (label, key) => {
-            const val = prixOverrides[key] ?? p[key] ?? 0;
-            if (val > 0) lines.push(`<div class="flex justify-between text-sm"><span class="text-slate-600">${label}</span><span class="font-medium text-slate-900">${formatPrix(val)}</span></div>`);
-        };
-
-        addLine('Démolition', 'demolition');
-        addLine('Frais de zone', 'zones');
-        addLine('Douches de décontamination', 'douches');
-        addLine('Tests d\'air', 'tests');
-        addLine('Perte de temps', 'perteTemps');
-        addLine('Transport', 'transport');
-        addLine('Disposition', 'disposition');
-        addLine('Assurance', 'assurance');
-
-        const sousTotal = prixOverrides.sousTotal ?? p.sousTotal ?? 0;
-        const margePourcent = prixOverrides.margePourcent ?? p.margePourcent ?? 20;
-        const marge = prixOverrides.marge ?? p.marge ?? 0;
-        const total = prixOverrides.total ?? p.total ?? 0;
-
-        lines.push('<div class="border-t border-slate-200 my-2"></div>');
-        lines.push(`<div class="flex justify-between text-sm"><span class="text-slate-600">Sous-total</span><span class="font-medium text-slate-900">${formatPrix(sousTotal)}</span></div>`);
-        lines.push(`<div class="flex justify-between text-sm"><span class="text-slate-600">Marge (${margePourcent}%)</span><span class="font-medium text-slate-900">${formatPrix(marge)}</span></div>`);
-        lines.push('<div class="border-t border-slate-200 my-2"></div>');
-        lines.push(`<div class="flex justify-between text-base"><span class="font-bold text-slate-900">Total</span><span class="font-bold text-primary text-lg">${formatPrix(total)}</span></div>`);
-
-        prixDetail.innerHTML = lines.join('');
+        }
     }
 }
 
@@ -4825,11 +4874,7 @@ function devGoToStep(step) {
         renderRecap();
     } else if (step === 5) {
         calculatePrix();
-        if (Object.keys(configTextes).length === 0) {
-            loadConfigTextes().then(() => renderStep5Preview());
-        } else {
-            renderStep5Preview();
-        }
+        renderStep5Preview();
     }
 
     // Mettre à jour le state et la progress bar
@@ -4903,12 +4948,30 @@ let configTextes = {};
  */
 function setupStep5Events() {
     // Step 5a navigation
-    document.getElementById('btn-back-step5a')?.addEventListener('click', () => {
+    document.getElementById('btn-prev-step5a')?.addEventListener('click', () => {
         goToStep(4);
     });
-    document.getElementById('btn-next-step5a')?.addEventListener('click', () => {
+    document.getElementById('btn-accepter')?.addEventListener('click', () => {
         goToFinalStep('5b');
     });
+    document.getElementById('btn-en-attente')?.addEventListener('click', () => {
+        state.status = 'en_attente';
+        saveStateToStorage();
+        // Show confirmation
+        const btn = document.getElementById('btn-en-attente');
+        if (btn) {
+            btn.innerHTML = '<span class="material-symbols-outlined text-sm align-middle mr-1">check</span> Sauvegardé';
+            btn.classList.add('bg-amber-200');
+            setTimeout(() => {
+                btn.innerHTML = '<span class="material-symbols-outlined text-sm align-middle mr-1">schedule</span> En attente';
+                btn.classList.remove('bg-amber-200');
+            }, 2000);
+        }
+    });
+
+    // Regenerate PDF preview when options change
+    document.getElementById('pdf-option-photos')?.addEventListener('change', generatePreviewPDF);
+    document.getElementById('pdf-option-legaux')?.addEventListener('change', generatePreviewPDF);
 
     // Step 5b navigation
     document.getElementById('btn-back-step5b')?.addEventListener('click', () => {

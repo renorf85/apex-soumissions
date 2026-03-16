@@ -94,15 +94,13 @@ const CONFIG_TEXTES_KEYS = {
     'config-paiement_virement_transit': 'paiement_virement_transit',
     'config-paiement_virement_institution': 'paiement_virement_institution',
     'config-paiement_virement_compte': 'paiement_virement_compte',
-    // Contrat (8 sections)
+    // Contrat (6 sections)
     'config-contrat_section_1': 'contrat_section_1',
     'config-contrat_section_2': 'contrat_section_2',
     'config-contrat_section_3': 'contrat_section_3',
     'config-contrat_section_4': 'contrat_section_4',
     'config-contrat_section_5': 'contrat_section_5',
     'config-contrat_section_6': 'contrat_section_6',
-    'config-contrat_section_7': 'contrat_section_7',
-    'config-contrat_section_8': 'contrat_section_8',
     // Notes techniques
     'config-notes_techniques': 'notes_techniques'
 };
@@ -117,7 +115,9 @@ const CONFIG_TEXTES_JSON_KEYS = {
 const uploadedDocs = {
     licence: null,
     assurance: null,
-    contrat: null
+    contrat: null,
+    icrc: null,
+    cq: null
 };
 
 // =====================================================
@@ -237,7 +237,7 @@ async function loadConfigTextes() {
 
 async function loadDocumentsStatus() {
     // Check localStorage for uploaded documents info
-    const docs = ['licence', 'assurance', 'contrat'];
+    const docs = ['licence', 'assurance', 'contrat', 'icrc', 'cq'];
     
     for (const docType of docs) {
         const docInfo = localStorage.getItem(`apex_doc_${docType}`);
