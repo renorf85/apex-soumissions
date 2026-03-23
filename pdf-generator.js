@@ -76,7 +76,8 @@ async function generatePDF(options) {
         inclusions,
         exclusions,
         soumissionNumber,
-        date
+        date,
+        isDetailed = false
     } = options;
 
     _currentSoumissionNumber = soumissionNumber;
@@ -88,8 +89,8 @@ async function generatePDF(options) {
         format: 'letter'
     });
 
-    // 1. Document principal (en-tête, client, items, totaux, notes, exclusions)
-    let lastY = await createMainDocument(doc, state, configTextes, soumissionNumber, date, exclusions);
+    // 1. Document principal (en-tete, client, items, totaux, notes, exclusions)
+    let lastY = await createMainDocument(doc, state, configTextes, soumissionNumber, date, exclusions, isDetailed);
 
     // 2. Contrat de construction (6 sections) — coule après le contenu précédent
     lastY = await createContractPages(doc, configTextes, lastY);
@@ -188,6 +189,7 @@ function buildLineItems(state) {
     zones.forEach(zone => {
         const risqueLabel = zone.risque === 'ÉLEVÉ' ? 'risque élevé' :
                            zone.risque === 'ÉLEVÉ_ALLÉGÉ' ? 'risque élevé allégé' :
+                           zone.risque === 'FAIBLE' ? 'risque faible' :
                            'risque modéré';
         const surface = formatNumber(zone.surface || zone.surfaceTotal || 0);
         travauxItems.push({
@@ -197,13 +199,15 @@ function buildLineItems(state) {
 
     const zoneCount = `${zones.length} zone${zones.length > 1 ? 's' : ''}`;
     travauxItems.push({ description: `Mise en place du confinement étanche avec polyéthylène (${zoneCount})` });
-    travauxItems.push({ description: "Utilisation d'outils et méthodes réduisant la libération de fibres (Forfait)" });
-    travauxItems.push({ description: "Gestion, ensachage et étiquetage des déchets d'amiante (Forfait)" });
-    travauxItems.push({ description: 'Nettoyage final avec aspirateur HEPA (Forfait)' });
+    travauxItems.push({ description: "Utilisation d'outils et méthodes réduisant la libération de fibres" });
+    travauxItems.push({ description: "Gestion, ensachage et étiquetage des déchets d'amiante" });
+    travauxItems.push({ description: 'Nettoyage final avec aspirateur HEPA' });
+
+    // Ventilateur HEPA requis pour tous les niveaux de risque
+    travauxItems.push({ description: 'Ventilateur HEPA à pression négative' });
 
     if (risqueGlobal === 'ÉLEVÉ_ALLÉGÉ' || risqueGlobal === 'ÉLEVÉ') {
-        travauxItems.push({ description: 'Ventilateur HEPA à pression négative (Durée travaux)' });
-        travauxItems.push({ description: "Tests d'air (entrée et sortie de zone) (Inclus)" });
+        travauxItems.push({ description: `Tests d'air (entrée et sortie de zone)` });
     }
 
     if (risqueGlobal === 'ÉLEVÉ') {
@@ -218,6 +222,13 @@ function buildLineItems(state) {
     fraisItems.push({ description: 'Livraison et manutention de matériaux' });
     fraisItems.push({ description: 'Frais de déplacement' });
 
+    // Lignes personnalisees visibles dans le PDF client
+    const customLines = (state.customLines || []).filter(l => l.showInPdf && l.description);
+    customLines.forEach(line => {
+        const qtyText = line.quantite > 1 ? ` (x${line.quantite})` : '';
+        fraisItems.push({ description: `${line.description}${qtyText}` });
+    });
+
     return { travauxItems, fraisItems };
 }
 
@@ -225,7 +236,7 @@ function buildLineItems(state) {
 // DOCUMENT PRINCIPAL (Pages 1+)
 // =====================================================
 
-async function createMainDocument(doc, state, configTextes, soumissionNumber, date, exclusions) {
+async function createMainDocument(doc, state, configTextes, soumissionNumber, date, exclusions, isDetailed = false) {
     const { margin, pageWidth, primaryBlue, textColor, accentTan, borderBlue, headerBarColor, whiteText } = PDF_CONFIG;
     const contentWidth = pageWidth - (margin * 2);
 
@@ -233,12 +244,30 @@ async function createMainDocument(doc, state, configTextes, soumissionNumber, da
 
     // ─── SECTION 1 : Barre bleue + infos entreprise + logo (identique au modèle) ───
 
-    // Marge en haut puis barre bleue fine (dans les marges, comme le modèle)
-    doc.setFillColor(...headerBarColor);
-    doc.rect(margin, 8, contentWidth, 1.5, 'F');
+    // Bandeau CONFIDENTIEL en haut du PDF detaille
+    if (isDetailed) {
+        doc.setFillColor(180, 30, 30);
+        doc.rect(margin, 8, contentWidth, 10, 'F');
+        doc.setFontSize(20);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(255, 255, 255);
+        doc.text('CONFIDENTIEL', pageWidth / 2, 15, { align: 'center' });
+        doc.setFont(undefined, 'normal');
+
+        // Barre bleue fine sous le bandeau
+        doc.setFillColor(...headerBarColor);
+        doc.rect(margin, 19, contentWidth, 1.5, 'F');
+
+        y = 28;
+    } else {
+        // Barre bleue fine (dans les marges, comme le modèle)
+        doc.setFillColor(...headerBarColor);
+        doc.rect(margin, 8, contentWidth, 1.5, 'F');
+
+        y = 18;
+    }
 
     // Infos entreprise en noir, à gauche
-    y = 18;
     doc.setFontSize(14);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(...textColor);
@@ -252,7 +281,8 @@ async function createMainDocument(doc, state, configTextes, soumissionNumber, da
     y += 3.5;
     doc.text(configTextes.entreprise_ville || 'Québec (QC) G3G 2B4', margin, y);
     y += 3.5;
-    doc.text(configTextes.entreprise_telephone || '418-558-8378', margin, y);
+    const entrepriseTel = configTextes.entreprise_telephone || '418-558-8378';
+    doc.text(typeof formatPhoneNumber === 'function' ? formatPhoneNumber(entrepriseTel) : entrepriseTel, margin, y);
     y += 3.5;
     doc.text(configTextes.entreprise_courriel || 'info@apexdesamiantage.com', margin, y);
     y += 3.5;
@@ -268,7 +298,7 @@ async function createMainDocument(doc, state, configTextes, soumissionNumber, da
 
     // ─── SECTION 2 : Titre SOUMISSION + date (style modèle) ───
 
-    const titleText = `SOUMISSION ${soumissionNumber}`;
+    const titleText = soumissionNumber ? `SOUMISSION ${soumissionNumber}` : 'SOUMISSION';
     doc.setFontSize(18);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(...primaryBlue);
@@ -344,7 +374,8 @@ async function createMainDocument(doc, state, configTextes, soumissionNumber, da
         clientY += 4;
     }
     if (state.client.telephone) {
-        doc.text(state.client.telephone, leftX, clientY);
+        const formattedTel = typeof formatPhoneNumber === 'function' ? formatPhoneNumber(state.client.telephone) : state.client.telephone;
+        doc.text(formattedTel, leftX, clientY);
         clientY += 4;
     }
 
@@ -363,7 +394,7 @@ async function createMainDocument(doc, state, configTextes, soumissionNumber, da
 
     siteY += 4;
     doc.setTextColor(...textColor);
-    doc.text(state.client.descriptionProjet || 'Travaux de désamiantage', rightX, siteY);
+    doc.text(state.client.nomProjet || 'Travaux de désamiantage', rightX, siteY);
 
     // Date validité (+30 jours)
     const validityDate = new Date(date);
@@ -391,10 +422,14 @@ async function createMainDocument(doc, state, configTextes, soumissionNumber, da
         risqueBgColor = [234, 138, 30];
         risqueTextColor = [255, 255, 255];
         risqueText = 'NIVEAU DE RISQUE : ÉLEVÉ ALLÉGÉ';
+    } else if (risqueGlobal === 'MODÉRÉ') {
+        risqueBgColor = [234, 179, 8];
+        risqueTextColor = [0, 0, 0];
+        risqueText = 'NIVEAU DE RISQUE : MODÉRÉ';
     } else {
         risqueBgColor = [34, 120, 74];
         risqueTextColor = [255, 255, 255];
-        risqueText = 'NIVEAU DE RISQUE : MODÉRÉ';
+        risqueText = 'NIVEAU DE RISQUE : FAIBLE';
     }
     const bandeauWidth = pageWidth - (margin * 2);
     doc.setFillColor(...risqueBgColor);
@@ -410,6 +445,11 @@ async function createMainDocument(doc, state, configTextes, soumissionNumber, da
     // ─── SECTION 3 : Tableau d'items ───
     const lineData = buildLineItems(state);
     y = drawLineItemsTable(doc, lineData, y);
+
+    // ─── SECTION 3b : Detail des couts (version Apex seulement) ───
+    if (isDetailed) {
+        y = drawDetailedPricing(doc, state, y);
+    }
 
     // ─── SECTION 4 : Totaux avec taxes ───
     y = checkPageBreak(doc, y, 40);
@@ -480,6 +520,90 @@ function drawLineItemsTable(doc, data, startY) {
     });
 
     return y + 5;
+}
+
+// =====================================================
+// DETAIL DES COUTS (VERSION APEX DETAILLEE)
+// =====================================================
+
+function drawDetailedPricing(doc, state, startY) {
+    const { margin, pageWidth, primaryBlue, textColor } = PDF_CONFIG;
+    const prix = state.prix || {};
+
+    let y = startY + 5;
+    y = checkPageBreak(doc, y, 60);
+
+    // Titre
+    doc.setFontSize(PDF_CONFIG.fontSizes.sectionTitle);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(...primaryBlue);
+    doc.text('DETAIL DES COUTS (INTERNE APEX)', margin + 2, y);
+    doc.setFont(undefined, 'normal');
+    y += 6;
+
+    // Ligne separatrice
+    doc.setDrawColor(...primaryBlue);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 4;
+
+    doc.setFontSize(PDF_CONFIG.fontSizes.item);
+    doc.setTextColor(...textColor);
+
+    const rightX = pageWidth - margin - 2;
+    const items = [
+        ['Couts des zones', prix.zones],
+        ['Demolition', prix.demolition],
+        ['Ventilateur HEPA', prix.ventilateur],
+        ['Douches de decontamination', prix.douches],
+        ['Tests d\'air', prix.tests],
+        ['Perte de temps', prix.perteTemps],
+        ['Transport', prix.transport],
+        ['Disposition', prix.disposition],
+        ['Assurance', prix.assurance]
+    ];
+
+    // Lignes personnalisees
+    (state.customLines || []).forEach(line => {
+        if (line.description) {
+            items.push([line.description, line.quantite * line.prixUnitaire]);
+        }
+    });
+
+    items.forEach(([label, amount]) => {
+        if (amount > 0) {
+            y = checkPageBreak(doc, y, 6);
+            doc.text(label, margin + 4, y);
+            doc.text(`${formatNumber(amount, 2)} $`, rightX, y, { align: 'right' });
+            y += 5;
+        }
+    });
+
+    // Sous-total
+    y += 2;
+    doc.setDrawColor(180, 180, 180);
+    doc.line(margin + 4, y - 2, rightX, y - 2);
+    doc.setFont(undefined, 'bold');
+    doc.text('Sous-total', margin + 4, y + 2);
+    doc.text(`${formatNumber(prix.sousTotal, 2)} $`, rightX, y + 2, { align: 'right' });
+    y += 6;
+
+    // Marge
+    const margePct = prix.margePourcent || 20;
+    doc.setTextColor(200, 120, 0);
+    doc.text(`Marge de profit (${margePct}%)`, margin + 4, y);
+    doc.text(`${formatNumber(prix.marge, 2)} $`, rightX, y, { align: 'right' });
+    y += 6;
+
+    // Total avant taxes
+    doc.setTextColor(...primaryBlue);
+    doc.setFontSize(PDF_CONFIG.fontSizes.label);
+    doc.text('TOTAL AVANT TAXES', margin + 4, y);
+    doc.text(`${formatNumber(prix.total, 2)} $`, rightX, y, { align: 'right' });
+    doc.setFont(undefined, 'normal');
+
+    y += 8;
+    return y;
 }
 
 // =====================================================
@@ -568,7 +692,7 @@ function drawNotesAndExclusions(doc, exclusions, configTextes, state, y) {
         'Démolition de matériaux sans amiante et des éléments d\'électromécanique',
         'Travaux sur le bâtiment pour permettre la sortie de nos matériaux et de notre pression négative',
         'Travaux de ragréage ou de reconstruction',
-        'Tout élément non indiqué à la présente soumission'
+        'Tout élément non mentionné dans la présente soumission est exclu'
     ];
 
     // Description technique selon le risque
@@ -799,8 +923,10 @@ async function createContractPages(doc, configTextes, startY) {
     const { margin, pageWidth, primaryBlue, textColor } = PDF_CONFIG;
     const contentWidth = pageWidth - (margin * 2);
 
-    // Espace nécessaire pour le titre + au moins la 1re section (~40mm)
-    let y = checkPageBreak(doc, startY + 10, 40);
+    // Forcer une nouvelle page pour le contrat
+    doc.addPage();
+    drawContinuationHeader(doc);
+    let y = PDF_CONFIG.margin + 12;
 
     // Titre — style souligné comme le template
     doc.setFontSize(14);
@@ -822,7 +948,7 @@ async function createContractPages(doc, configTextes, startY) {
         2: "Un échéancier détaillé sera fourni par l'Entrepreneur lors de la signature. Les délais sont sujets à révision en cas de force majeure, météo ou retards d'approvisionnement. Le Client s'engage à fournir un accès libre au chantier et aux services (eau/électricité).",
         3: "L'obtention et les frais de tous les permis municipaux ou autorisations nécessaires sont la responsabilité exclusive du Client. Les travaux ne débuteront qu'une fois les permis obtenus et remis à l'Entrepreneur. Le Client garantit que les travaux sont conformes aux règlements de zonage ou de copropriété.",
         4: "Le prix soumis n'inclut pas la correction de conditions préexistantes non apparentes (ex: structure non conforme, présence d'amiante, moisissure, plomberie/électricité désuète). Si de telles conditions sont découvertes, les travaux seront suspendus et un avenant écrit sera requis avant de poursuivre.",
-        5: "Acompte : 10% à la signature pour les contrat dont le montant avant taxes excède 25 000,00 $\nPaiements progressifs : Facturés selon l'avancement défini à l'échéancier.\nSolde : Le paiement complet est exigible immédiatement à la fin des travaux. Aucune retenue ne sera acceptée sans entente écrite préalable.",
+        5: "Acompte : Un dépôt de 10% est requis à la signature pour les contrats de plus de 25 000$.\nPaiements progressifs : Facturés selon l'avancement défini à l'échéancier.\nSolde : Le paiement complet est exigible immédiatement à la fin des travaux. Aucune retenue ne sera acceptée sans entente écrite préalable.",
         6: "Toute demande de travaux additionnels fera l'objet d'un avenant écrit détaillant les coûts et délais supplémentaires avant l'exécution. Sans approbation écrite de la part du client, ces travaux ne seront pas effectués."
     };
 

@@ -119,7 +119,9 @@
             </summary>
             <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
                 <div>
-                    <label class="block text-sm font-medium text-slate-600 mb-1.5">0 - 500 pi²</label>
+                    <label class="flex items-center gap-1.5 text-sm font-medium text-slate-600 mb-1.5">
+                        0 - <input id="config-seuil_demo_palier1" class="w-16 px-2 py-0.5 text-center border border-slate-300 rounded-md text-sm font-bold text-primary" type="number" step="1" value="500"/> pi²
+                    </label>
                     <div class="relative">
                         <input id="config-prix_demo_palier1" class="param-input" type="number" step="0.01" value="8.00"/>
                         <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
@@ -128,7 +130,9 @@
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-600 mb-1.5">500 - 1500 pi²</label>
+                    <label class="flex items-center gap-1.5 text-sm font-medium text-slate-600 mb-1.5">
+                        <span id="demo-seuil1-display">500</span> - <input id="config-seuil_demo_palier2" class="w-16 px-2 py-0.5 text-center border border-slate-300 rounded-md text-sm font-bold text-primary" type="number" step="1" value="1500"/> pi²
+                    </label>
                     <div class="relative">
                         <input id="config-prix_demo_palier2" class="param-input" type="number" step="0.01" value="6.50"/>
                         <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
@@ -137,7 +141,9 @@
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-600 mb-1.5">1500+ pi²</label>
+                    <label class="flex items-center gap-1.5 text-sm font-medium text-slate-600 mb-1.5">
+                        <span id="demo-seuil2-display">1500</span>+ pi²
+                    </label>
                     <div class="relative">
                         <input id="config-prix_demo_palier3" class="param-input" type="number" step="0.01" value="4.50"/>
                         <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
@@ -159,24 +165,49 @@
             </summary>
             <div class="px-5 pb-6 pt-2 border-t border-slate-100 grid gap-5">
                 <div>
-                    <label class="block text-sm font-medium text-slate-600 mb-1.5">0 - 50 km</label>
+                    <label class="flex items-center gap-1.5 text-sm font-medium text-slate-600 mb-1.5">
+                        0 - <input id="config-seuil_transport_palier1" class="w-16 px-2 py-0.5 text-center border border-slate-300 rounded-md text-sm font-bold text-primary" type="number" step="1" value="50"/> km
+                    </label>
                     <div class="relative">
                         <input id="config-transport_0_50km" class="param-input" type="number" step="0.01" value="55.00"/>
                         <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                            <span class="text-slate-400 font-medium">$</span>
+                            <span class="text-slate-400 font-medium">$/jour</span>
                         </div>
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-600 mb-1.5">50 - 100 km</label>
+                    <label class="flex items-center gap-1.5 text-sm font-medium text-slate-600 mb-1.5">
+                        <span id="transport-seuil1-display">50</span> - <input id="config-seuil_transport_palier2" class="w-16 px-2 py-0.5 text-center border border-slate-300 rounded-md text-sm font-bold text-primary" type="number" step="1" value="100"/> km
+                    </label>
                     <div class="relative">
                         <input id="config-transport_50_100km" class="param-input" type="number" step="0.01" value="75.00"/>
                         <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                            <span class="text-slate-400 font-medium">$</span>
+                            <span class="text-slate-400 font-medium">$/jour</span>
                         </div>
                     </div>
                 </div>
-                <p class="text-xs text-slate-500 italic">100+ km : Alerte pour prévoir pension</p>
+                <div>
+                    <label class="flex items-center gap-1.5 text-sm font-medium text-slate-600 mb-1.5">
+                        <span id="transport-seuil2-display">100</span>+ km
+                    </label>
+                    <div class="relative">
+                        <input id="config-transport_100km_plus" class="param-input" type="number" step="0.01" value="75.00"/>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">$/jour</span>
+                        </div>
+                    </div>
+                    <p class="mt-1 text-xs text-slate-500 italic">+ pension si chantier sur plusieurs jours</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Employés par équipe</label>
+                    <div class="relative">
+                        <input id="config-nb_employes_equipe" class="param-input" type="number" step="1" min="1" value="3"/>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">pers.</span>
+                        </div>
+                    </div>
+                    <p class="mt-1 text-xs text-slate-500 italic">Affecte la durée du projet et le calcul des transports</p>
+                </div>
             </div>
         </details>
 
@@ -366,7 +397,9 @@
                     <p class="mt-1 text-xs text-slate-500 italic">Minimum 600$</p>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Assurance (≤500 pi²)</label>
+                    <label class="flex items-center gap-1.5 text-sm font-medium text-slate-600 mb-1.5">
+                        Assurance (≤ <input id="config-seuil_assurance" class="w-16 px-2 py-0.5 text-center border border-slate-300 rounded-md text-sm font-bold text-primary" type="number" step="1" value="500"/> pi²)
+                    </label>
                     <div class="relative">
                         <input id="config-assurance_petit" class="param-input" type="number" step="1" value="250"/>
                         <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
@@ -375,7 +408,9 @@
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Assurance (>500 pi²)</label>
+                    <label class="flex items-center gap-1.5 text-sm font-medium text-slate-600 mb-1.5">
+                        Assurance (> <span id="assurance-seuil-display">500</span> pi²)
+                    </label>
                     <div class="relative">
                         <input id="config-assurance_grand" class="param-input" type="number" step="1" value="500"/>
                         <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
@@ -511,11 +546,7 @@
                     <label class="block text-sm font-medium text-slate-600 mb-1.5">Licence RBQ</label>
                     <input id="config-entreprise_licence_rbq" class="param-input" type="text" placeholder="1234-5678-90"/>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Préfixe numéro de soumission</label>
-                    <input id="config-numero_prefix" class="param-input" type="text" value="APEX-"/>
-                    <p class="mt-1 text-xs text-slate-500 italic">Ex: APEX-2026-001</p>
-                </div>
+                <!-- Préfixe numéro de soumission retiré - Gabriel entre le numéro manuellement -->
             </div>
         </details>
 
@@ -603,7 +634,7 @@
                             <label class="block text-sm font-medium text-slate-600 mb-2">5. MODALITES DE PAIEMENT</label>
                             <textarea id="config-contrat_section_5" rows="4"
                                 class="block w-full rounded-lg border-slate-300 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-primary focus:ring-primary focus:bg-white shadow-sm transition-all"
-                                placeholder="Acompte: 10% à la signature pour les contrats dont le montant avant taxes excède 25 000,00 $. Paiements progressifs: Facturés selon l'avancement défini à l'échéancier. Solde: Le paiement complet est exigible immédiatement à la fin des travaux. Aucune retenue ne sera acceptée sans entente écrite préalable."></textarea>
+                                placeholder="Acompte: Un dépôt de 10% est requis à la signature pour les contrats de plus de 25 000$. Paiements progressifs: Facturés selon l'avancement défini à l'échéancier. Solde: Le paiement complet est exigible immédiatement à la fin des travaux. Aucune retenue ne sera acceptée sans entente écrite préalable."></textarea>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-600 mb-2">6. ACCEPTATION</label>

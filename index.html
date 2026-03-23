@@ -26,6 +26,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
     <!-- Tailwind Config -->
     <script>
@@ -116,6 +117,9 @@
         }
         .risk-moderate {
             @apply bg-amber-50 text-amber-600;
+        }
+        .risk-low {
+            @apply bg-green-50 text-green-600;
         }
 
         /* Mobile Sticky Footer */
@@ -505,212 +509,61 @@
             <input type="file" id="file-input" accept=".pdf" class="hidden" />
         </section>
 
-        <!-- Step 2a: Nom du client -->
-        <section id="step-2a" class="step-content max-w-xl w-full hidden">
-            <!-- Mini navigation compact -->
-            <div class="wizard-nav-compact mb-6">
-                <button data-goto="2a" class="nav-btn active">
-                    <span class="nav-num">1</span>
-                    Nom
-                </button>
-                <span class="nav-arrow text-slate-300">→</span>
-                <button data-goto="2b" class="nav-btn pending">
-                    <span class="nav-num">2</span>
-                    Tél
-                </button>
-                <span class="nav-arrow text-slate-300">→</span>
-                <button data-goto="2c" class="nav-btn pending">
-                    <span class="nav-num">3</span>
-                    Courriel
-                </button>
-                <span class="nav-arrow text-slate-300">→</span>
-                <button data-goto="2d" class="nav-btn pending">
-                    <span class="nav-num">4</span>
-                    Adresse
-                </button>
-            </div>
-
+        <!-- Step 2: Informations du client (single page) -->
+        <section id="step-2" class="step-content max-w-xl w-full hidden">
             <div class="mb-6">
                 <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
-                    Quel est le nom du client ?
+                    Informations du client
                 </h1>
             </div>
 
             <div class="space-y-6">
-                <input type="text" id="client-nom" name="nom" required autofocus
-                    class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
-                    placeholder="Jean Tremblay">
-
-                <div class="flex items-center justify-between pt-4">
-                    <button type="button" id="btn-back-step2a"
-                        class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
-                        <span class="material-symbols-outlined text-lg">arrow_back</span>
-                        Retour
-                    </button>
-                    <button type="button" id="btn-next-step2a"
-                        class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled>
-                        Continuer
-                        <span class="material-symbols-outlined text-lg">arrow_forward</span>
-                    </button>
-                </div>
-            </div>
-        </section>
-
-        <!-- Step 2b: Téléphone -->
-        <section id="step-2b" class="step-content max-w-xl w-full hidden">
-            <!-- Mini navigation compact -->
-            <div class="wizard-nav-compact mb-6">
-                <button data-goto="2a" class="nav-btn completed">
-                    <span class="material-symbols-outlined text-xs">check</span>
-                    Nom
-                </button>
-                <span class="nav-arrow text-slate-300">→</span>
-                <button data-goto="2b" class="nav-btn active">
-                    <span class="nav-num">2</span>
-                    Tél
-                </button>
-                <span class="nav-arrow text-slate-300">→</span>
-                <button data-goto="2c" class="nav-btn pending">
-                    <span class="nav-num">3</span>
-                    Courriel
-                </button>
-                <span class="nav-arrow text-slate-300">→</span>
-                <button data-goto="2d" class="nav-btn pending">
-                    <span class="nav-num">4</span>
-                    Adresse
-                </button>
-            </div>
-
-            <div class="mb-6">
-                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
-                    Numéro de téléphone ?
-                </h1>
-            </div>
-
-            <div class="space-y-6">
-                <input type="tel" id="client-telephone" name="telephone" required
-                    class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
-                    placeholder="(418) 555-1234">
-
-                <div class="flex items-center justify-between pt-4">
-                    <button type="button" id="btn-back-step2b"
-                        class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
-                        <span class="material-symbols-outlined text-lg">arrow_back</span>
-                        Retour
-                    </button>
-                    <button type="button" id="btn-next-step2b"
-                        class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled>
-                        Continuer
-                        <span class="material-symbols-outlined text-lg">arrow_forward</span>
-                    </button>
-                </div>
-            </div>
-        </section>
-
-        <!-- Step 2c: Courriel -->
-        <section id="step-2c" class="step-content max-w-xl w-full hidden">
-            <!-- Mini navigation compact -->
-            <div class="wizard-nav-compact mb-6">
-                <button data-goto="2a" class="nav-btn completed">
-                    <span class="material-symbols-outlined text-xs">check</span>
-                    Nom
-                </button>
-                <span class="nav-arrow text-slate-300">→</span>
-                <button data-goto="2b" class="nav-btn completed">
-                    <span class="material-symbols-outlined text-xs">check</span>
-                    Tél
-                </button>
-                <span class="nav-arrow text-slate-300">→</span>
-                <button data-goto="2c" class="nav-btn active">
-                    <span class="nav-num">3</span>
-                    Courriel
-                </button>
-                <span class="nav-arrow text-slate-300">→</span>
-                <button data-goto="2d" class="nav-btn pending">
-                    <span class="nav-num">4</span>
-                    Adresse
-                </button>
-            </div>
-
-            <div class="mb-6">
-                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
-                    Adresse courriel ?
-                </h1>
-            </div>
-
-            <div class="space-y-6">
-                <input type="email" id="client-courriel" name="courriel" required
-                    class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
-                    placeholder="jean@exemple.com">
-
-                <div class="flex items-center justify-between pt-4">
-                    <button type="button" id="btn-back-step2c"
-                        class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
-                        <span class="material-symbols-outlined text-lg">arrow_back</span>
-                        Retour
-                    </button>
-                    <button type="button" id="btn-next-step2c"
-                        class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled>
-                        Continuer
-                        <span class="material-symbols-outlined text-lg">arrow_forward</span>
-                    </button>
-                </div>
-            </div>
-        </section>
-
-        <!-- Step 2d: Adresse du chantier -->
-        <section id="step-2d" class="step-content max-w-xl w-full hidden">
-            <!-- Mini navigation compact -->
-            <div class="wizard-nav-compact mb-6">
-                <button data-goto="2a" class="nav-btn completed">
-                    <span class="material-symbols-outlined text-xs">check</span>
-                    Nom
-                </button>
-                <span class="nav-arrow text-slate-300">→</span>
-                <button data-goto="2b" class="nav-btn completed">
-                    <span class="material-symbols-outlined text-xs">check</span>
-                    Tél
-                </button>
-                <span class="nav-arrow text-slate-300">→</span>
-                <button data-goto="2c" class="nav-btn completed">
-                    <span class="material-symbols-outlined text-xs">check</span>
-                    Courriel
-                </button>
-                <span class="nav-arrow text-slate-300">→</span>
-                <button data-goto="2d" class="nav-btn active">
-                    <span class="nav-num">4</span>
-                    Adresse
-                </button>
-            </div>
-
-            <div class="mb-6">
-                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
-                    Où est situé le chantier ?
-                </h1>
-            </div>
-
-            <div class="space-y-6">
-                <div class="relative">
-                    <input type="text" id="client-adresse" name="adresse" required autocomplete="off"
+                <!-- Nom du client -->
+                <div>
+                    <label for="client-nom" class="block text-sm font-medium text-slate-700 mb-1">Nom du client <span class="text-red-500">*</span></label>
+                    <input type="text" id="client-nom" name="nom" required autofocus
                         class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
-                        placeholder="Entrez l'adresse...">
-                    <span id="adresse-loading" class="hidden absolute right-4 top-1/2 -translate-y-1/2">
-                        <svg class="animate-spin h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none"
-                            viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
-                            </circle>
-                            <path class="opacity-75" fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                            </path>
-                        </svg>
-                    </span>
-                    <!-- Suggestions dropdown -->
-                    <div id="adresse-suggestions"
-                        class="hidden absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                        <!-- Suggestions will be inserted here -->
+                        placeholder="Jean Tremblay">
+                </div>
+
+                <!-- Telephone -->
+                <div>
+                    <label for="client-telephone" class="block text-sm font-medium text-slate-700 mb-1">Téléphone <span class="text-slate-400 font-normal">(optionnel)</span></label>
+                    <input type="tel" id="client-telephone" name="telephone"
+                        class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                        placeholder="(418) 555-1234">
+                </div>
+
+                <!-- Courriel -->
+                <div>
+                    <label for="client-courriel" class="block text-sm font-medium text-slate-700 mb-1">Courriel <span class="text-slate-400 font-normal">(optionnel)</span></label>
+                    <input type="email" id="client-courriel" name="courriel"
+                        class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                        placeholder="jean@exemple.com">
+                </div>
+
+                <!-- Adresse du chantier -->
+                <div>
+                    <label for="client-adresse" class="block text-sm font-medium text-slate-700 mb-1">Adresse du chantier <span class="text-red-500">*</span></label>
+                    <div class="relative">
+                        <input type="text" id="client-adresse" name="adresse" required autocomplete="off"
+                            class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                            placeholder="Entrez l'adresse...">
+                        <span id="adresse-loading" class="hidden absolute right-4 top-1/2 -translate-y-1/2">
+                            <svg class="animate-spin h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                                </circle>
+                                <path class="opacity-75" fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                </path>
+                            </svg>
+                        </span>
+                        <!-- Suggestions dropdown -->
+                        <div id="adresse-suggestions"
+                            class="hidden absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                            <!-- Suggestions will be inserted here -->
+                        </div>
                     </div>
                 </div>
 
@@ -761,23 +614,36 @@
                     </div>
                 </div>
 
-                <!-- Description du projet -->
+                <!-- Numero de soumission -->
                 <div>
-                    <label for="description-projet" class="block text-sm font-medium text-slate-700 mb-1">Description du projet</label>
-                    <input type="text" id="description-projet" name="descriptionProjet"
-                        class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
-                        placeholder="Travaux de désamiantage - Résidence privée">
+                    <label for="soumission-number" class="block text-sm font-medium text-slate-700 mb-1">Numéro de soumission</label>
+                    <div class="flex items-center w-full bg-white border-2 border-slate-200 rounded-2xl focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 transition-all overflow-hidden">
+                        <span class="pl-5 text-lg text-slate-400 font-mono select-none">000</span>
+                        <input type="number" id="soumission-number" name="soumissionNumber"
+                            class="flex-1 px-1 py-4 bg-transparent text-lg text-slate-900 font-mono placeholder-slate-400 focus:outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            placeholder="184" min="1" max="999">
+                    </div>
                 </div>
 
+                <!-- Nom du projet -->
+                <div>
+                    <label for="description-projet" class="block text-sm font-medium text-slate-700 mb-1">Nom du projet</label>
+                    <input type="text" id="description-projet" name="nomProjet"
+                        class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                        placeholder="Ex: École du gymnase - réfection sous-sol">
+                </div>
+
+                <!-- Error message -->
+                <p id="step2-error-message" class="hidden text-red-500 text-sm font-medium text-center mt-2"></p>
+
                 <div class="flex items-center justify-between pt-4">
-                    <button type="button" id="btn-back-step2d"
+                    <button type="button" id="btn-back-step2"
                         class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
                         <span class="material-symbols-outlined text-lg">arrow_back</span>
                         Retour
                     </button>
-                    <button type="button" id="btn-next-step2d"
-                        class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled>
+                    <button type="button" id="btn-next-step2"
+                        class="px-8 py-4 bg-slate-300 hover:bg-slate-400 text-white font-semibold rounded-xl transition-colors flex items-center gap-2 cursor-pointer">
                         Continuer
                         <span class="material-symbols-outlined text-lg">arrow_forward</span>
                     </button>
@@ -819,6 +685,9 @@
                 </p>
             </div>
 
+            <!-- Error message -->
+            <p id="step3-error-message" class="hidden text-red-500 text-sm font-medium text-center mt-4"></p>
+
             <!-- Navigation buttons -->
             <div class="flex items-center justify-between pt-8 mt-8 border-t border-slate-100">
                 <button type="button" id="btn-back-step3"
@@ -827,8 +696,7 @@
                     Retour
                 </button>
                 <button type="button" id="btn-continue-step3"
-                    class="px-6 py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled>
+                    class="px-6 py-3 bg-slate-300 hover:bg-slate-400 text-white font-semibold rounded-xl transition-colors flex items-center gap-2 cursor-pointer">
                     Continuer
                     <span class="material-symbols-outlined text-lg">arrow_forward</span>
                 </button>
@@ -1205,21 +1073,43 @@
                     </div>
                 </div>
 
-                <!-- Liste des surfaces -->
+                <!-- Mode de saisie des surfaces -->
                 <div>
                     <div class="flex items-center justify-between mb-3">
                         <span class="text-sm font-bold text-slate-600 uppercase tracking-wider">Surfaces</span>
-                        <button type="button" id="btn-add-surface"
-                            class="flex items-center gap-1 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium rounded-lg transition-colors">
-                            <span class="material-symbols-outlined text-lg">add</span>
-                            Ajouter un mur
-                        </button>
+                        <div class="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+                            <button type="button" id="btn-mode-direct" class="px-3 py-1.5 text-xs font-medium rounded-md bg-white text-primary shadow-sm transition-all">Pied carré direct</button>
+                            <button type="button" id="btn-mode-details" class="px-3 py-1.5 text-xs font-medium rounded-md text-slate-500 hover:text-slate-700 transition-all">L × H</button>
+                        </div>
                     </div>
-                    
-                    <!-- Container pour les surfaces -->
-                    <div id="surfaces-list" class="space-y-3">
-                        <!-- Les surfaces seront ajoutées ici dynamiquement -->
+
+                    <!-- Mode direct (pi² total) - affiché par défaut -->
+                    <div id="surface-mode-direct">
+                        <div class="bg-white border-2 border-slate-200 rounded-xl p-4">
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Superficie totale</label>
+                            <div class="relative">
+                                <input type="number" id="surface-directe" min="0" step="1"
+                                    class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-lg text-slate-900 text-center focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                    placeholder="Ex: 250">
+                                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-medium">pi²</span>
+                            </div>
+                        </div>
                     </div>
+
+                    <!-- Mode détaillé (L × H) - caché par défaut -->
+                    <div id="surface-mode-details" class="hidden">
+                        <div class="flex justify-end mb-2">
+                            <button type="button" id="btn-add-surface"
+                                class="flex items-center gap-1 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium rounded-lg transition-colors">
+                                <span class="material-symbols-outlined text-lg">add</span>
+                                Ajouter un mur
+                            </button>
+                        </div>
+                        <div id="surfaces-list" class="space-y-3">
+                            <!-- Les surfaces seront ajoutées ici dynamiquement -->
+                        </div>
+                    </div>
+
                 </div>
 
                 <!-- Friabilité badge -->
@@ -1385,23 +1275,44 @@
                                 <span class="text-slate-400">$</span>
                             </div>
                         </div>
+                        <div class="flex justify-between items-center py-3 hover:bg-slate-50 transition-colors">
+                            <div class="flex items-center gap-2">
+                                <span class="text-slate-600">Ventilateur HEPA</span>
+                                <div class="flex items-center gap-1 ml-2">
+                                    <button type="button" id="btn-ventilateur-minus" class="w-6 h-6 rounded-full bg-slate-200 hover:bg-red-200 flex items-center justify-center text-xs font-bold text-slate-600 transition-colors">&minus;</button>
+                                    <span id="ventilateur-count" class="text-xs font-bold text-slate-700 min-w-[20px] text-center">1</span>
+                                    <button type="button" id="btn-ventilateur-plus" class="w-6 h-6 rounded-full bg-slate-200 hover:bg-green-200 flex items-center justify-center text-xs font-bold text-slate-600 transition-colors">+</button>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <input type="text" id="prix-ventilateur" class="prix-input w-32 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0,00" inputmode="decimal">
+                                <span class="text-slate-400">$</span>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Frais risque élevé allégé (ventilateur uniquement) -->
-                    <div id="prix-risque-eleve-allege-section" class="hidden mt-4">
-                        <p class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Frais risque élevé allégé</p>
+                    <!-- Tests d'air (conditionnel: ÉLEVÉ_ALLÉGÉ et ÉLEVÉ) -->
+                    <div id="prix-tests-air-section" class="hidden mt-4">
+                        <p class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Test d'air</p>
                         <div class="divide-y divide-orange-100 border-t border-b border-orange-200 bg-orange-50/30 rounded-lg overflow-hidden">
                             <div class="flex justify-between items-center py-3 px-2 hover:bg-orange-50 transition-colors">
-                                <span class="text-slate-600">Ventilateur HEPA</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-slate-600">Tests d'air</span>
+                                    <div class="flex items-center gap-1 ml-2">
+                                        <button type="button" id="btn-test-air-minus" class="w-6 h-6 rounded-full bg-slate-200 hover:bg-red-200 flex items-center justify-center text-xs font-bold text-slate-600 transition-colors">&minus;</button>
+                                        <span id="test-air-count" class="text-xs font-bold text-slate-700 min-w-[20px] text-center">1</span>
+                                        <button type="button" id="btn-test-air-plus" class="w-6 h-6 rounded-full bg-slate-200 hover:bg-green-200 flex items-center justify-center text-xs font-bold text-slate-600 transition-colors">+</button>
+                                    </div>
+                                </div>
                                 <div class="flex items-center gap-1">
-                                    <input type="text" id="prix-ventilateur-allege" class="prix-input w-32 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0,00" inputmode="decimal">
+                                    <input type="text" id="prix-tests" class="prix-input w-32 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0,00" inputmode="decimal">
                                     <span class="text-slate-400">$</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Frais risque élevé (conditionnels) -->
+                    <!-- Frais risque élevé: douches + perte de temps (conditionnel: ÉLEVÉ seulement) -->
                     <div id="prix-risque-eleve-section" class="hidden mt-4">
                         <p class="text-xs font-bold text-red-500 uppercase tracking-wider mb-2">Frais risque élevé</p>
                         <div class="divide-y divide-red-100 border-t border-b border-red-200 bg-red-50/30 rounded-lg overflow-hidden">
@@ -1420,23 +1331,9 @@
                                 </div>
                             </div>
                             <div class="flex justify-between items-center py-3 px-2 hover:bg-red-50 transition-colors">
-                                <span class="text-slate-600">Tests d'air</span>
-                                <div class="flex items-center gap-1">
-                                    <input type="text" id="prix-tests" class="prix-input w-32 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0,00" inputmode="decimal">
-                                    <span class="text-slate-400">$</span>
-                                </div>
-                            </div>
-                            <div class="flex justify-between items-center py-3 px-2 hover:bg-red-50 transition-colors">
                                 <span class="text-slate-600">Perte de temps</span>
                                 <div class="flex items-center gap-1">
                                     <input type="text" id="prix-perte-temps" class="prix-input w-32 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0,00" inputmode="decimal">
-                                    <span class="text-slate-400">$</span>
-                                </div>
-                            </div>
-                            <div class="flex justify-between items-center py-3 px-2 hover:bg-red-50 transition-colors">
-                                <span class="text-slate-600">Ventilateur HEPA</span>
-                                <div class="flex items-center gap-1">
-                                    <input type="text" id="prix-ventilateur-eleve" class="prix-input w-32 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0,00" inputmode="decimal">
                                     <span class="text-slate-400">$</span>
                                 </div>
                             </div>
@@ -1447,7 +1344,14 @@
                     <div class="divide-y divide-slate-200 border-t border-b border-slate-200 mt-4">
                         <div class="py-3 hover:bg-slate-50 transition-colors">
                             <div class="flex justify-between items-center">
-                                <span class="text-slate-600">Transport</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-slate-600">Transport</span>
+                                    <div class="flex items-center gap-1 ml-2">
+                                        <button type="button" id="btn-transport-minus" class="w-6 h-6 rounded-full bg-slate-200 hover:bg-red-200 flex items-center justify-center text-xs font-bold text-slate-600 transition-colors">&minus;</button>
+                                        <span id="transport-count" class="text-xs font-bold text-slate-700 min-w-[20px] text-center">1</span>
+                                        <button type="button" id="btn-transport-plus" class="w-6 h-6 rounded-full bg-slate-200 hover:bg-green-200 flex items-center justify-center text-xs font-bold text-slate-600 transition-colors">+</button>
+                                    </div>
+                                </div>
                                 <div class="flex items-center gap-1">
                                     <input type="text" id="prix-transport" class="prix-input w-32 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0,00" inputmode="decimal">
                                     <span class="text-slate-400">$</span>
@@ -1478,6 +1382,7 @@
                             </div>
                         </div>
                     </div>
+
                 </div>
 
                 <!-- Sous-total et marge -->
@@ -1496,6 +1401,30 @@
                                 %
                             </span>
                             <span class="font-semibold text-amber-600 text-sm" id="prix-marge">0 $</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Extras / Lignes personnalisées (après la marge, prix fixes non affectés) -->
+                <div id="custom-lines-section" class="border-t border-dashed border-amber-300 bg-amber-50/30">
+                    <div class="px-5 py-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-amber-500 text-lg">playlist_add</span>
+                                <span class="text-sm font-semibold text-slate-700">Extras / Travaux connexes</span>
+                                <span class="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">prix fixes</span>
+                            </div>
+                            <button type="button" id="btn-add-custom-line"
+                                class="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-semibold rounded-lg border border-amber-200 transition-colors">
+                                <span class="material-symbols-outlined text-sm">add</span>
+                                Ajouter une ligne
+                            </button>
+                        </div>
+                        <div id="custom-lines-list" class="space-y-2">
+                            <!-- Lignes personnalisees injectees ici -->
+                        </div>
+                        <div id="custom-lines-empty" class="text-center py-3 text-xs text-slate-400 italic">
+                            Peinture, gypse, tirage de joints, etc.
                         </div>
                     </div>
                 </div>
@@ -1522,7 +1451,7 @@
                     <span class="material-symbols-outlined text-orange-500">warning</span>
                     <div>
                         <p class="text-sm font-semibold text-orange-700">Attention : Risque élevé allégé détecté</p>
-                        <p class="text-xs text-orange-600 mt-1">Ce projet nécessite un ventilateur HEPA. Pas de douches ni de tests d'air requis.</p>
+                        <p class="text-xs text-orange-600 mt-1">Ce projet nécessite un ventilateur HEPA et un test d'air final. Pas de douches requises.</p>
                     </div>
                 </div>
             </div>
@@ -1775,7 +1704,7 @@
                 <button type="button" id="btn-download-pdf"
                     class="w-full px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
                     <span class="material-symbols-outlined text-lg">download</span>
-                    Télécharger le PDF
+                    Télécharger les PDF
                 </button>
             </div>
 

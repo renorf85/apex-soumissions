@@ -52,6 +52,13 @@ const CONFIG_KEYS = {
     'config-prix_demo_palier3': 'prix_demo_palier3',
     'config-transport_0_50km': 'transport_0_50km',
     'config-transport_50_100km': 'transport_50_100km',
+    'config-transport_100km_plus': 'transport_100km_plus',
+    'config-seuil_transport_palier1': 'seuil_transport_palier1',
+    'config-seuil_transport_palier2': 'seuil_transport_palier2',
+    'config-nb_employes_equipe': 'nb_employes_equipe',
+    'config-seuil_demo_palier1': 'seuil_demo_palier1',
+    'config-seuil_demo_palier2': 'seuil_demo_palier2',
+    'config-seuil_assurance': 'seuil_assurance',
     'config-zone1_modere': 'zone1_modere',
     'config-zone_supp_modere': 'zone_supp_modere',
     'config-zone1_eleve': 'zone1_eleve',
@@ -74,7 +81,6 @@ const CONFIG_TEXTES_KEYS = {
     'config-entreprise_telephone': 'entreprise_telephone',
     'config-entreprise_courriel': 'entreprise_courriel',
     'config-entreprise_licence_rbq': 'entreprise_licence_rbq',
-    'config-numero_prefix': 'numero_prefix',
     'config-descriptif_risque_modere': 'descriptif_risque_modere',
     'config-descriptif_risque_eleve_allege': 'descriptif_risque_eleve_allege',
     'config-descriptif_risque_eleve': 'descriptif_risque_eleve',
@@ -144,6 +150,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Setup company signature canvas
     setupCompanySignatureCanvas();
+
+    // Listeners pour mise a jour des labels de seuils en temps reel
+    setupSeuilListeners();
 
     console.log('Settings - Prêt!');
 });
@@ -471,6 +480,7 @@ const MATERIAUX_FALLBACK = [
     { id: 9, nom: 'Linoléum avec endos de feutre', friabilite: 'friable', epaisseur_defaut: 0.125, categorie: 'Sols', niveau_risque_typique: 'Élevé (si arraché)', actif: true },
     { id: 10, nom: 'Dalles de vinyle-amiante (V.A.T.)', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Sols', niveau_risque_typique: 'Modéré', actif: true },
     { id: 11, nom: 'Mastic / Colle noire (sous dalles/bois)', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Sols', niveau_risque_typique: 'Modéré', actif: true },
+    { id: 20, nom: 'Colle à plancher contenant de l\'amiante', friabilite: 'friable', epaisseur_defaut: 0.0625, categorie: 'Sols', niveau_risque_typique: 'Élevé (retrait mécanique)', actif: true },
     { id: 12, nom: 'Bardeau / Déclin de ciment (Transite)', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Extérieur', niveau_risque_typique: 'Modéré', actif: true },
     { id: 13, nom: 'Bardeaux de toiture en asphalte', friabilite: 'non_friable', epaisseur_defaut: 0.125, categorie: 'Extérieur', niveau_risque_typique: 'Faible à Modéré', actif: true },
     { id: 14, nom: 'Calfeutrant de fenêtres / portes', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Extérieur', niveau_risque_typique: 'Faible à Modéré', actif: true },
@@ -721,6 +731,42 @@ window.editMateriau = editMateriau;
 window.saveEditMateriau = saveEditMateriau;
 window.toggleMateriauActif = toggleMateriauActif;
 window.loadMateriauxSettings = loadMateriauxSettings;
+
+// =====================================================
+// SEUILS - Mise a jour des labels en temps reel
+// =====================================================
+
+function setupSeuilListeners() {
+    // Demo palier 1 seuil -> met a jour le label du palier 2 et 3
+    document.getElementById('config-seuil_demo_palier1')?.addEventListener('input', (e) => {
+        const val = e.target.value || '500';
+        document.getElementById('demo-seuil1-display').textContent = val;
+    });
+
+    // Demo palier 2 seuil -> met a jour le label du palier 3
+    document.getElementById('config-seuil_demo_palier2')?.addEventListener('input', (e) => {
+        const val = e.target.value || '1500';
+        document.getElementById('demo-seuil2-display').textContent = val;
+    });
+
+    // Transport palier 1 seuil -> met a jour le label du palier 2
+    document.getElementById('config-seuil_transport_palier1')?.addEventListener('input', (e) => {
+        const val = e.target.value || '50';
+        document.getElementById('transport-seuil1-display').textContent = val;
+    });
+
+    // Transport palier 2 seuil -> met a jour le label du palier 3
+    document.getElementById('config-seuil_transport_palier2')?.addEventListener('input', (e) => {
+        const val = e.target.value || '100';
+        document.getElementById('transport-seuil2-display').textContent = val;
+    });
+
+    // Assurance seuil -> met a jour le label "grand"
+    document.getElementById('config-seuil_assurance')?.addEventListener('input', (e) => {
+        const val = e.target.value || '500';
+        document.getElementById('assurance-seuil-display').textContent = val;
+    });
+}
 
 // =====================================================
 // COMPANY SIGNATURE CANVAS

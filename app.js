@@ -8,6 +8,12 @@
 
 const DEV_MODE = false; // Mettre à false en production
 
+// Taux horaire de référence (baseline) pour le calcul du facteur d'ajustement.
+// Tous les prix de main-d'oeuvre (démolition, zones, douches, tests) ont été calibrés
+// sur ce taux. Quand le taux horaire change, on applique le ratio (nouveau / baseline)
+// pour ajuster proportionnellement ces prix.
+const TAUX_HORAIRE_BASELINE = 92;
+
 const DEV_DATA = {
     client: {
         nom: 'Jean Tremblay',
@@ -16,7 +22,7 @@ const DEV_DATA = {
         adresseChantier: '123 rue Test, Montréal',
         adresseFacturation: '',
         villeFacturation: '',
-        descriptionProjet: 'Travaux de désamiantage - Résidence privée',
+        nomProjet: 'Test - Résidence privée',
         distanceKm: 35
     },
     zones: [
@@ -70,7 +76,7 @@ const state = {
         adresseChantier: '',
         adresseFacturation: '',
         villeFacturation: '',
-        descriptionProjet: '',
+        nomProjet: '',
         distanceKm: 0,
         coordinates: null
     },
@@ -78,8 +84,12 @@ const state = {
     materiaux: [],
     config: {},
     risqueGlobal: null,
-    risqueGlobalOverride: null, // null = auto, 'MODÉRÉ' | 'ÉLEVÉ_ALLÉGÉ' | 'ÉLEVÉ' = override manuel
+    risqueGlobalOverride: null, // null = auto, 'FAIBLE' | 'MODÉRÉ' | 'ÉLEVÉ_ALLÉGÉ' | 'ÉLEVÉ' = override manuel
     doucheCount: null, // null = auto-calculated, number = manual override
+    testAirCount: null, // null = auto (1), number = override manuel
+    ventilateurCount: null, // null = auto (1), number = override manuel
+    transportCount: null, // null = auto-calculated, number = override manuel
+    customLines: [], // Lignes de couts personnalisees [{id, description, quantite, prixUnitaire, showInPdf}]
     // Multi-surfaces : surfaces temporaires lors de la création/édition d'une zone
     currentSurfaces: [],
     prix: {
@@ -135,6 +145,14 @@ function formatNumber(num, decimals = 0) {
  */
 function formatPrix(num, decimals = 0) {
     return `${formatNumber(num, decimals)} $`;
+}
+
+function formatPhoneNumber(value) {
+    const digits = value.replace(/\D/g, '');
+    if (digits.length === 0) return '';
+    if (digits.length <= 3) return '(' + digits;
+    if (digits.length <= 6) return '(' + digits.slice(0, 3) + ') ' + digits.slice(3);
+    return '(' + digits.slice(0, 3) + ') ' + digits.slice(3, 6) + '-' + digits.slice(6, 10);
 }
 
 // =====================================================
@@ -196,6 +214,7 @@ function saveStateToStorage() {
             prix: state.prix,
             risqueGlobal: state.risqueGlobal,
             soumissionNumber: state.soumissionNumber,
+            customLines: state.customLines || [],
             savedAt: new Date().toISOString()
         };
         const jsonString = JSON.stringify(dataToSave);
@@ -222,6 +241,7 @@ function saveStateToStorage() {
                     prix: state.prix,
                     risqueGlobal: state.risqueGlobal,
                     soumissionNumber: state.soumissionNumber,
+                    customLines: state.customLines || [],
                     savedAt: new Date().toISOString(),
                     photosOmitted: true
                 };
@@ -238,7 +258,12 @@ function loadStateFromStorage() {
     try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
-            return JSON.parse(saved);
+            const parsed = JSON.parse(saved);
+            // Support old saved drafts that used descriptionProjet
+            if (parsed.client && parsed.client.descriptionProjet && !parsed.client.nomProjet) {
+                parsed.client.nomProjet = parsed.client.descriptionProjet;
+            }
+            return parsed;
         }
     } catch (e) {
         console.warn('Impossible de charger:', e);
@@ -278,7 +303,11 @@ function restoreSavedState() {
     state.zones = saved.zones || [];
     if (saved.prix) state.prix = { ...state.prix, ...saved.prix };
     if (saved.risqueGlobal) state.risqueGlobal = saved.risqueGlobal;
-    if (saved.soumissionNumber) state.soumissionNumber = saved.soumissionNumber;
+    // Clear old APEX- format numbers, keep only manually entered ones (e.g. 000184)
+    if (saved.soumissionNumber && !/^APEX-/i.test(saved.soumissionNumber)) {
+        state.soumissionNumber = saved.soumissionNumber;
+    }
+    if (saved.customLines) state.customLines = saved.customLines;
     if (saved.photosOmitted) state.photosOmitted = true;
 
     console.log('✅ Progression restaurée:', saved);
@@ -293,19 +322,31 @@ function applyRestoredStateToUI() {
     const adresseInput = document.getElementById('client-adresse');
 
     if (nomInput && state.client.nom) nomInput.value = state.client.nom;
-    if (telInput && state.client.telephone) telInput.value = state.client.telephone;
+    if (telInput && state.client.telephone) telInput.value = formatPhoneNumber(state.client.telephone);
     if (emailInput && state.client.courriel) emailInput.value = state.client.courriel;
     if (adresseInput && state.client.adresseChantier) adresseInput.value = state.client.adresseChantier;
 
+    // Restore distance hidden input
+    const distanceInput = document.getElementById('client-distance');
+    if (distanceInput && state.client.distanceKm) {
+        distanceInput.value = state.client.distanceKm;
+    }
+
+    // Restore soumission number (strip 000 prefix for display in input)
+    const soumissionInput = document.getElementById('soumission-number');
+    if (soumissionInput && state.soumissionNumber) {
+        soumissionInput.value = state.soumissionNumber.replace(/^000/, '');
+    }
+
     // Restore billing address fields
-    const descriptionProjetInput = document.getElementById('description-projet');
+    const nomProjetInput = document.getElementById('description-projet');
     const adresseFacturationInput = document.getElementById('adresse-facturation');
     const villeFacturationInput = document.getElementById('ville-facturation');
     const sameBillingCheckbox = document.getElementById('same-billing-address');
     const billingSection = document.getElementById('billing-address-section');
 
-    if (descriptionProjetInput && state.client.descriptionProjet) {
-        descriptionProjetInput.value = state.client.descriptionProjet;
+    if (nomProjetInput && state.client.nomProjet) {
+        nomProjetInput.value = state.client.nomProjet;
     }
     if (adresseFacturationInput && state.client.adresseFacturation) {
         adresseFacturationInput.value = state.client.adresseFacturation;
@@ -319,13 +360,8 @@ function applyRestoredStateToUI() {
         if (billingSection) billingSection.classList.remove('hidden');
     }
 
-    // Trigger validation on restored inputs so "Continuer" buttons are enabled
-    const btnNextStep2a = document.getElementById('btn-next-step2a');
-    const btnNextStep2b = document.getElementById('btn-next-step2b');
-    const btnNextStep2c = document.getElementById('btn-next-step2c');
-    if (btnNextStep2a && nomInput?.value.trim()) btnNextStep2a.disabled = false;
-    if (btnNextStep2b && telInput?.value.trim()) btnNextStep2b.disabled = false;
-    if (btnNextStep2c && emailInput?.value.trim() && emailInput.validity.valid) btnNextStep2c.disabled = false;
+    // Enable continue button if nom and distance are present
+    updateStep2ContinueButton();
 
     // Navigate to saved step
     if (state.currentStep > 1) {
@@ -336,6 +372,18 @@ function applyRestoredStateToUI() {
     if (state.zones.length > 0) {
         renderZoneCards();
     }
+}
+
+function showAutoRestoreToast() {
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-4 right-4 z-[200] bg-slate-800 text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2';
+    toast.style.transition = 'opacity 0.3s ease';
+    toast.innerHTML = '<span class="material-symbols-outlined text-lg">restore</span> Soumission en cours restaurée';
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 function showRestoreModal() {
@@ -467,11 +515,12 @@ function resetAllState() {
         adresseChantier: '',
         adresseFacturation: '',
         villeFacturation: '',
-        descriptionProjet: '',
+        nomProjet: '',
         distanceKm: 0,
         coordinates: null
     };
     state.zones = [];
+    state.soumissionNumber = null;
 
     // Reset all form fields
     document.querySelectorAll('input:not([type="hidden"]):not([type="file"])').forEach(input => {
@@ -508,12 +557,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupStep3Events();
     setupStep4Events();
     setupStep5Events();
-    setupWizardNavigation();
     setupNewSubmissionButton();
 
     // Check for saved progress
     if (hasSavedProgress()) {
-        showRestoreModal();
+        restoreSavedState();
+        applyRestoredStateToUI();
+        showAutoRestoreToast();
     }
 
     // Setup dev mode shortcuts
@@ -736,87 +786,80 @@ function handleFileSelected(file) {
 }
 
 // =====================================================
-// STEP 2: CLIENT INFORMATION (Wizard sub-steps)
+// STEP 2: CLIENT INFORMATION (Single page form)
 // =====================================================
 
 function setupStep2Events() {
-    // === Step 2a: Nom ===
     const nomInput = document.getElementById('client-nom');
-    const btnBackStep2a = document.getElementById('btn-back-step2a');
-    const btnNextStep2a = document.getElementById('btn-next-step2a');
-
-    nomInput?.addEventListener('input', () => {
-        btnNextStep2a.disabled = !nomInput.value.trim();
-    });
-
-    // Enable on Enter key
-    nomInput?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && nomInput.value.trim()) {
-            e.preventDefault();
-            goToClientStep('2b');
-        }
-    });
-
-    btnBackStep2a?.addEventListener('click', () => goToStep(1));
-    btnNextStep2a?.addEventListener('click', () => goToClientStep('2b'));
-
-    // === Step 2b: Téléphone ===
     const telInput = document.getElementById('client-telephone');
-    const btnBackStep2b = document.getElementById('btn-back-step2b');
-    const btnNextStep2b = document.getElementById('btn-next-step2b');
+    const emailInput = document.getElementById('client-courriel');
+    const adresseInput = document.getElementById('client-adresse');
+    const btnBack = document.getElementById('btn-back-step2');
+    const btnNext = document.getElementById('btn-next-step2');
 
-    telInput?.addEventListener('input', () => {
-        btnNextStep2b.disabled = !telInput.value.trim();
+    // Update continue button state when nom or address changes
+    nomInput?.addEventListener('input', () => updateStep2ContinueButton());
+    adresseInput?.addEventListener('input', () => clearFieldError('client-adresse'));
+
+    // Auto-format phone number as user types
+    telInput?.addEventListener('input', (e) => {
+        const cursorPos = e.target.selectionStart;
+        const oldLen = e.target.value.length;
+        e.target.value = formatPhoneNumber(e.target.value);
+        const newLen = e.target.value.length;
+        const newPos = cursorPos + (newLen - oldLen);
+        e.target.setSelectionRange(newPos, newPos);
+    });
+
+    // Enter key in each field focuses the next field
+    nomInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            telInput?.focus();
+        }
     });
 
     telInput?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && telInput.value.trim()) {
+        if (e.key === 'Enter') {
             e.preventDefault();
-            goToClientStep('2c');
+            emailInput?.focus();
         }
-    });
-
-    btnBackStep2b?.addEventListener('click', () => goToClientStep('2a'));
-    btnNextStep2b?.addEventListener('click', () => goToClientStep('2c'));
-
-    // === Step 2c: Courriel ===
-    const emailInput = document.getElementById('client-courriel');
-    const btnBackStep2c = document.getElementById('btn-back-step2c');
-    const btnNextStep2c = document.getElementById('btn-next-step2c');
-
-    emailInput?.addEventListener('input', () => {
-        btnNextStep2c.disabled = !emailInput.value.trim() || !emailInput.validity.valid;
     });
 
     emailInput?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && emailInput.value.trim() && emailInput.validity.valid) {
+        if (e.key === 'Enter') {
             e.preventDefault();
-            goToClientStep('2d');
+            adresseInput?.focus();
         }
     });
 
-    btnBackStep2c?.addEventListener('click', () => goToClientStep('2b'));
-    btnNextStep2c?.addEventListener('click', () => goToClientStep('2d'));
+    // Back button goes to step 1
+    btnBack?.addEventListener('click', () => goToStep(1));
 
-    // === Step 2d: Adresse ===
-    const btnBackStep2d = document.getElementById('btn-back-step2d');
-    const btnNextStep2d = document.getElementById('btn-next-step2d');
+    // Continue button validates then saves all client data and goes to step 3
+    btnNext?.addEventListener('click', () => {
+        if (!validateStep2()) return;
 
-    btnBackStep2d?.addEventListener('click', () => goToClientStep('2c'));
-    btnNextStep2d?.addEventListener('click', () => {
         // Save all client data to state
         state.client = {
             ...state.client,
             nom: document.getElementById('client-nom').value.trim(),
-            telephone: document.getElementById('client-telephone').value.trim(),
+            telephone: formatPhoneNumber(document.getElementById('client-telephone').value.trim()),
             courriel: document.getElementById('client-courriel').value.trim(),
             adresseChantier: document.getElementById('client-adresse').value.trim(),
             distanceKm: parseInt(document.getElementById('client-distance').value) || 0
         };
 
-        // Read billing address fields
-        state.client.descriptionProjet = document.getElementById('description-projet')?.value?.trim() || '';
+        // Save soumission number (manually entered, padded to 000XXX format)
+        const soumissionInput = document.getElementById('soumission-number')?.value?.trim();
+        if (soumissionInput) {
+            state.soumissionNumber = '000' + soumissionInput;
+        }
 
+        // Read project name
+        state.client.nomProjet = document.getElementById('description-projet')?.value?.trim() || '';
+
+        // Read billing address fields
         const sameBilling = document.getElementById('same-billing-address')?.checked;
         if (sameBilling) {
             state.client.adresseFacturation = state.client.adresseChantier;
@@ -846,57 +889,82 @@ function setupStep2Events() {
     setupAddressAutocomplete();
 }
 
-function goToClientStep(subStep) {
-    // Hide all step-2 sub-sections
-    document.querySelectorAll('[id^="step-2"]').forEach(el => el.classList.add('hidden'));
+function updateStep2ContinueButton() {
+    const nom = document.getElementById('client-nom')?.value?.trim();
+    const distance = parseInt(document.getElementById('client-distance')?.value) || 0;
+    const btn = document.getElementById('btn-next-step2');
+    const isValid = nom && distance > 0;
 
-    // Show the target sub-step
-    const targetEl = document.getElementById(`step-${subStep}`);
-    if (targetEl) {
-        targetEl.classList.remove('hidden');
-        // Focus the input
-        const input = targetEl.querySelector('input:not([type="hidden"])');
-        setTimeout(() => input?.focus(), 100);
+    if (btn) {
+        if (isValid) {
+            btn.classList.remove('bg-slate-300', 'hover:bg-slate-400');
+            btn.classList.add('bg-primary', 'hover:bg-primary-dark');
+        } else {
+            btn.classList.remove('bg-primary', 'hover:bg-primary-dark');
+            btn.classList.add('bg-slate-300', 'hover:bg-slate-400');
+        }
     }
 
-    // Update progress bar (still step 2)
-    updateProgressBar(2);
-    state.currentStep = 2;
+    // Clear error styling on fields that are now valid
+    if (nom) clearFieldError('client-nom');
+    if (distance > 0) clearFieldError('client-adresse');
 
-    // Show mobile back button
-    document.getElementById('btn-back-mobile')?.classList.remove('invisible');
-
-    // Update continue button states based on current values
-    updateWizardButtonStates();
+    // Hide error message if all valid
+    if (isValid) {
+        const errorMsg = document.getElementById('step2-error-message');
+        if (errorMsg) errorMsg.classList.add('hidden');
+    }
 }
 
-function updateWizardButtonStates() {
-    const nom = document.getElementById('client-nom')?.value.trim();
-    const tel = document.getElementById('client-telephone')?.value.trim();
-    const email = document.getElementById('client-courriel')?.value.trim();
-    const adresse = document.getElementById('client-adresse')?.value.trim();
-
-    const btnNext2a = document.getElementById('btn-next-step2a');
-    const btnNext2b = document.getElementById('btn-next-step2b');
-    const btnNext2c = document.getElementById('btn-next-step2c');
-    const btnNext2d = document.getElementById('btn-next-step2d');
-
-    if (btnNext2a) btnNext2a.disabled = !nom;
-    if (btnNext2b) btnNext2b.disabled = !tel;
-    if (btnNext2c) btnNext2c.disabled = !email;
-    if (btnNext2d) btnNext2d.disabled = !adresse;
+function showFieldError(fieldId) {
+    const field = document.getElementById(fieldId);
+    if (field) {
+        field.classList.remove('border-slate-200');
+        field.classList.add('border-red-400', 'ring-2', 'ring-red-100');
+    }
 }
 
-function setupWizardNavigation() {
-    // Add click handlers to all wizard nav buttons
-    document.querySelectorAll('.wizard-nav-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const gotoStep = btn.dataset.goto;
-            if (gotoStep) {
-                goToClientStep(gotoStep);
-            }
-        });
-    });
+function clearFieldError(fieldId) {
+    const field = document.getElementById(fieldId);
+    if (field) {
+        field.classList.remove('border-red-400', 'ring-2', 'ring-red-100');
+        field.classList.add('border-slate-200');
+    }
+}
+
+function validateStep2() {
+    const nom = document.getElementById('client-nom')?.value?.trim();
+    const soumissionNum = document.getElementById('soumission-number')?.value?.trim();
+    const distance = parseInt(document.getElementById('client-distance')?.value) || 0;
+    const errors = [];
+    let firstErrorField = null;
+
+    if (!soumissionNum) {
+        showFieldError('soumission-number');
+        errors.push('le numéro de soumission');
+        if (!firstErrorField) firstErrorField = 'soumission-number';
+    }
+    if (!nom) {
+        showFieldError('client-nom');
+        errors.push('le nom du client');
+        if (!firstErrorField) firstErrorField = 'client-nom';
+    }
+    if (distance <= 0) {
+        showFieldError('client-adresse');
+        errors.push('l\'adresse du chantier');
+        if (!firstErrorField) firstErrorField = 'client-adresse';
+    }
+
+    const errorMsg = document.getElementById('step2-error-message');
+    if (errors.length > 0 && errorMsg) {
+        errorMsg.textContent = 'Veuillez remplir : ' + errors.join(', ');
+        errorMsg.classList.remove('hidden');
+
+        document.getElementById(firstErrorField)?.focus();
+        document.getElementById(firstErrorField)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    return errors.length === 0;
 }
 
 function setupNewSubmissionButton() {
@@ -1065,7 +1133,6 @@ async function selectAddress(feature) {
     const distanceCard = document.getElementById('distance-card');
     const distanceDisplay = document.getElementById('distance-display');
     const transportCostDisplay = document.getElementById('transport-cost-display');
-    const btnNextStep2d = document.getElementById('btn-next-step2d');
 
     // Set the address in input
     if (adresseInput) {
@@ -1117,9 +1184,7 @@ async function selectAddress(feature) {
         distanceCard?.classList.remove('hidden');
 
         // Enable continue button
-        if (btnNextStep2d) {
-            btnNextStep2d.disabled = false;
-        }
+        updateStep2ContinueButton();
 
         console.log(`📍 Adresse sélectionnée: ${feature.place_name}`);
         console.log(`📏 Distance routière: ${distanceKm} km (depuis Québec)`);
@@ -1151,9 +1216,8 @@ async function selectAddress(feature) {
 
         distanceCard?.classList.remove('hidden');
 
-        if (btnNextStep2d) {
-            btnNextStep2d.disabled = false;
-        }
+        // Enable continue button
+        updateStep2ContinueButton();
 
         console.log(`📏 Distance estimée (fallback): ${distanceKm} km`);
     } finally {
@@ -1162,14 +1226,19 @@ async function selectAddress(feature) {
 }
 
 function getTransportCost(distance) {
-    // Note: Ceci est un indicateur. Le vrai calcul se fait à l'étape 4
-    // basé sur la durée du projet (heures ÷ équipe ÷ 8h × 75$/jour)
-    if (distance > 100) {
-        return '75$/jour + pension';
-    } else if (distance > 50) {
-        return '75$/jour';
+    // Note: Ceci est un indicateur. Le vrai calcul se fait a l'etape 4
+    const config = state.config || {};
+    const seuil1 = config.seuil_transport_palier1 || 50;
+    const seuil2 = config.seuil_transport_palier2 || 100;
+    const tarif1 = config.transport_0_50km || 55;
+    const tarif2 = config.transport_50_100km || 75;
+    const tarif3 = config.transport_100km_plus || 75;
+    if (distance > seuil2) {
+        return `${tarif3}$/jour + pension`;
+    } else if (distance > seuil1) {
+        return `${tarif2}$/jour`;
     }
-    return '55$ (local)';
+    return `${tarif1}$ (local)`;
 }
 
 // Calculate real driving distance using Mapbox Directions API
@@ -1215,6 +1284,7 @@ async function loadMateriaux() {
         const { data, error } = await supabaseClient
             .from('materiaux')
             .select('*')
+            .eq('actif', true)
             .order('ordre');
 
         if (error) throw error;
@@ -1222,7 +1292,7 @@ async function loadMateriaux() {
         // Si la table est vide, utiliser le fallback
         if (data && data.length > 0) {
             state.materiaux = data;
-            console.log(`✅ ${data.length} matériaux chargés depuis Supabase`);
+            console.log(`✅ ${data.length} matériaux actifs chargés depuis Supabase`);
             populateMateriauxDropdown();
             return;
         }
@@ -1248,6 +1318,7 @@ async function loadMateriaux() {
         { id: 9, nom: 'Linoléum avec endos de feutre', friabilite: 'friable', epaisseur_defaut: 0.125, categorie: 'Sols', niveau_risque_typique: 'Élevé (si arraché)' },
         { id: 10, nom: 'Dalles de vinyle-amiante (V.A.T.)', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Sols', niveau_risque_typique: 'Modéré' },
         { id: 11, nom: 'Mastic / Colle noire (sous dalles/bois)', friabilite: 'non_friable', epaisseur_defaut: 0.0625, categorie: 'Sols', niveau_risque_typique: 'Modéré' },
+        { id: 20, nom: 'Colle à plancher contenant de l\'amiante', friabilite: 'friable', epaisseur_defaut: 0.0625, categorie: 'Sols', niveau_risque_typique: 'Élevé (retrait mécanique)' },
         // Extérieur
         { id: 12, nom: 'Bardeau / Déclin de ciment (Transite)', friabilite: 'non_friable', epaisseur_defaut: 0.25, categorie: 'Extérieur', niveau_risque_typique: 'Modéré' },
         { id: 13, nom: 'Bardeaux de toiture en asphalte', friabilite: 'non_friable', epaisseur_defaut: 0.125, categorie: 'Extérieur', niveau_risque_typique: 'Faible à Modéré' },
@@ -1276,9 +1347,12 @@ function populateMateriauxDropdown() {
         'Mécanique': 'plumbing'
     };
 
+    // Filter only active materials (actif is undefined in fallback, so treat as active)
+    const activeMateriaux = state.materiaux.filter(mat => mat.actif !== false);
+
     // Group by category
     const grouped = {};
-    state.materiaux.forEach(mat => {
+    activeMateriaux.forEach(mat => {
         const cat = mat.categorie || 'Autre';
         if (!grouped[cat]) grouped[cat] = [];
         grouped[cat].push(mat);
@@ -1452,9 +1526,12 @@ function filterMateriauxByCategorie(categorie) {
         'Mécanique': ['Mécanique', 'Autre'],
     };
 
-    // Filter materials by category
+    // Filter materials by category (only active materials)
     const filteredMateriaux = state.materiaux.filter(mat => {
-        // If no category filter, show all
+        // Skip inactive materials (actif undefined in fallback = active)
+        if (mat.actif === false) return false;
+
+        // If no category filter, show all active materials
         if (!categorie) return true;
 
         // Check if material has a category that matches
@@ -1660,8 +1737,19 @@ function setupStep3Events() {
         goToStep(2);
     });
 
-    // Continue button → go to step 4
+    // Continue button → validate then go to step 4
     btnContinueStep3?.addEventListener('click', () => {
+        const errorMsg = document.getElementById('step3-error-message');
+        if (state.zones.length === 0) {
+            if (errorMsg) {
+                errorMsg.textContent = 'Vous devez ajouter au moins une zone de travail avant de continuer.';
+                errorMsg.classList.remove('hidden');
+            }
+            // Scroll to the empty hint
+            document.getElementById('zones-empty-hint')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+        if (errorMsg) errorMsg.classList.add('hidden');
         goToStep(4);
     });
 
@@ -1940,13 +2028,21 @@ function renderZoneCards() {
         }
     });
 
-    // Show/hide empty hint
+    // Show/hide empty hint and update button style
+    const step3ErrorMsg = document.getElementById('step3-error-message');
     if (state.zones.length > 0) {
         emptyHint?.classList.add('hidden');
-        btnContinue?.removeAttribute('disabled');
+        if (step3ErrorMsg) step3ErrorMsg.classList.add('hidden');
+        if (btnContinue) {
+            btnContinue.classList.remove('bg-slate-300', 'hover:bg-slate-400');
+            btnContinue.classList.add('bg-primary', 'hover:bg-primary-dark');
+        }
     } else {
         emptyHint?.classList.remove('hidden');
-        btnContinue?.setAttribute('disabled', 'true');
+        if (btnContinue) {
+            btnContinue.classList.remove('bg-primary', 'hover:bg-primary-dark');
+            btnContinue.classList.add('bg-slate-300', 'hover:bg-slate-400');
+        }
     }
 }
 
@@ -1968,6 +2064,7 @@ function createZoneCard(zone) {
     // Risk badge
     const isHighRisk = zone.risque === 'ÉLEVÉ';
     const isAllegeRisk = zone.risque === 'ÉLEVÉ_ALLÉGÉ';
+    const isFaibleRisk = zone.risque === 'FAIBLE';
     let riskClass, riskText;
     if (isHighRisk) {
         riskClass = 'risk-high';
@@ -1975,6 +2072,9 @@ function createZoneCard(zone) {
     } else if (isAllegeRisk) {
         riskClass = 'risk-allege';
         riskText = 'ÉLEVÉ ALLÉGÉ';
+    } else if (isFaibleRisk) {
+        riskClass = 'risk-low';
+        riskText = 'FAIBLE';
     } else {
         riskClass = 'risk-moderate';
         riskText = 'MODÉRÉ';
@@ -2290,6 +2390,9 @@ function recalcInlineZone() {
         } else if (risque === 'MODÉRÉ') {
             risqueEl.textContent = 'MODÉRÉ';
             risqueEl.className = 'inline-flex px-3 py-1 rounded-full text-xs font-bold risk-moderate';
+        } else if (risque === 'FAIBLE') {
+            risqueEl.textContent = 'FAIBLE';
+            risqueEl.className = 'inline-flex px-3 py-1 rounded-full text-xs font-bold risk-low';
         } else {
             risqueEl.textContent = '--';
             risqueEl.className = 'inline-flex px-3 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-400';
@@ -2438,8 +2541,20 @@ function createZoneCardExpanded(zone) {
         </button>
     `).join('');
 
-    // Material options for current category
-    const filteredMats = state.materiaux.filter(m => !data.categorie || m.categorie === data.categorie);
+    // Material options for current category (only active materials, with category mapping)
+    const inlineCategorieMapping = {
+        'Isolants': ['Isolants', 'Isolation'],
+        'Murs et Plafonds': ['Murs et Plafonds', 'Mur/Plafond'],
+        'Sols': ['Sols', 'Plancher'],
+        'Extérieur': ['Extérieur', 'Revêtement extérieur/Toiture'],
+        'Mécanique': ['Mécanique', 'Autre'],
+    };
+    const filteredMats = state.materiaux.filter(m => {
+        if (m.actif === false) return false;
+        if (!data.categorie) return true;
+        const accepted = inlineCategorieMapping[data.categorie] || [data.categorie];
+        return accepted.includes(m.categorie);
+    });
     const materialOptions = filteredMats.map(mat => `
         <option value="${mat.id}" data-friabilite="${mat.friabilite}" data-epaisseur="${mat.epaisseur_defaut}" ${mat.id == data.materiauId ? 'selected' : ''}>${mat.nom}</option>
     `).join('');
@@ -2459,6 +2574,7 @@ function createZoneCardExpanded(zone) {
     if (risque === 'ÉLEVÉ') { risqueClass = 'risk-high'; risqueText = 'ÉLEVÉ'; }
     else if (risque === 'ÉLEVÉ_ALLÉGÉ') { risqueClass = 'risk-allege'; risqueText = 'ÉLEVÉ ALLÉGÉ'; }
     else if (risque === 'MODÉRÉ') { risqueClass = 'risk-moderate'; risqueText = 'MODÉRÉ'; }
+    else if (risque === 'FAIBLE') { risqueClass = 'risk-low'; risqueText = 'FAIBLE'; }
 
     card.innerHTML = `
         <div class="space-y-4">
@@ -2592,10 +2708,22 @@ function setupInlineEditDelegation(card) {
                     : 'inline-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all bg-slate-100 text-slate-600 hover:bg-slate-200';
             });
 
-            // Re-filter materials
+            // Re-filter materials (only active, with category mapping)
             const select = card.querySelector('.inline-edit-materiau');
             if (select) {
-                const filtered = state.materiaux.filter(m => !cat || m.categorie === cat);
+                const inlineCatMap = {
+                    'Isolants': ['Isolants', 'Isolation'],
+                    'Murs et Plafonds': ['Murs et Plafonds', 'Mur/Plafond'],
+                    'Sols': ['Sols', 'Plancher'],
+                    'Extérieur': ['Extérieur', 'Revêtement extérieur/Toiture'],
+                    'Mécanique': ['Mécanique', 'Autre'],
+                };
+                const filtered = state.materiaux.filter(m => {
+                    if (m.actif === false) return false;
+                    if (!cat) return true;
+                    const accepted = inlineCatMap[cat] || [cat];
+                    return accepted.includes(m.categorie);
+                });
                 select.innerHTML = '<option value="">Sélectionner...</option>' + filtered.map(mat => `
                     <option value="${mat.id}" data-friabilite="${mat.friabilite}" data-epaisseur="${mat.epaisseur_defaut}">${mat.nom}</option>
                 `).join('');
@@ -2767,7 +2895,7 @@ function updateCarousel(card) {
 }
 
 // Toggle manuel du risque par zone
-// Cycle: MODÉRÉ → ÉLEVÉ_ALLÉGÉ → ÉLEVÉ → retour au calcul auto
+// Cycle: FAIBLE -> MODÉRÉ -> ÉLEVÉ_ALLÉGÉ -> ÉLEVÉ -> retour au calcul auto
 function toggleZoneRisque(zoneId) {
     const zone = state.zones.find(z => z.id === zoneId);
     if (!zone) return;
@@ -2775,28 +2903,33 @@ function toggleZoneRisque(zoneId) {
     if (!zone.risqueOverride) {
         // Premier clic: passer au niveau supérieur
         zone.risqueOverride = true;
-        if (zone.risque === 'MODÉRÉ') {
+        if (zone.risque === 'FAIBLE') {
+            zone.risque = 'MODÉRÉ';
+        } else if (zone.risque === 'MODÉRÉ') {
             zone.risque = 'ÉLEVÉ_ALLÉGÉ';
         } else if (zone.risque === 'ÉLEVÉ_ALLÉGÉ') {
             zone.risque = 'ÉLEVÉ';
         } else {
-            // Déjà ÉLEVÉ, redescendre à MODÉRÉ
-            zone.risque = 'MODÉRÉ';
+            // Déjà ÉLEVÉ, redescendre à FAIBLE
+            zone.risque = 'FAIBLE';
         }
-        console.log('✏️ Risque modifié manuellement pour zone:', zone.nom, '→', zone.risque);
+        console.log('Risque modifié manuellement pour zone:', zone.nom, '->', zone.risque);
     } else {
         // Déjà en override: cycle vers le suivant ou retour auto
-        if (zone.risque === 'MODÉRÉ') {
+        if (zone.risque === 'FAIBLE') {
+            zone.risque = 'MODÉRÉ';
+            console.log('Risque modifié manuellement pour zone:', zone.nom, '->', zone.risque);
+        } else if (zone.risque === 'MODÉRÉ') {
             zone.risque = 'ÉLEVÉ_ALLÉGÉ';
-            console.log('✏️ Risque modifié manuellement pour zone:', zone.nom, '→', zone.risque);
+            console.log('Risque modifié manuellement pour zone:', zone.nom, '->', zone.risque);
         } else if (zone.risque === 'ÉLEVÉ_ALLÉGÉ') {
             zone.risque = 'ÉLEVÉ';
-            console.log('✏️ Risque modifié manuellement pour zone:', zone.nom, '→', zone.risque);
+            console.log('Risque modifié manuellement pour zone:', zone.nom, '->', zone.risque);
         } else {
             // Retour au calcul automatique
             delete zone.risqueOverride;
             zone.risque = determineRisque(zone.volume, zone.friabilite);
-            console.log('🔄 Risque auto restauré pour zone:', zone.nom, '→', zone.risque);
+            console.log('Risque auto restauré pour zone:', zone.nom, '->', zone.risque);
         }
     }
 
@@ -2950,12 +3083,58 @@ function updateFriabiliteBadge(friabilite) {
 // MULTI-SURFACES - Gestion des surfaces multiples par zone
 // =====================================================
 
+// Mode de saisie: 'direct' (pi² total) ou 'details' (L x H)
+let surfaceInputMode = 'direct';
+
+function setupSurfaceModeToggle() {
+    const btnDetails = document.getElementById('btn-mode-details');
+    const btnDirect = document.getElementById('btn-mode-direct');
+    const modeDetails = document.getElementById('surface-mode-details');
+    const modeDirect = document.getElementById('surface-mode-direct');
+    const directInput = document.getElementById('surface-directe');
+
+    btnDetails?.addEventListener('click', () => {
+        surfaceInputMode = 'details';
+        btnDetails.className = 'px-3 py-1.5 text-xs font-medium rounded-md bg-white text-primary shadow-sm transition-all';
+        btnDirect.className = 'px-3 py-1.5 text-xs font-medium rounded-md text-slate-500 hover:text-slate-700 transition-all';
+        modeDetails?.classList.remove('hidden');
+        modeDirect?.classList.add('hidden');
+        updateSurfaceTotals();
+    });
+
+    btnDirect?.addEventListener('click', () => {
+        surfaceInputMode = 'direct';
+        btnDirect.className = 'px-3 py-1.5 text-xs font-medium rounded-md bg-white text-primary shadow-sm transition-all';
+        btnDetails.className = 'px-3 py-1.5 text-xs font-medium rounded-md text-slate-500 hover:text-slate-700 transition-all';
+        modeDirect?.classList.remove('hidden');
+        modeDetails?.classList.add('hidden');
+        updateSurfaceTotals();
+    });
+
+    directInput?.addEventListener('input', () => {
+        updateSurfaceTotals();
+    });
+}
+
 // Initialiser la liste des surfaces avec une surface vide
 function initSurfacesList() {
     state.currentSurfaces = [];
+    surfaceInputMode = 'direct';
+    // Reset toggle UI - direct est le mode par defaut
+    const btnDetails = document.getElementById('btn-mode-details');
+    const btnDirect = document.getElementById('btn-mode-direct');
+    const modeDetails = document.getElementById('surface-mode-details');
+    const modeDirect = document.getElementById('surface-mode-direct');
+    if (btnDirect) btnDirect.className = 'px-3 py-1.5 text-xs font-medium rounded-md bg-white text-primary shadow-sm transition-all';
+    if (btnDetails) btnDetails.className = 'px-3 py-1.5 text-xs font-medium rounded-md text-slate-500 hover:text-slate-700 transition-all';
+    modeDirect?.classList.remove('hidden');
+    modeDetails?.classList.add('hidden');
+    const directInput = document.getElementById('surface-directe');
+    if (directInput) directInput.value = '';
     addSurface(); // Ajouter une première surface
     renderSurfacesList();
     setupSurfaceEventDelegation(); // Initialiser la délégation une seule fois
+    setupSurfaceModeToggle();
 }
 
 // Ajouter une nouvelle surface
@@ -3191,22 +3370,30 @@ function updateSurfaceTotals() {
     const epaisseur = parseFloat(document.getElementById('zone-epaisseur')?.value) || 0;
     const materiauInput = document.getElementById('zone-materiau');
     const friabilite = materiauInput?.dataset.friabilite || 'non_friable';
-    
-    // Recalculer chaque surface avec l'épaisseur actuelle
-    state.currentSurfaces.forEach(surface => {
-        surface.surface = surface.longueur * surface.hauteur;
-        surface.volume = surface.longueur * surface.hauteur * (epaisseur / 12);
-    });
-    
-    // Calculer les totaux
-    const surfaceTotal = state.currentSurfaces.reduce((sum, s) => sum + s.surface, 0);
-    const volumeTotal = state.currentSurfaces.reduce((sum, s) => sum + s.volume, 0);
+
+    let surfaceTotal = 0;
+    let volumeTotal = 0;
+
+    if (surfaceInputMode === 'direct') {
+        // Mode direct: lire la superficie totale depuis l'input
+        surfaceTotal = parseFloat(document.getElementById('surface-directe')?.value) || 0;
+        volumeTotal = surfaceTotal * (epaisseur / 12);
+    } else {
+        // Mode détaillé: recalculer chaque surface avec l'épaisseur actuelle
+        state.currentSurfaces.forEach(surface => {
+            surface.surface = surface.longueur * surface.hauteur;
+            surface.volume = surface.longueur * surface.hauteur * (epaisseur / 12);
+        });
+        surfaceTotal = state.currentSurfaces.reduce((sum, s) => sum + s.surface, 0);
+        volumeTotal = state.currentSurfaces.reduce((sum, s) => sum + s.volume, 0);
+    }
+
     const risque = determineRisque(volumeTotal, friabilite);
-    
+
     // Mettre à jour l'UI
     document.getElementById('calc-surface').textContent = surfaceTotal > 0 ? formatNumber(surfaceTotal, 1) : '--';
     document.getElementById('calc-volume').textContent = volumeTotal > 0 ? formatNumber(volumeTotal, 2) : '--';
-    
+
     const risqueEl = document.getElementById('calc-risque');
     if (risqueEl) {
         if (risque === 'ÉLEVÉ') {
@@ -3223,14 +3410,19 @@ function updateSurfaceTotals() {
             risqueEl.className = 'inline-block mt-1 px-4 py-2 rounded-xl text-sm font-bold bg-slate-200 text-slate-400';
         }
     }
-    
+
     // Activer/désactiver le bouton "Ajouter cette zone"
     const btnAddZone = document.getElementById('btn-add-zone-final');
-    const hasValidSurface = state.currentSurfaces.some(s => s.longueur > 0 && s.hauteur > 0);
-    if (btnAddZone) {
-        btnAddZone.disabled = !(hasValidSurface && epaisseur > 0);
+    let isValid = false;
+    if (surfaceInputMode === 'direct') {
+        isValid = surfaceTotal > 0 && epaisseur > 0;
+    } else {
+        isValid = state.currentSurfaces.some(s => s.longueur > 0 && s.hauteur > 0) && epaisseur > 0;
     }
-    
+    if (btnAddZone) {
+        btnAddZone.disabled = !isValid;
+    }
+
     return { surfaceTotal, volumeTotal, risque, friabilite };
 }
 
@@ -3337,16 +3529,18 @@ function determineRisque(volume, friabilite) {
  * - Si UNE zone est à risque élevé, TOUT le projet est à risque élevé
  * - Si UNE zone est à risque élevé allégé (et aucune élevé), projet = élevé allégé
  * - Les frais globaux (douche, tests, perte de temps) s'appliquent une seule fois
- * @returns {Object} { risque: 'ÉLEVÉ'|'ÉLEVÉ_ALLÉGÉ'|'MODÉRÉ', hasZoneElevee: boolean, hasZoneEleveAllegee: boolean, totalZones: number }
+ * @returns {Object} { risque: 'ÉLEVÉ'|'ÉLEVÉ_ALLÉGÉ'|'MODÉRÉ'|'FAIBLE', hasZoneElevee: boolean, hasZoneEleveAllegee: boolean, totalZones: number }
  */
 function getProjetRisque() {
     const zones = state.zones || [];
     const hasEleve = zones.some(z => z.risque === 'ÉLEVÉ');
     const hasEleveAllege = zones.some(z => z.risque === 'ÉLEVÉ_ALLÉGÉ');
+    const hasModere = zones.some(z => z.risque === 'MODÉRÉ');
 
-    let risque = 'MODÉRÉ';
+    let risque = 'FAIBLE';
     if (hasEleve) risque = 'ÉLEVÉ';
     else if (hasEleveAllege) risque = 'ÉLEVÉ_ALLÉGÉ';
+    else if (hasModere) risque = 'MODÉRÉ';
 
     return {
         risque,
@@ -3365,31 +3559,54 @@ function addZone() {
     const epaisseur = parseFloat(document.getElementById('zone-epaisseur')?.value) || 0;
     const friabilite = materiauInput?.dataset.friabilite || 'non_friable';
 
-    // Valider qu'il y a au moins une surface valide
-    const validSurfaces = state.currentSurfaces.filter(s => s.longueur > 0 && s.hauteur > 0);
-    
-    if (!nom || !categorie || !materiauId || validSurfaces.length === 0 || epaisseur <= 0) {
-        alert('Veuillez remplir tous les champs et ajouter au moins une surface.');
-        return;
+    let surfaceTotal, volumeTotal, surfaces;
+
+    if (surfaceInputMode === 'direct') {
+        // Mode direct: lire la superficie totale
+        surfaceTotal = parseFloat(document.getElementById('surface-directe')?.value) || 0;
+        volumeTotal = surfaceTotal * (epaisseur / 12);
+
+        if (!nom || !categorie || !materiauId || surfaceTotal <= 0 || epaisseur <= 0) {
+            alert('Veuillez remplir tous les champs et entrer une superficie.');
+            return;
+        }
+
+        // Creer une surface unique representant le total
+        surfaces = [{
+            id: Date.now(),
+            nom: 'Surface 1',
+            longueur: surfaceTotal,
+            hauteur: 1,
+            surface: surfaceTotal,
+            volume: volumeTotal,
+            photo: null
+        }];
+    } else {
+        // Mode detaille: L x H par surface
+        const validSurfaces = state.currentSurfaces.filter(s => s.longueur > 0 && s.hauteur > 0);
+
+        if (!nom || !categorie || !materiauId || validSurfaces.length === 0 || epaisseur <= 0) {
+            alert('Veuillez remplir tous les champs et ajouter au moins une surface.');
+            return;
+        }
+
+        surfaceTotal = validSurfaces.reduce((sum, s) => sum + (s.longueur * s.hauteur), 0);
+        volumeTotal = validSurfaces.reduce((sum, s) => sum + (s.longueur * s.hauteur * (epaisseur / 12)), 0);
+
+        surfaces = validSurfaces.map((s, index) => ({
+            id: s.id,
+            nom: `Surface ${index + 1}`,
+            longueur: s.longueur,
+            hauteur: s.hauteur,
+            surface: s.longueur * s.hauteur,
+            volume: s.longueur * s.hauteur * (epaisseur / 12),
+            photo: s.photo ? { name: s.photo.name, dataUrl: s.photo.dataUrl } : null
+        }));
     }
 
-    // Calculer les totaux
-    const surfaceTotal = validSurfaces.reduce((sum, s) => sum + (s.longueur * s.hauteur), 0);
-    const volumeTotal = validSurfaces.reduce((sum, s) => sum + (s.longueur * s.hauteur * (epaisseur / 12)), 0);
     const risque = determineRisque(volumeTotal, friabilite);
 
-    // Préparer les surfaces avec leurs calculs finaux
-    const surfaces = validSurfaces.map((s, index) => ({
-        id: s.id,
-        nom: `Surface ${index + 1}`,
-        longueur: s.longueur,
-        hauteur: s.hauteur,
-        surface: s.longueur * s.hauteur,
-        volume: s.longueur * s.hauteur * (epaisseur / 12),
-        photo: s.photo ? { name: s.photo.name, dataUrl: s.photo.dataUrl } : null
-    }));
-
-    // Créer l'objet zone avec la nouvelle structure multi-surfaces
+    // Creer l'objet zone avec la nouvelle structure multi-surfaces
     const zonePhoto = getZonePhoto();
     const zoneData = {
         nom,
@@ -3399,12 +3616,11 @@ function addZone() {
         friabilite,
         friabiliteOverride: materiauInput?.dataset.friabiliteOverride === 'true',
         epaisseur,
-        surfaces, // Nouveau: tableau de surfaces
+        surfaces,
         surfaceTotal,
         volumeTotal,
         risque,
         photo: zonePhoto ? { name: zonePhoto.name, dataUrl: zonePhoto.dataUrl } : null,
-        // Compatibilité avec l'ancien système (pour les calculs de prix)
         surface: surfaceTotal,
         volume: volumeTotal
     };
@@ -3909,9 +4125,11 @@ async function loadConfig() {
             marge_profit: 20,
             prix_demo_palier1: 8,
             prix_demo_palier2: 6.5,
-            prix_demo_palier3: 3,
+            prix_demo_palier3: 4.5,
             transport_0_50km: 55,
             transport_50_100km: 75,
+            transport_100km_plus: 75,
+            nb_employes_equipe: 3,
             zone1_modere: 736,
             zone_supp_modere: 368,
             zone1_eleve: 1472,
@@ -3922,9 +4140,14 @@ async function loadConfig() {
             test_zone_supp: 400,
             perte_temps_heures_par_jour: 2,
             ventilateur_par_jour: 70,
-            disposition_par_1000pi2: 400,
+            disposition_par_1000pi2: 600,
             assurance_petit: 250,
-            assurance_grand: 500
+            assurance_grand: 500,
+            seuil_demo_palier1: 500,
+            seuil_demo_palier2: 1500,
+            seuil_transport_palier1: 50,
+            seuil_transport_palier2: 100,
+            seuil_assurance: 500
         };
     }
 }
@@ -3958,9 +4181,61 @@ function setupStep4Events() {
         recalculerDouches();
     });
 
+    // Air test +/- buttons
+    document.getElementById('btn-test-air-plus')?.addEventListener('click', () => {
+        const countEl = document.getElementById('test-air-count');
+        const current = parseInt(countEl?.textContent || '0');
+        if (current >= 10) return;
+        state.testAirCount = current + 1;
+        if (countEl) countEl.textContent = state.testAirCount;
+        recalculerTestsAir();
+    });
+
+    document.getElementById('btn-test-air-minus')?.addEventListener('click', () => {
+        const countEl = document.getElementById('test-air-count');
+        const current = parseInt(countEl?.textContent || '0');
+        state.testAirCount = Math.max(0, current - 1);
+        if (countEl) countEl.textContent = state.testAirCount;
+        recalculerTestsAir();
+    });
+
+    // Ventilateur HEPA +/- buttons
+    document.getElementById('btn-ventilateur-plus')?.addEventListener('click', () => {
+        const countEl = document.getElementById('ventilateur-count');
+        const current = parseInt(countEl?.textContent || '1');
+        state.ventilateurCount = current + 1;
+        if (countEl) countEl.textContent = state.ventilateurCount;
+        recalculerVentilateurs();
+    });
+
+    document.getElementById('btn-ventilateur-minus')?.addEventListener('click', () => {
+        const countEl = document.getElementById('ventilateur-count');
+        const current = parseInt(countEl?.textContent || '1');
+        state.ventilateurCount = Math.max(1, current - 1);
+        if (countEl) countEl.textContent = state.ventilateurCount;
+        recalculerVentilateurs();
+    });
+
+    // Transport +/- buttons
+    document.getElementById('btn-transport-plus')?.addEventListener('click', () => {
+        const countEl = document.getElementById('transport-count');
+        const current = parseInt(countEl?.textContent || '1');
+        state.transportCount = current + 1;
+        if (countEl) countEl.textContent = state.transportCount;
+        recalculerTransport();
+    });
+
+    document.getElementById('btn-transport-minus')?.addEventListener('click', () => {
+        const countEl = document.getElementById('transport-count');
+        const current = parseInt(countEl?.textContent || '1');
+        state.transportCount = Math.max(1, current - 1);
+        if (countEl) countEl.textContent = state.transportCount;
+        recalculerTransport();
+    });
+
     // Toggle risque global override
     document.getElementById('recap-risque-global')?.addEventListener('click', () => {
-        const cycle = [null, 'MODÉRÉ', 'ÉLEVÉ_ALLÉGÉ', 'ÉLEVÉ'];
+        const cycle = [null, 'FAIBLE', 'MODÉRÉ', 'ÉLEVÉ_ALLÉGÉ', 'ÉLEVÉ'];
         const currentIndex = cycle.indexOf(state.risqueGlobalOverride || null);
         const nextIndex = (currentIndex + 1) % cycle.length;
         state.risqueGlobalOverride = cycle[nextIndex];
@@ -3981,6 +4256,10 @@ function setupStep4Events() {
 function recalculerDouches() {
     const config = state.config;
     const count = state.doucheCount ?? 1;
+
+    // Facteur d'ajustement du taux horaire (meme logique que calculatePrix)
+    const tauxHoraire = config.taux_horaire || 92;
+    const facteurTaux = tauxHoraire / TAUX_HORAIRE_BASELINE;
 
     let prixDouches = 0;
     if (count > 0) {
@@ -4003,6 +4282,53 @@ function recalculerDouches() {
     recalculerTotaux();
 }
 
+function recalculerTestsAir() {
+    const config = state.config;
+    const count = state.testAirCount ?? 1;
+    let prixTests = 0;
+    if (count > 0) {
+        prixTests = (config.test_zone1 || 600);
+        if (count > 1) {
+            prixTests += (count - 1) * (config.test_zone_supp || 400);
+        }
+    }
+    const testsInput = document.getElementById('prix-tests');
+    if (testsInput) testsInput.value = formatInputValue(prixTests);
+    state.prix.tests = prixTests;
+    recalculerTotaux();
+}
+
+function recalculerVentilateurs() {
+    const config = state.config;
+    const nbZones = Math.max(1, (state.zones || []).length);
+    const count = state.ventilateurCount ?? nbZones;
+    const ventParJour = config.ventilateur_par_jour || 70;
+    // Utiliser les jours du projet stockes dans transportDetails
+    const nbJours = state.prix.transportDetails?.jours || 1;
+    const prixVent = count * nbJours * ventParJour;
+    const ventInput = document.getElementById('prix-ventilateur');
+    if (ventInput) ventInput.value = formatInputValue(prixVent);
+    state.prix.ventilateur = prixVent;
+    recalculerTotaux();
+}
+
+function recalculerTransport() {
+    const count = state.transportCount;
+    if (count == null || !state.prix.transportDetails) return;
+    const tarifJour = state.prix.transportDetails.tarifJour || 55;
+    const prixTransport = count * tarifJour;
+    const transportInput = document.getElementById('prix-transport');
+    if (transportInput) transportInput.value = formatInputValue(prixTransport);
+    state.prix.transport = prixTransport;
+    // Mettre a jour l'explication
+    const distance = state.prix.transportDetails.distance || 0;
+    const distanceInfo = distance ? ` (${distance} km)` : '';
+    const explication = `${count} jour${count > 1 ? 's' : ''} \u00d7 ${tarifJour}$/jour${distanceInfo}`;
+    const explEl = document.getElementById('transport-explication');
+    if (explEl) explEl.textContent = explication;
+    recalculerTotaux();
+}
+
 function calculatePrix() {
     const config = state.config;
     const zones = state.zones;
@@ -4013,6 +4339,12 @@ function calculatePrix() {
     // Si override manuel du risque global, utiliser l'override
     state.risqueGlobal = state.risqueGlobalOverride || projetRisque.risque;
 
+    // Facteur d'ajustement du taux horaire
+    // Les prix de base (demo, zones, douches, tests) sont calibrés sur 92$/h.
+    // Si le taux horaire change, on ajuste proportionnellement ces prix.
+    const tauxHoraire = config.taux_horaire || 92;
+    const facteurTaux = tauxHoraire / TAUX_HORAIRE_BASELINE;
+
     // Séparer zones par risque pour le calcul des frais de zones
     const zonesModere = zones.filter(z => z.risque === 'MODÉRÉ');
     const zonesEleveAllege = zones.filter(z => z.risque === 'ÉLEVÉ_ALLÉGÉ');
@@ -4021,42 +4353,46 @@ function calculatePrix() {
     // Surface totale (compatible ancien et nouveau format)
     const surfaceTotal = zones.reduce((sum, z) => sum + (z.surface || z.surfaceTotal || 0), 0);
 
-    // 1. Coûts des zones
+    // 1. Coûts des zones (ajustés selon le taux horaire)
     let prixZones = 0;
 
     // Zones modérées + élevé allégé (même coût de zone)
     const zonesModereEtAllege = [...zonesModere, ...zonesEleveAllege];
     if (zonesModereEtAllege.length > 0) {
-        prixZones += config.zone1_modere || 736;
+        prixZones += (config.zone1_modere || 736) * facteurTaux;
         if (zonesModereEtAllege.length > 1) {
-            prixZones += (zonesModereEtAllege.length - 1) * (config.zone_supp_modere || 368);
+            prixZones += (zonesModereEtAllege.length - 1) * (config.zone_supp_modere || 368) * facteurTaux;
         }
     }
 
     // Zones élevées
     if (zonesEleve.length > 0) {
-        prixZones += config.zone1_eleve || 1472;
+        prixZones += (config.zone1_eleve || 1472) * facteurTaux;
         if (zonesEleve.length > 1) {
-            prixZones += (zonesEleve.length - 1) * (config.zone_supp_eleve || 736);
+            prixZones += (zonesEleve.length - 1) * (config.zone_supp_eleve || 736) * facteurTaux;
         }
     }
 
-    // 2. Prix démolition (selon surface totale)
-    // NOTE: Le tarif de démolition au pi² reste le MÊME quel que soit le risque
+    // 2. Prix démolition (selon surface totale, ajusté selon le taux horaire)
+    // NOTE: Le tarif de démolition au pi2 reste le MEME quel que soit le risque
+    const seuilDemo1 = config.seuil_demo_palier1 || 500;
+    const seuilDemo2 = config.seuil_demo_palier2 || 1500;
+    const plageDemo2 = seuilDemo2 - seuilDemo1;
     let prixDemo = 0;
-    if (surfaceTotal <= 500) {
-        prixDemo = surfaceTotal * (config.prix_demo_palier1 || 8);
-    } else if (surfaceTotal <= 1500) {
-        prixDemo = 500 * (config.prix_demo_palier1 || 8);
-        prixDemo += (surfaceTotal - 500) * (config.prix_demo_palier2 || 6.5);
+    if (surfaceTotal <= seuilDemo1) {
+        prixDemo = surfaceTotal * (config.prix_demo_palier1 || 8) * facteurTaux;
+    } else if (surfaceTotal <= seuilDemo2) {
+        prixDemo = seuilDemo1 * (config.prix_demo_palier1 || 8) * facteurTaux;
+        prixDemo += (surfaceTotal - seuilDemo1) * (config.prix_demo_palier2 || 6.5) * facteurTaux;
     } else {
-        prixDemo = 500 * (config.prix_demo_palier1 || 8);
-        prixDemo += 1000 * (config.prix_demo_palier2 || 6.5);
-        prixDemo += (surfaceTotal - 1500) * (config.prix_demo_palier3 || 3);
+        prixDemo = seuilDemo1 * (config.prix_demo_palier1 || 8) * facteurTaux;
+        prixDemo += plageDemo2 * (config.prix_demo_palier2 || 6.5) * facteurTaux;
+        prixDemo += (surfaceTotal - seuilDemo2) * (config.prix_demo_palier3 || 4.5) * facteurTaux;
     }
 
-    // 3. Frais GLOBAUX risque élevé (s'appliquent UNE SEULE FOIS au projet)
-    // - Douches, tests, perte de temps: seulement pour ÉLEVÉ (pas ÉLEVÉ_ALLÉGÉ)
+    // 3. Frais GLOBAUX selon le niveau de risque
+    // - Tests d'air: ÉLEVÉ_ALLÉGÉ et ÉLEVÉ (1 test par projet, ajustable manuellement)
+    // - Douches, perte de temps: seulement ÉLEVÉ
     let prixDouches = 0;
     let prixTests = 0;
     let prixPerteTemps = 0;
@@ -4065,22 +4401,29 @@ function calculatePrix() {
     const hasEleveEffectif = risqueEffectif === 'ÉLEVÉ' || (projetRisque.hasZoneElevee && !state.risqueGlobalOverride);
     const hasEleveAllegeEffectif = risqueEffectif === 'ÉLEVÉ_ALLÉGÉ' || risqueEffectif === 'ÉLEVÉ';
 
+    // Tests d'air: requis des ÉLEVÉ_ALLÉGÉ (1 par projet, ajustable)
+    if (hasEleveAllegeEffectif) {
+        const testAirCount = state.testAirCount ?? 1;
+        if (testAirCount > 0) {
+            prixTests = (config.test_zone1 || 600);
+            if (testAirCount > 1) {
+                prixTests += (testAirCount - 1) * (config.test_zone_supp || 400);
+            }
+        }
+    }
+
+    // Douches + perte de temps: seulement ÉLEVÉ (rouge)
     if (hasEleveEffectif) {
-        // Douches: use manual count if set, otherwise default to 1
         const doucheCount = state.doucheCount ?? 1;
         if (doucheCount > 0) {
-            prixDouches = config.douche_zone1 || 800;
+            prixDouches = (config.douche_zone1 || 800);
             if (doucheCount > 1) {
                 prixDouches += (doucheCount - 1) * (config.douche_zone_supp || 600);
             }
         }
 
-        // Tests d'air (frais global unique: entrée + sortie = 2 tests)
-        prixTests = (config.test_zone1 || 600) * 2;
-
-        // Perte de temps (basée sur le prix de démolition)
-        // heures = prix_demo / 92, jours = ceil(heures/8), perte = jours × 2h × 92$
-        const tauxHoraire = config.taux_horaire || 92;
+        // Perte de temps (basee sur le prix de demolition)
+        // heures = prix_demo / taux_horaire, jours = ceil(heures/8), perte = jours x 2h x taux_horaire
         const heuresPerteParJour = config.perte_temps_heures_par_jour || 2;
         const heuresTotales = prixDemo / tauxHoraire;
         const joursHommes = Math.ceil(heuresTotales / 8);
@@ -4088,23 +4431,25 @@ function calculatePrix() {
     }
 
     // 4. Transport (dynamique selon durée du projet)
-    // Formule: (heures totales ÷ 3 gars ÷ 8h/jour) × 75$/jour
-    const tauxHoraireTransport = config.taux_horaire || 92;
-    const heuresTotalesProjet = prixDemo / tauxHoraireTransport;
+    // Formule: (heures totales / 3 gars / 8h/jour) x tarif$/jour
+    const heuresTotalesProjet = prixDemo / tauxHoraire;
     const nbEmployesEquipe = config.nb_employes_equipe || 3;
     const nbJoursProjet = Math.max(1, Math.ceil(heuresTotalesProjet / nbEmployesEquipe / 8)); // minimum 1 jour
-    // Tarif transport selon la distance
+    // Tarif transport selon la distance (seuils configurables)
+    const seuilTransport1 = config.seuil_transport_palier1 || 50;
+    const seuilTransport2 = config.seuil_transport_palier2 || 100;
     let transportParJour;
-    if (distance > 100) {
+    if (distance > seuilTransport2) {
         transportParJour = config.transport_100km_plus || 75;
-    } else if (distance > 50) {
+    } else if (distance > seuilTransport1) {
         transportParJour = config.transport_50_100km || 75;
     } else {
         transportParJour = config.transport_0_50km || 55;
     }
-    let prixTransport = nbJoursProjet * transportParJour;
+    const transportJoursEffectifs = state.transportCount ?? nbJoursProjet;
+    let prixTransport = transportJoursEffectifs * transportParJour;
 
-    // Stocker les détails pour affichage
+    // Stocker les details pour affichage
     const transportDetails = {
         heures: Math.round(heuresTotalesProjet),
         jours: nbJoursProjet,
@@ -4113,29 +4458,30 @@ function calculatePrix() {
         distance: distance
     };
 
-    // 4b. Ventilateur HEPA (pour élevé allégé ET élevé)
-    let prixVentilateur = 0;
-    if (hasEleveAllegeEffectif) {
-        const ventParJour = config.ventilateur_par_jour || 70;
-        prixVentilateur = nbJoursProjet * ventParJour;
-    }
+    // 4b. Ventilateur HEPA (requis pour TOUS les niveaux de risque)
+    // Par defaut: 1 ventilateur par zone. Ajustable manuellement.
+    const ventParJour = config.ventilateur_par_jour || 70;
+    const nbZones = Math.max(1, zones.length);
+    const ventilateurCount = state.ventilateurCount ?? nbZones;
+    let prixVentilateur = ventilateurCount * nbJoursProjet * ventParJour;
 
     // 5. Disposition (par 1000 pi², minimum 400$)
     let prixDisposition = Math.ceil(surfaceTotal / 1000) * (config.disposition_par_1000pi2 || 400);
     prixDisposition = Math.max(prixDisposition, config.disposition_par_1000pi2 || 400);
 
-    // 6. Assurance
+    // 6. Assurance (seuil configurable)
+    const seuilAssurance = config.seuil_assurance || 500;
     let prixAssurance = 0;
-    if (surfaceTotal <= 500) {
+    if (surfaceTotal <= seuilAssurance) {
         prixAssurance = config.assurance_petit || 250;
     } else {
         prixAssurance = config.assurance_grand || 500;
     }
 
-    // Sous-total
+    // Sous-total (coûts calculés par le logiciel seulement)
     const sousTotal = prixZones + prixDemo + prixDouches + prixTests + prixPerteTemps + prixVentilateur + prixTransport + prixDisposition + prixAssurance;
 
-    // Marge de profit
+    // Marge de profit (appliquée sur les coûts, PAS sur les extras)
     // Handle both formats: 20 (percentage) or 0.2 (decimal)
     let margePourcent = config.marge_profit || 20;
     if (margePourcent < 1) {
@@ -4144,8 +4490,11 @@ function calculatePrix() {
     }
     const marge = sousTotal * (margePourcent / 100);
 
-    // Total
-    const total = sousTotal + marge;
+    // Extras: prix fixes saisis manuellement, ajoutés après la marge
+    const customTotal = getCustomLinesTotal();
+
+    // Total = sous-total + marge + extras
+    const total = sousTotal + marge + customTotal;
 
     // Sauvegarder dans state
     state.prix = {
@@ -4166,14 +4515,27 @@ function calculatePrix() {
         margePourcent: margePourcent
     };
 
-    console.log('💰 Prix calculés:', state.prix);
+    console.log('💰 Prix calculés (facteur taux horaire:', facteurTaux.toFixed(4), '):', state.prix);
     return state.prix;
 }
 
 function renderRecap() {
     // Client info
     document.getElementById('recap-client-nom').textContent = state.client.nom || '—';
-    document.getElementById('recap-client-contact').textContent = `${state.client.telephone} • ${state.client.courriel}`;
+    // Handle optional phone/email gracefully
+    const tel = state.client.telephone ? formatPhoneNumber(state.client.telephone) : '';
+    const email = state.client.courriel;
+    let contactText = '';
+    if (tel && email) {
+        contactText = `${tel} \u2022 ${email}`;
+    } else if (tel) {
+        contactText = tel;
+    } else if (email) {
+        contactText = email;
+    } else {
+        contactText = 'Non renseign\u00e9';
+    }
+    document.getElementById('recap-client-contact').textContent = contactText;
     document.getElementById('recap-client-adresse').textContent = state.client.adresseChantier || '—';
     document.getElementById('recap-client-distance').textContent = state.client.distanceKm || 0;
 
@@ -4187,9 +4549,11 @@ function renderRecap() {
     state.zones.forEach(zone => {
         const isEleve = zone.risque === 'ÉLEVÉ';
         const isAllege = zone.risque === 'ÉLEVÉ_ALLÉGÉ';
+        const isFaible = zone.risque === 'FAIBLE';
         let riskClass;
         if (isEleve) riskClass = 'bg-red-100 text-red-600';
         else if (isAllege) riskClass = 'bg-orange-100 text-orange-600';
+        else if (isFaible) riskClass = 'bg-green-100 text-green-600';
         else riskClass = 'bg-amber-100 text-amber-600';
         
         // Nombre de surfaces et de photos
@@ -4224,22 +4588,29 @@ function renderRecap() {
         risqueEl.className = `inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase bg-red-100 text-red-600 ${cursorClass}`;
         document.getElementById('recap-warning-eleve')?.classList.remove('hidden');
         document.getElementById('recap-warning-eleve-allege')?.classList.add('hidden');
+        document.getElementById('prix-tests-air-section')?.classList.remove('hidden');
         document.getElementById('prix-risque-eleve-section')?.classList.remove('hidden');
-        document.getElementById('prix-risque-eleve-allege-section')?.classList.add('hidden');
     } else if (state.risqueGlobal === 'ÉLEVÉ_ALLÉGÉ') {
         risqueEl.textContent = 'ÉLEVÉ ALLÉGÉ';
         risqueEl.className = `inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase bg-orange-100 text-orange-600 ${cursorClass}`;
         document.getElementById('recap-warning-eleve')?.classList.add('hidden');
         document.getElementById('recap-warning-eleve-allege')?.classList.remove('hidden');
+        document.getElementById('prix-tests-air-section')?.classList.remove('hidden');
         document.getElementById('prix-risque-eleve-section')?.classList.add('hidden');
-        document.getElementById('prix-risque-eleve-allege-section')?.classList.remove('hidden');
+    } else if (state.risqueGlobal === 'FAIBLE') {
+        risqueEl.textContent = 'FAIBLE';
+        risqueEl.className = `inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase bg-green-100 text-green-600 ${cursorClass}`;
+        document.getElementById('recap-warning-eleve')?.classList.add('hidden');
+        document.getElementById('recap-warning-eleve-allege')?.classList.add('hidden');
+        document.getElementById('prix-tests-air-section')?.classList.add('hidden');
+        document.getElementById('prix-risque-eleve-section')?.classList.add('hidden');
     } else {
         risqueEl.textContent = 'MODÉRÉ';
         risqueEl.className = `inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase bg-amber-100 text-amber-600 ${cursorClass}`;
         document.getElementById('recap-warning-eleve')?.classList.add('hidden');
         document.getElementById('recap-warning-eleve-allege')?.classList.add('hidden');
+        document.getElementById('prix-tests-air-section')?.classList.add('hidden');
         document.getElementById('prix-risque-eleve-section')?.classList.add('hidden');
-        document.getElementById('prix-risque-eleve-allege-section')?.classList.add('hidden');
     }
 
     // Mode indicator (Automatique / Manuel)
@@ -4266,25 +4637,31 @@ function renderRecap() {
         doucheCountEl.textContent = state.doucheCount ?? 1;
     }
     document.getElementById('prix-tests').value = formatInputValue(state.prix.tests || 0);
+    const testAirCountEl = document.getElementById('test-air-count');
+    if (testAirCountEl) {
+        testAirCountEl.textContent = state.testAirCount ?? 1;
+    }
     document.getElementById('prix-perte-temps').value = formatInputValue(state.prix.perteTemps || 0);
 
-    // Ventilateur HEPA values - populate the correct input based on risk level
-    const ventValue = formatInputValue(state.prix.ventilateur || 0);
-    const ventAllegeInput = document.getElementById('prix-ventilateur-allege');
-    const ventEleveInput = document.getElementById('prix-ventilateur-eleve');
-    if (ventAllegeInput) ventAllegeInput.value = ventValue;
-    if (ventEleveInput) ventEleveInput.value = ventValue;
+    // Ventilateur HEPA (toujours visible, tous niveaux de risque)
+    // Par defaut: 1 par zone
+    const ventInput = document.getElementById('prix-ventilateur');
+    if (ventInput) ventInput.value = formatInputValue(state.prix.ventilateur || 0);
+    const nbZonesVent = Math.max(1, (state.zones || []).length);
+    const ventCountEl = document.getElementById('ventilateur-count');
+    if (ventCountEl) ventCountEl.textContent = state.ventilateurCount ?? nbZonesVent;
 
     document.getElementById('prix-transport').value = formatInputValue(state.prix.transport || 0);
 
     // Afficher les détails du calcul transport
     if (state.prix.transportDetails) {
         const td = state.prix.transportDetails;
-
-        // Explication simple et lisible
+        const transportJours = state.transportCount ?? td.jours;
         const distanceInfo = td.distance ? ` (${td.distance} km)` : '';
-        const explication = `${td.jours} jour${td.jours > 1 ? 's' : ''} × ${td.tarifJour}$/jour${distanceInfo}`;
+        const explication = `${transportJours} jour${transportJours > 1 ? 's' : ''} \u00d7 ${td.tarifJour}$/jour${distanceInfo}`;
         document.getElementById('transport-explication').textContent = explication;
+        const transportCountEl = document.getElementById('transport-count');
+        if (transportCountEl) transportCountEl.textContent = transportJours;
     }
 
     document.getElementById('prix-disposition').value = formatInputValue(state.prix.disposition || 0);
@@ -4294,8 +4671,136 @@ function renderRecap() {
     document.getElementById('prix-marge').textContent = formatCurrency(state.prix.marge);
     document.getElementById('prix-total').value = formatInputValue(state.prix.total || 0);
 
+    // Lignes personnalisees
+    renderCustomLines();
+
     // Setup event listeners for editable inputs (only once)
     setupPrixInputListeners();
+}
+
+// =====================================================
+// LIGNES DE COUTS PERSONNALISEES
+// =====================================================
+
+let customLinesSetup = false;
+
+function renderCustomLines() {
+    const container = document.getElementById('custom-lines-list');
+    if (!container) return;
+
+    // Show/hide empty placeholder
+    const emptyMsg = document.getElementById('custom-lines-empty');
+    if (emptyMsg) {
+        emptyMsg.classList.toggle('hidden', state.customLines.length > 0);
+    }
+
+    container.innerHTML = state.customLines.map((line) => `
+        <div class="bg-amber-50/50 rounded-xl p-3 border border-amber-200/60" data-custom-line-id="${line.id}">
+            <div class="flex items-center gap-2 mb-2">
+                <input type="text" class="custom-line-desc flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:border-primary focus:outline-none placeholder:text-slate-300"
+                    placeholder="Description (ex: Peinture, Gypse...)" value="${line.description}" data-line-id="${line.id}" data-field="description">
+                <button type="button" class="btn-toggle-pdf-visibility w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${line.showInPdf ? 'text-primary bg-primary/10 hover:bg-primary/20' : 'text-slate-400 bg-slate-100 hover:bg-slate-200'}"
+                    data-line-id="${line.id}" title="${line.showInPdf ? 'Prix visible sur le PDF client' : 'Prix masqu\u00e9 sur le PDF client'}">
+                    <span class="material-symbols-outlined text-lg">${line.showInPdf ? 'visibility' : 'visibility_off'}</span>
+                </button>
+                <button type="button" class="btn-remove-custom-line w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-400 hover:text-red-600 transition-colors" data-line-id="${line.id}">
+                    <span class="material-symbols-outlined text-lg">delete</span>
+                </button>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1.5">
+                    <label class="text-xs text-slate-400">Qté</label>
+                    <input type="number" class="custom-line-qty w-16 px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-center text-slate-800 focus:border-primary focus:outline-none"
+                        min="1" value="${line.quantite}" data-line-id="${line.id}" data-field="quantite">
+                    <span class="text-slate-300">\u00d7</span>
+                </div>
+                <div class="flex items-center gap-1.5 flex-1">
+                    <label class="text-xs text-slate-400">Prix</label>
+                    <input type="text" class="custom-line-prix flex-1 px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-right text-slate-800 focus:border-primary focus:outline-none placeholder:text-slate-300"
+                        value="${line.prixUnitaire ? formatInputValue(line.prixUnitaire) : ''}" placeholder="0,00" inputmode="decimal" data-line-id="${line.id}" data-field="prixUnitaire">
+                    <span class="text-xs text-slate-400">$</span>
+                </div>
+                <div class="text-right min-w-[80px] pl-2 border-l border-slate-200">
+                    <span class="text-sm font-bold text-slate-800">${line.prixUnitaire ? formatInputValue(line.quantite * line.prixUnitaire) + ' $' : '—'}</span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    if (!customLinesSetup) {
+        setupCustomLinesEvents();
+        customLinesSetup = true;
+    }
+}
+
+function setupCustomLinesEvents() {
+    // Add button
+    document.getElementById('btn-add-custom-line')?.addEventListener('click', () => {
+        state.customLines.push({
+            id: Date.now(),
+            description: '',
+            quantite: 1,
+            prixUnitaire: 0,
+            showInPdf: true
+        });
+        renderCustomLines();
+    });
+
+    // Event delegation on the container
+    const container = document.getElementById('custom-lines-list');
+    if (!container) return;
+
+    container.addEventListener('click', (e) => {
+        const removeBtn = e.target.closest('.btn-remove-custom-line');
+        if (removeBtn) {
+            const lineId = parseFloat(removeBtn.dataset.lineId);
+            state.customLines = state.customLines.filter(l => l.id !== lineId);
+            renderCustomLines();
+            recalculerTotaux();
+            return;
+        }
+
+        const toggleBtn = e.target.closest('.btn-toggle-pdf-visibility');
+        if (toggleBtn) {
+            const lineId = parseFloat(toggleBtn.dataset.lineId);
+            const line = state.customLines.find(l => l.id === lineId);
+            if (line) {
+                line.showInPdf = !line.showInPdf;
+                renderCustomLines();
+            }
+        }
+    });
+
+    container.addEventListener('input', (e) => {
+        const input = e.target;
+        const lineId = parseFloat(input.dataset.lineId);
+        const field = input.dataset.field;
+        if (!lineId || !field) return;
+
+        const line = state.customLines.find(l => l.id === lineId);
+        if (!line) return;
+
+        if (field === 'description') {
+            line.description = input.value;
+        } else if (field === 'quantite') {
+            line.quantite = Math.max(1, parseInt(input.value) || 1);
+        } else if (field === 'prixUnitaire') {
+            line.prixUnitaire = parseFormattedValue(input.value);
+        }
+
+        // Update total display for this line
+        const lineEl = input.closest('[data-custom-line-id]');
+        const totalSpan = lineEl?.querySelector('.font-bold.text-slate-800');
+        if (totalSpan) {
+            totalSpan.textContent = `${formatInputValue(line.quantite * line.prixUnitaire)} $`;
+        }
+
+        recalculerTotaux();
+    });
+}
+
+function getCustomLinesTotal() {
+    return state.customLines.reduce((sum, line) => sum + (line.quantite * line.prixUnitaire), 0);
 }
 
 // =====================================================
@@ -4311,9 +4816,8 @@ function setupPrixInputListeners() {
 
     // All editable price inputs
     const prixInputIds = [
-        'prix-zones', 'prix-demolition', 'prix-douches', 'prix-tests',
-        'prix-perte-temps', 'prix-ventilateur-allege', 'prix-ventilateur-eleve',
-        'prix-transport', 'prix-disposition', 'prix-assurance'
+        'prix-zones', 'prix-demolition', 'prix-ventilateur', 'prix-douches', 'prix-tests',
+        'prix-perte-temps', 'prix-transport', 'prix-disposition', 'prix-assurance'
     ];
 
     // Add listeners to recalculate when any price changes
@@ -4350,10 +4854,7 @@ function recalculerTotaux() {
     const douches = parseFormattedValue(document.getElementById('prix-douches')?.value);
     const tests = parseFormattedValue(document.getElementById('prix-tests')?.value);
     const perteTemps = parseFormattedValue(document.getElementById('prix-perte-temps')?.value);
-    // Ventilateur: read from whichever input is visible (allégé or élevé)
-    const ventAllege = parseFormattedValue(document.getElementById('prix-ventilateur-allege')?.value);
-    const ventEleve = parseFormattedValue(document.getElementById('prix-ventilateur-eleve')?.value);
-    const ventilateur = Math.max(ventAllege, ventEleve); // Use whichever is non-zero
+    const ventilateur = parseFormattedValue(document.getElementById('prix-ventilateur')?.value);
     const transport = parseFormattedValue(document.getElementById('prix-transport')?.value);
     const disposition = parseFormattedValue(document.getElementById('prix-disposition')?.value);
     const assurance = parseFormattedValue(document.getElementById('prix-assurance')?.value);
@@ -4361,14 +4862,17 @@ function recalculerTotaux() {
     const margeValue = document.getElementById('marge-percent')?.value;
     const margePourcent = margeValue !== '' && !isNaN(parseFloat(margeValue)) ? parseFloat(margeValue) : 20;
 
-    // Calculate sous-total
+    // Calculate sous-total (coûts calculés seulement, sans extras)
     const sousTotal = zones + demolition + douches + tests + perteTemps + ventilateur + transport + disposition + assurance;
 
-    // Calculate marge
+    // Calculate marge (sur les coûts, PAS sur les extras)
     const marge = sousTotal * (margePourcent / 100);
 
-    // Calculate total
-    const total = sousTotal + marge;
+    // Extras: prix fixes ajoutés après la marge
+    const customTotal = getCustomLinesTotal();
+
+    // Total = sous-total + marge + extras
+    const total = sousTotal + marge + customTotal;
 
     // Update displays
     document.getElementById('prix-sous-total').textContent = formatCurrency(sousTotal);
@@ -4413,8 +4917,11 @@ function onTotalDirectEdit() {
 
     const sousTotal = zones + demolition + douches + tests + perteTemps + ventilateur + transport + disposition + assurance;
 
-    // Calculate implied marge
-    const marge = newTotal - sousTotal;
+    // Extras: prix fixes, pas affectés par la marge
+    const customTotal = getCustomLinesTotal();
+
+    // Calculate implied marge (total - extras - sous-total)
+    const marge = newTotal - customTotal - sousTotal;
     const margePourcent = sousTotal > 0 ? (marge / sousTotal) * 100 : 0;
 
     // Update marge display
@@ -4436,11 +4943,8 @@ function onTotalDirectEdit() {
 function goToStep(step) {
     console.log(`Navigation vers étape ${step}`);
 
-    // Hide all steps (including sub-steps like 2a, 2b, 5a, 5b, 5c, etc.)
+    // Hide all steps (including sub-steps like 5a, 5b, 5c, etc.)
     document.querySelectorAll('.step-content').forEach(el => {
-        el.classList.add('hidden');
-    });
-    document.querySelectorAll('[id^="step-2"]').forEach(el => {
         el.classList.add('hidden');
     });
     document.querySelectorAll('[id^="step-5"]').forEach(el => {
@@ -4458,9 +4962,9 @@ function goToStep(step) {
             document.getElementById('btn-back-mobile')?.classList.add('invisible');
         }
     } else if (step === 2) {
-        // Start at step 2a (first sub-step)
-        document.getElementById('step-2a').classList.remove('hidden');
-        // Focus the input
+        const step2El = document.getElementById('step-2');
+        if (step2El) step2El.classList.remove('hidden');
+        // Focus the first input
         setTimeout(() => document.getElementById('client-nom')?.focus(), 100);
         // Show mobile back button
         document.getElementById('btn-back-mobile')?.classList.remove('invisible');
@@ -4475,8 +4979,10 @@ function goToStep(step) {
         document.getElementById('btn-back-mobile')?.classList.remove('invisible');
     } else if (step === 4) {
         document.getElementById('step-4').classList.remove('hidden');
-        // Reset shower count so it auto-calculates fresh
+        // Reset counts so they auto-calculate fresh
         state.doucheCount = null;
+        state.testAirCount = null;
+        state.ventilateurCount = null;
         // Calculate prices and render recap
         calculatePrix();
         renderRecap();
@@ -4533,7 +5039,18 @@ function goToFinalStep(subStep) {
 
         if (nomInput) nomInput.value = state.client.nom || '';
         if (courrielInput) courrielInput.value = state.client.courriel || '';
-        if (telephoneInput) telephoneInput.value = state.client.telephone || '';
+        if (telephoneInput) {
+            telephoneInput.value = state.client.telephone ? formatPhoneNumber(state.client.telephone) : '';
+            // Auto-format phone in step 5b edit form (use oninput to avoid stacking listeners)
+            telephoneInput.oninput = (e) => {
+                const cursorPos = e.target.selectionStart;
+                const oldLen = e.target.value.length;
+                e.target.value = formatPhoneNumber(e.target.value);
+                const newLen = e.target.value.length;
+                const newPos = cursorPos + (newLen - oldLen);
+                e.target.setSelectionRange(newPos, newPos);
+            };
+        }
 
         // Reset signature
         clearSignature();
@@ -4546,7 +5063,7 @@ function goToFinalStep(subStep) {
 
         if (nom) state.client.nom = nom;
         if (courriel) state.client.courriel = courriel;
-        if (telephone) state.client.telephone = telephone;
+        if (telephone) state.client.telephone = formatPhoneNumber(telephone);
 
         // Update email send info
         document.getElementById('send-email-client-nom').textContent = state.client.nom || 'Client';
@@ -4572,10 +5089,7 @@ async function renderStep5Preview() {
         photosWarning.classList.toggle('hidden', !state.photosOmitted);
     }
 
-    // Generate soumission number (used by PDF generator)
-    if (!state.soumissionNumber) {
-        state.soumissionNumber = generateSoumissionNumber();
-    }
+    // Soumission number is manually entered by user - no auto-generation
 
     // Load config textes if needed
     if (!configTextes || Object.keys(configTextes).length === 0) {
@@ -4775,7 +5289,7 @@ function fillDevClientData() {
     const distanceInput = document.getElementById('client-distance');
 
     if (nomInput) nomInput.value = data.nom;
-    if (telInput) telInput.value = data.telephone;
+    if (telInput) telInput.value = formatPhoneNumber(data.telephone);
     if (emailInput) emailInput.value = data.courriel;
     if (adresseInput) adresseInput.value = data.adresseChantier;
     if (distanceInput) {
@@ -4842,9 +5356,6 @@ function devGoToStep(step) {
 
     // Cacher toutes les étapes (including sub-steps)
     document.querySelectorAll('.step-content').forEach(el => {
-        el.classList.add('hidden');
-    });
-    document.querySelectorAll('[id^="step-2"]').forEach(el => {
         el.classList.add('hidden');
     });
     document.querySelectorAll('[id^="step-5"]').forEach(el => {
@@ -4986,7 +5497,7 @@ function setupStep5Events() {
         goToFinalStep('5b');
     });
 
-    // Download PDF
+    // Download PDF (ZIP avec version client + detail Apex)
     document.getElementById('btn-download-pdf')?.addEventListener('click', async () => {
         await generateAndDownloadPDF();
     });
@@ -5216,27 +5727,11 @@ async function loadConfigTextes() {
         configTextes = {
             entreprise_nom: 'Apex Désamiantage',
             entreprise_adresse: '689 rue des Caryers, Québec, QC G3G 2B4',
-            numero_prefix: 'APEX-',
             texte_signature: 'Je, soussigné(e), reconnais avoir pris connaissance de la présente soumission et accepte les termes et conditions.',
             liste_inclusions: '["Installation zone hermétique","Retrait matériaux contaminés","Nettoyage HEPA","Disposition réglementaire"]',
             liste_exclusions: '["Reconstruction","Peinture","Électricité","Plomberie"]'
         };
     }
-}
-
-/**
- * Generate next soumission number
- */
-function generateSoumissionNumber() {
-    const prefix = configTextes.numero_prefix || 'APEX-';
-    const year = new Date().getFullYear();
-    
-    // Get next number from localStorage (simple increment)
-    let nextNum = parseInt(localStorage.getItem('apex_soumission_counter') || '0') + 1;
-    localStorage.setItem('apex_soumission_counter', nextNum.toString());
-    
-    // Format: APEX-2026-001
-    return `${prefix}${year}-${String(nextNum).padStart(3, '0')}`;
 }
 
 /**
@@ -5252,10 +5747,9 @@ function renderStep5() {
     });
     document.getElementById('pdf-date').textContent = dateStr;
 
-    // Generate soumission number
-    const soumissionNum = generateSoumissionNumber();
-    document.getElementById('pdf-numero-soumission').textContent = soumissionNum;
-    state.soumissionNumber = soumissionNum;
+    // Display manually entered soumission number
+    const pdfNumEl = document.getElementById('pdf-numero-soumission');
+    if (pdfNumEl) pdfNumEl.textContent = state.soumissionNumber || '';
 
     // Set signature text
     const texteSignature = configTextes.texte_signature ||
@@ -5376,7 +5870,7 @@ function getSelectedInclusionsExclusions() {
 }
 
 /**
- * Generate and download the PDF
+ * Generate both PDFs and download as a single ZIP file
  */
 async function generateAndDownloadPDF() {
     if (!hasSignature) {
@@ -5384,23 +5878,16 @@ async function generateAndDownloadPDF() {
         return;
     }
 
-    // Show loading
     const loadingEl = document.getElementById('pdf-loading');
     loadingEl?.classList.remove('hidden');
 
     try {
-        // Get options
         const includePhotos = document.getElementById('pdf-option-photos')?.checked ?? true;
         const includeLegalDocs = document.getElementById('pdf-option-legaux')?.checked ?? true;
-
-        // Get selected inclusions/exclusions
         const { inclusions, exclusions } = getSelectedInclusionsExclusions();
-
-        // Get signature
         const signatureDataUrl = getSignatureDataUrl();
 
-        // Generate PDF (using pdf-generator.js)
-        const pdfBlob = await generatePDF({
+        const pdfOptions = {
             state: state,
             configTextes: configTextes,
             signature: signatureDataUrl,
@@ -5411,19 +5898,31 @@ async function generateAndDownloadPDF() {
             exclusions: exclusions,
             soumissionNumber: state.soumissionNumber,
             date: new Date()
-        });
+        };
 
-        // Download
-        const fileName = `Soumission_${state.soumissionNumber}_${state.client.nom?.replace(/\s+/g, '_') || 'Client'}.pdf`;
-        downloadBlob(pdfBlob, fileName);
+        // Generer les deux PDF
+        const pdfClientBlob = await generatePDF({ ...pdfOptions, isDetailed: false });
+        const pdfDetailBlob = await generatePDF({ ...pdfOptions, isDetailed: true });
 
-        console.log('✅ PDF généré et téléchargé:', fileName);
+        const numLabel = state.soumissionNumber || 'sans-numero';
+        const fileNameClient = `Soumission_${numLabel}.pdf`;
+        const fileNameDetail = `Confidentiel - Soumission_${numLabel}_detail_Apex.pdf`;
+
+        // Creer le ZIP avec les deux PDF
+        const zip = new JSZip();
+        zip.file(fileNameClient, pdfClientBlob);
+        zip.file(fileNameDetail, pdfDetailBlob);
+
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const zipName = `Soumission_${numLabel}.zip`;
+        downloadBlob(zipBlob, zipName);
+
+        console.log('ZIP genere avec:', fileNameClient, fileNameDetail);
 
     } catch (err) {
         console.error('Erreur génération PDF:', err);
         alert('Erreur lors de la génération du PDF. Veuillez réessayer.');
     } finally {
-        // Hide loading
         loadingEl?.classList.add('hidden');
     }
 }
@@ -5506,9 +6005,9 @@ async function sendSoumissionEmail() {
             body: {
                 to: courriel,
                 clientName: state.client.nom || 'Client',
-                soumissionNumber: state.soumissionNumber,
+                soumissionNumber: state.soumissionNumber || '',
                 pdfBase64: pdfBase64,
-                fileName: `Soumission_${state.soumissionNumber}.pdf`
+                fileName: `Soumission_${state.soumissionNumber || 'sans-numero'}.pdf`
             }
         });
 
