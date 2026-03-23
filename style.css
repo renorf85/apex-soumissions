@@ -255,4 +255,23 @@ input[type="number"]::-webkit-outer-spin-button {
     background: #94a3b8;
 }
 
+/* Detail panel */
+#detail-panel {
+    transition: transform 300ms ease-out;
+}
+
+#detail-panel-overlay {
+    transition: opacity 200ms ease;
+}
+
+/* History table row hover */
+#historique-liste table tbody tr {
+    transition: background-color 150ms ease;
+}
+
+/* Sortable header hover */
+#historique-liste table thead th[data-sort-col]:hover {
+    color: #1E73BE;
+}
+
 @import 'mobile-styles.css';

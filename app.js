@@ -109,7 +109,10 @@ const state = {
     // Inline editing state (Phase 2)
     inlineEditingZoneId: null,
     inlineEditData: null,
-    inlineEditSurfaces: []
+    inlineEditSurfaces: [],
+    // Phase 4: editing mode
+    _editingParentId: null,
+    _editingOriginalNumero: null
 };
 
 // =====================================================
@@ -521,6 +524,11 @@ function resetAllState() {
     };
     state.zones = [];
     state.soumissionNumber = null;
+    state._editingParentId = null;
+    state._editingOriginalNumero = null;
+
+    // Hide revision banner
+    document.getElementById('revision-banner')?.classList.add('hidden');
 
     // Reset all form fields
     document.querySelectorAll('input:not([type="hidden"]):not([type="file"])').forEach(input => {
@@ -544,6 +552,18 @@ function resetAllState() {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('Apex Soumissions - Initialisation...');
 
+    // Phase 4: Auth check
+    const isAuthenticated = await Auth.initAuth();
+    if (!isAuthenticated) {
+        // Wait for login before continuing
+        supabaseClient.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN' && session) {
+                location.reload();
+            }
+        });
+        return;
+    }
+
     // Load data from Supabase
     await loadMateriaux();
     await loadConfig();
@@ -558,6 +578,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupStep4Events();
     setupStep5Events();
     setupNewSubmissionButton();
+
+    // Phase 4: Init history UI
+    HistoryUI.initHistory();
 
     // Check for saved progress
     if (hasSavedProgress()) {
@@ -635,6 +658,17 @@ function setupStep1Events() {
 
     // Back button (mobile) - handles navigation based on current step
     btnBackMobile?.addEventListener('click', () => {
+        // En mode revision, le bouton retour sur l'etape la plus basse ramene a l'historique
+        if (state._editingParentId && state.currentStep <= 2) {
+            state._editingParentId = null;
+            state._editingOriginalNumero = null;
+            document.getElementById('revision-banner')?.classList.add('hidden');
+            clearSavedState();
+            resetAllState();
+            HistoryUI.showHistory();
+            return;
+        }
+
         if (state.currentStep === 4) {
             goToStep(3);
         } else if (state.currentStep === 3) {
@@ -5919,6 +5953,9 @@ async function generateAndDownloadPDF() {
 
         console.log('ZIP genere avec:', fileNameClient, fileNameDetail);
 
+        // Phase 4: Sauvegarde automatique dans l'historique
+        saveSubmissionToHistory(pdfClientBlob, pdfDetailBlob);
+
     } catch (err) {
         console.error('Erreur génération PDF:', err);
         alert('Erreur lors de la génération du PDF. Veuillez réessayer.');
@@ -6023,7 +6060,27 @@ async function sendSoumissionEmail() {
             btnSend.innerHTML = '<span class="material-symbols-outlined text-lg">check</span> Envoyé';
         }
 
-        console.log('✅ Email envoyé:', courriel);
+        console.log('Email envoye:', courriel);
+
+        // Phase 4: Sauvegarde automatique (generate detail PDF for storage)
+        try {
+            const pdfDetailBlob = await generatePDF({
+                state: state,
+                configTextes: configTextes,
+                signature: signatureDataUrl,
+                companySignature: companySignatureDataUrl,
+                includePhotos: document.getElementById('pdf-option-photos')?.checked ?? true,
+                includeLegalDocs: document.getElementById('pdf-option-legaux')?.checked ?? true,
+                inclusions: inclusions,
+                exclusions: exclusions,
+                soumissionNumber: state.soumissionNumber,
+                date: new Date(),
+                isDetailed: true
+            });
+            saveSubmissionToHistory(pdfBlob, pdfDetailBlob);
+        } catch (saveErr) {
+            console.error('Erreur sauvegarde post-email:', saveErr);
+        }
 
     } catch (err) {
         console.error('Erreur envoi email:', err);
@@ -6038,3 +6095,85 @@ async function sendSoumissionEmail() {
         }
     }
 }
+
+// =====================================================
+// PHASE 4: SAVE SUBMISSION TO HISTORY
+// =====================================================
+
+async function saveSubmissionToHistory(pdfClientBlob, pdfDetailBlob) {
+    try {
+        const data = SubmissionService.buildSoumissionData(state);
+
+        // Upload PDFs to Storage
+        const numero = state.soumissionNumber || 'sans-numero';
+        const paths = await PdfStorage.uploadBothPdfs(pdfClientBlob, pdfDetailBlob, numero);
+        data.pdf_client_path = paths.clientPath;
+        data.pdf_detail_path = paths.detailPath;
+
+        // Si en mode revision, lier au parent
+        if (state._editingParentId) {
+            data.parent_id = state._editingParentId;
+        }
+
+        await SoumissionRepo.save(data);
+        showToast('Soumission #' + numero + ' sauvegardee');
+
+        // Reset editing mode after save
+        state._editingParentId = null;
+        state._editingOriginalNumero = null;
+        document.getElementById('revision-banner')?.classList.add('hidden');
+
+    } catch (err) {
+        console.error('Erreur sauvegarde:', err);
+        showToast('Erreur lors de la sauvegarde', 'error');
+    }
+}
+
+// =====================================================
+// PHASE 4: LOAD SUBMISSION INTO FORM
+// =====================================================
+
+window.loadSubmissionIntoForm = function(restoredState, isRevision) {
+    // Apply restored state to global state
+    state.currentStep = restoredState.currentStep || 2;
+    state.hasReport = restoredState.hasReport;
+    state.rapport = null;
+    state.client = { ...state.client, ...restoredState.client };
+    state.zones = restoredState.zones || [];
+    state.risqueGlobal = restoredState.risqueGlobal;
+    state.risqueGlobalOverride = restoredState.risqueGlobalOverride;
+    state.doucheCount = restoredState.doucheCount;
+    state.testAirCount = restoredState.testAirCount;
+    state.ventilateurCount = restoredState.ventilateurCount;
+    state.transportCount = restoredState.transportCount;
+    state.customLines = restoredState.customLines || [];
+    state.prix = restoredState.prix || {};
+    state.soumissionNumber = restoredState.soumissionNumber;
+
+    if (isRevision) {
+        state._editingParentId = restoredState._editingParentId;
+        state._editingOriginalNumero = restoredState._editingOriginalNumero;
+
+        // Show revision banner
+        const banner = document.getElementById('revision-banner');
+        const numeroEl = document.getElementById('revision-numero');
+        if (banner) banner.classList.remove('hidden');
+        if (numeroEl) numeroEl.textContent = '#' + (state._editingOriginalNumero || '');
+    } else {
+        state._editingParentId = null;
+        state._editingOriginalNumero = null;
+    }
+
+    // Apply to UI
+    applyRestoredStateToUI();
+};
+
+// Cancel revision button
+document.getElementById('btn-cancel-revision')?.addEventListener('click', () => {
+    state._editingParentId = null;
+    state._editingOriginalNumero = null;
+    document.getElementById('revision-banner')?.classList.add('hidden');
+    clearSavedState();
+    resetAllState();
+    HistoryUI.showHistory();
+});
