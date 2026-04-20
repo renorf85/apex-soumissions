@@ -345,6 +345,12 @@ window.HistoryUI = {
                 this._openSubmission(id);
             }
         });
+
+        document.querySelectorAll('.detail-view-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                this._switchDetailView(tab.dataset.view);
+            });
+        });
     },
 
     _openDetailPanel(id) {
@@ -501,26 +507,23 @@ window.HistoryUI = {
             notesSection.classList.add('hidden');
         }
 
-        // PDFs
-        let pdfsHtml = '';
+        // Store PDF paths for tab switching
+        this._currentSub = sub;
+
+        // Download buttons
+        let dlHtml = '';
         if (sub.pdf_client_path) {
-            pdfsHtml += `<button class="detail-dl-btn flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl hover:bg-primary/10 transition-colors w-full text-left" data-path="${this._escapeHtml(sub.pdf_client_path)}" data-numero="${this._escapeHtml(sub.numero || '')}" data-detail="false">
-                <span class="material-symbols-outlined text-primary">picture_as_pdf</span>
-                <div class="flex-1"><p class="text-sm font-medium text-slate-800">Soumission client</p><p class="text-xs text-slate-500">PDF pour le client</p></div>
-                <span class="material-symbols-outlined text-slate-400">download</span>
+            dlHtml += `<button class="detail-dl-btn flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors text-sm" data-path="${this._escapeHtml(sub.pdf_client_path)}" data-numero="${this._escapeHtml(sub.numero || '')}" data-detail="false">
+                <span class="material-symbols-outlined text-sm">download</span> Client
             </button>`;
         }
         if (sub.pdf_detail_path) {
-            pdfsHtml += `<button class="detail-dl-btn flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors w-full text-left" data-path="${this._escapeHtml(sub.pdf_detail_path)}" data-numero="${this._escapeHtml(sub.numero || '')}" data-detail="true">
-                <span class="material-symbols-outlined text-slate-500">picture_as_pdf</span>
-                <div class="flex-1"><p class="text-sm font-medium text-slate-800">D\u00e9tail complet</p><p class="text-xs text-slate-500">Ventilation interne Apex</p></div>
-                <span class="material-symbols-outlined text-slate-400">download</span>
+            dlHtml += `<button class="detail-dl-btn flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors text-sm" data-path="${this._escapeHtml(sub.pdf_detail_path)}" data-numero="${this._escapeHtml(sub.numero || '')}" data-detail="true">
+                <span class="material-symbols-outlined text-sm">download</span> D\u00e9tail
             </button>`;
         }
-        if (!pdfsHtml) pdfsHtml = '<p class="text-sm text-slate-400">Aucun PDF disponible</p>';
-        document.getElementById('detail-pdfs').innerHTML = pdfsHtml;
+        document.getElementById('detail-pdfs').innerHTML = dlHtml;
 
-        // Listeners PDF
         document.querySelectorAll('.detail-dl-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const path = btn.dataset.path;
@@ -529,6 +532,80 @@ window.HistoryUI = {
                 PdfStorage.downloadPdf(path, 'Soumission_' + numero + (isDetail ? '_detail' : '') + '.pdf');
             });
         });
+
+        // Activate default tab (PDF client if available, otherwise detail, otherwise resume)
+        const defaultView = sub.pdf_client_path ? 'pdf-client' : sub.pdf_detail_path ? 'pdf-detail' : 'resume';
+        this._switchDetailView(defaultView);
+    },
+
+    // =============================================
+    // Detail View Tabs
+    // =============================================
+
+    _switchDetailView(view) {
+        const pdfView = document.getElementById('detail-view-pdf');
+        const resumeView = document.getElementById('detail-view-resume');
+        const tabs = document.querySelectorAll('.detail-view-tab');
+
+        tabs.forEach(tab => {
+            const isActive = tab.dataset.view === view;
+            tab.classList.toggle('border-primary', isActive);
+            tab.classList.toggle('text-primary', isActive);
+            tab.classList.toggle('border-transparent', !isActive);
+            tab.classList.toggle('text-slate-500', !isActive);
+        });
+
+        if (view === 'resume') {
+            pdfView.classList.add('hidden');
+            resumeView.classList.remove('hidden');
+        } else {
+            resumeView.classList.add('hidden');
+            pdfView.classList.remove('hidden');
+
+            const sub = this._currentSub;
+            const path = view === 'pdf-client' ? sub?.pdf_client_path : sub?.pdf_detail_path;
+            if (path) {
+                this._loadPdfPreview(path);
+            } else {
+                document.getElementById('detail-pdf-loading').innerHTML = '<span class="material-symbols-outlined text-slate-300 mr-2">picture_as_pdf</span> Aucun PDF disponible';
+                document.getElementById('detail-pdf-loading').style.display = 'flex';
+                document.getElementById('detail-pdf-iframe').style.display = 'none';
+            }
+        }
+    },
+
+    _isIosOrMobile() {
+        const ua = navigator.userAgent;
+        return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    },
+
+    async _loadPdfPreview(path) {
+        const iframe = document.getElementById('detail-pdf-iframe');
+        const loadingEl = document.getElementById('detail-pdf-loading');
+
+        iframe.style.display = 'none';
+        loadingEl.innerHTML = '<span class="material-symbols-outlined animate-spin mr-2">progress_activity</span> Chargement du PDF...';
+        loadingEl.style.display = 'flex';
+
+        try {
+            const url = await PdfStorage.getDownloadUrl(path);
+
+            if (this._isIosOrMobile()) {
+                loadingEl.innerHTML = `
+                    <a href="${url}" target="_blank" rel="noopener" class="flex flex-col items-center gap-3 text-primary no-underline">
+                        <span class="material-symbols-outlined text-4xl">picture_as_pdf</span>
+                        <span class="text-sm font-medium">Ouvrir le PDF</span>
+                    </a>`;
+            } else {
+                iframe.src = url;
+                iframe.onload = () => {
+                    loadingEl.style.display = 'none';
+                    iframe.style.display = 'block';
+                };
+            }
+        } catch (err) {
+            loadingEl.innerHTML = '<span class="material-symbols-outlined text-red-400 mr-2">error</span> Impossible de charger le PDF';
+        }
     },
 
     // =============================================

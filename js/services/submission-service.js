@@ -33,9 +33,15 @@ window.SubmissionService = {
             risqueGlobalOverride: state.risqueGlobalOverride,
             doucheCount: state.doucheCount,
             testAirCount: state.testAirCount,
+            testAirJournalierCount: state.testAirJournalierCount,
             ventilateurCount: state.ventilateurCount,
             transportCount: state.transportCount,
             customLines: state.customLines ? state.customLines.map(l => ({ ...l })) : [],
+            extraSections: state.extraSections ? state.extraSections.map(s => ({
+                ...s,
+                lines: s.lines.map(l => ({ ...l }))
+            })) : [],
+            nonInclus: state.nonInclus ? state.nonInclus.map(ni => ({ ...ni })) : [],
             prix: { ...state.prix },
             soumissionNumber: state.soumissionNumber
         };
@@ -57,9 +63,12 @@ window.SubmissionService = {
             risqueGlobalOverride: snapshot.risqueGlobalOverride,
             doucheCount: snapshot.doucheCount,
             testAirCount: snapshot.testAirCount,
+            testAirJournalierCount: snapshot.testAirJournalierCount,
             ventilateurCount: snapshot.ventilateurCount,
             transportCount: snapshot.transportCount,
             customLines: snapshot.customLines || [],
+            extraSections: snapshot.extraSections || [],
+            nonInclus: snapshot.nonInclus || [],
             prix: snapshot.prix || {},
             soumissionNumber: snapshot.soumissionNumber
         };

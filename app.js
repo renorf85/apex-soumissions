@@ -87,9 +87,12 @@ const state = {
     risqueGlobalOverride: null, // null = auto, 'FAIBLE' | 'MODÉRÉ' | 'ÉLEVÉ_ALLÉGÉ' | 'ÉLEVÉ' = override manuel
     doucheCount: null, // null = auto-calculated, number = manual override
     testAirCount: null, // null = auto (1), number = override manuel
+    testAirJournalierCount: null, // null = auto (1 par jour de travail en risque eleve), number = override manuel
     ventilateurCount: null, // null = auto (1), number = override manuel
     transportCount: null, // null = auto-calculated, number = override manuel
-    customLines: [], // Lignes de couts personnalisees [{id, description, quantite, prixUnitaire, showInPdf}]
+    customLines: [], // Backward compat: flat lines (synced from extraSections)
+    extraSections: [], // Sections extras [{id, titre, lines: [{id, description, quantite, prixUnitaire, showInPdf}]}]
+    nonInclus: [], // Non-inclus modifiables par soumission [{text, active}]
     // Multi-surfaces : surfaces temporaires lors de la création/édition d'une zone
     currentSurfaces: [],
     prix: {
@@ -218,6 +221,8 @@ function saveStateToStorage() {
             risqueGlobal: state.risqueGlobal,
             soumissionNumber: state.soumissionNumber,
             customLines: state.customLines || [],
+            extraSections: state.extraSections || [],
+            nonInclus: state.nonInclus || [],
             savedAt: new Date().toISOString()
         };
         const jsonString = JSON.stringify(dataToSave);
@@ -233,6 +238,8 @@ function saveStateToStorage() {
             try {
                 const zonesWithoutPhotos = state.zones.map(z => ({
                     ...z,
+                    photos: [],
+                    photo: null,
                     surfaces: z.surfaces?.map(s => ({ ...s, photo: null })) || []
                 }));
                 const fallbackData = {
@@ -311,6 +318,8 @@ function restoreSavedState() {
         state.soumissionNumber = saved.soumissionNumber;
     }
     if (saved.customLines) state.customLines = saved.customLines;
+    if (saved.extraSections) state.extraSections = saved.extraSections;
+    if (saved.nonInclus) state.nonInclus = saved.nonInclus;
     if (saved.photosOmitted) state.photosOmitted = true;
 
     console.log('✅ Progression restaurée:', saved);
@@ -335,10 +344,10 @@ function applyRestoredStateToUI() {
         distanceInput.value = state.client.distanceKm;
     }
 
-    // Restore soumission number (strip 000 prefix for display in input)
+    // Restore soumission number (free text field, display as-is)
     const soumissionInput = document.getElementById('soumission-number');
     if (soumissionInput && state.soumissionNumber) {
-        soumissionInput.value = state.soumissionNumber.replace(/^000/, '');
+        soumissionInput.value = state.soumissionNumber;
     }
 
     // Restore billing address fields
@@ -523,6 +532,10 @@ function resetAllState() {
         coordinates: null
     };
     state.zones = [];
+    state.customLines = [];
+    state.extraSections = [];
+    state.nonInclus = [];
+    state.testAirJournalierCount = null;
     state.soumissionNumber = null;
     state._editingParentId = null;
     state._editingOriginalNumero = null;
@@ -884,10 +897,10 @@ function setupStep2Events() {
             distanceKm: parseInt(document.getElementById('client-distance').value) || 0
         };
 
-        // Save soumission number (manually entered, padded to 000XXX format)
+        // Save soumission number (free text, user enters full value)
         const soumissionInput = document.getElementById('soumission-number')?.value?.trim();
         if (soumissionInput) {
-            state.soumissionNumber = '000' + soumissionInput;
+            state.soumissionNumber = soumissionInput;
         }
 
         // Read project name
@@ -2120,9 +2133,16 @@ function createZoneCard(zone) {
     const friabiliteText = zone.friabilite === 'friable' ? 'Friable' : 'Non friable';
     const friabiliteOverrideIndicator = zone.friabiliteOverride ? ' <span class="text-amber-500 text-xs">(modifié)</span>' : '';
 
-    // Collecter toutes les photos (ancien format + nouveau format surfaces)
+    // Collecter toutes les photos (multi-photo zone + surfaces + backward compat)
     const allPhotos = [];
-    if (zone.photo?.dataUrl) {
+    // Multi-photo array (new format)
+    if (zone.photos?.length > 0) {
+        zone.photos.forEach((p, i) => {
+            allPhotos.push({ dataUrl: p.dataUrl, name: p.name || `Photo zone ${i + 1}`, surfaceIndex: null });
+        });
+    }
+    // Backward compat: single photo (old format)
+    else if (zone.photo?.dataUrl) {
         allPhotos.push({ dataUrl: zone.photo.dataUrl, name: zone.photo.name || 'Photo zone', surfaceIndex: null });
     }
     zone.surfaces?.forEach((s, i) => {
@@ -2292,7 +2312,7 @@ function toggleZoneInlineEdit(zoneId) {
         epaisseur: zone.epaisseur,
         risqueOverride: zone.risqueOverride || false,
         risque: zone.risque,
-        photo: zone.photo ? { ...zone.photo } : null
+        photos: zone.photos ? zone.photos.map(p => ({ ...p })) : (zone.photo ? [{ ...zone.photo }] : [])
     };
     state.inlineEditSurfaces = (zone.surfaces || []).map(s => ({
         id: s.id || Date.now() + Math.random(),
@@ -2369,7 +2389,7 @@ function saveInlineEdit() {
         volume: volumeTotal,
         risque: risque,
         risqueOverride: data.risqueOverride,
-        photo: data.photo || null
+        photos: data.photos || []
     };
 
     console.log('✅ Zone inline mise à jour:', state.zones[index].nom);
@@ -2548,7 +2568,8 @@ function openInlineZonePhotoUpload() {
         reader.onload = async (event) => {
             const compressedDataUrl = await compressImage(event.target.result);
             if (state.inlineEditData) {
-                state.inlineEditData.photo = { name: file.name, dataUrl: compressedDataUrl };
+                if (!state.inlineEditData.photos) state.inlineEditData.photos = [];
+                state.inlineEditData.photos.push({ name: file.name, dataUrl: compressedDataUrl });
                 renderZoneCards();
             }
         };
@@ -2651,26 +2672,26 @@ function createZoneCardExpanded(zone) {
                 ${data.friabiliteOverride ? '<span class="text-amber-500 text-[10px]">(modifié)</span>' : ''}
             </div>
 
-            <!-- Photo de zone -->
+            <!-- Photos de zone (multi) -->
             <div>
-                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Photo de la zone</label>
-                ${data.photo ? `
-                    <div class="relative rounded-lg overflow-hidden bg-slate-100 border border-slate-200">
-                        <img src="${data.photo.dataUrl}" alt="Photo zone"
-                            class="w-full object-contain max-h-40">
-                        <div class="absolute top-1 right-1 flex gap-1">
-                            <button type="button" class="btn-inline-zone-photo-delete w-7 h-7 flex items-center justify-center bg-white/90 shadow text-red-500 hover:text-red-700 rounded-full transition-colors" title="Supprimer photo">
-                                <span class="material-symbols-outlined text-sm">delete</span>
-                            </button>
-                        </div>
-                        <div class="px-2 py-1 text-[10px] text-slate-500 truncate">${data.photo.name || 'Photo zone'}</div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Photos de la zone</label>
+                ${data.photos?.length > 0 ? `
+                    <div class="grid grid-cols-3 gap-2 mb-2">
+                        ${data.photos.map((p, i) => `
+                            <div class="relative rounded-lg overflow-hidden bg-slate-100 border border-slate-200">
+                                <img src="${p.dataUrl}" alt="Photo ${i + 1}" class="w-full h-20 object-cover">
+                                <button type="button" class="btn-inline-zone-photo-delete absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-full shadow transition-colors" data-photo-index="${i}" title="Supprimer">
+                                    <span class="material-symbols-outlined text-xs">close</span>
+                                </button>
+                                <div class="px-1 py-0.5 text-[9px] text-slate-500 truncate">${p.name || `Photo ${i + 1}`}</div>
+                            </div>
+                        `).join('')}
                     </div>
-                ` : `
-                    <button type="button" class="btn-inline-zone-photo w-full flex items-center justify-center gap-2 px-3 py-3 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 hover:border-primary hover:text-primary transition-colors">
-                        <span class="material-symbols-outlined text-lg">add_a_photo</span>
-                        <span class="text-xs font-semibold">Ajouter photo de zone</span>
-                    </button>
-                `}
+                ` : ''}
+                <button type="button" class="btn-inline-zone-photo w-full flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 hover:border-primary hover:text-primary transition-colors">
+                    <span class="material-symbols-outlined text-lg">add_a_photo</span>
+                    <span class="text-xs font-semibold">${data.photos?.length > 0 ? 'Ajouter une autre photo' : 'Ajouter photo de zone'}</span>
+                </button>
             </div>
 
             <!-- Surfaces (murs) -->
@@ -2812,10 +2833,14 @@ function setupInlineEditDelegation(card) {
     const btnZonePhoto = card.querySelector('.btn-inline-zone-photo');
     btnZonePhoto?.addEventListener('click', () => openInlineZonePhotoUpload());
 
-    const btnZonePhotoDelete = card.querySelector('.btn-inline-zone-photo-delete');
-    btnZonePhotoDelete?.addEventListener('click', () => {
-        state.inlineEditData.photo = null;
-        renderZoneCards();
+    card.querySelectorAll('.btn-inline-zone-photo-delete').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.photoIndex);
+            if (state.inlineEditData.photos) {
+                state.inlineEditData.photos.splice(idx, 1);
+            }
+            renderZoneCards();
+        });
     });
 
     // Add surface button
@@ -3038,7 +3063,7 @@ function editZone(zoneId) {
             hauteur: zone.largeur, // "largeur" était "hauteur" dans l'ancien système
             surface: zone.longueur * zone.largeur,
             volume: zone.longueur * zone.largeur * (zone.epaisseur / 12),
-            photo: zone.photo
+            photo: zone.photo || (zone.photos?.[0] || null)
         }];
     } else {
         state.currentSurfaces = [];
@@ -3058,20 +3083,16 @@ function editZone(zoneId) {
         if (materiauInput) materiauInput.dataset.friabiliteOverride = 'true';
     }
 
-    // Restaurer la photo de zone si elle existe
-    if (zone.photo?.dataUrl) {
-        currentZonePhoto = { name: zone.photo.name, dataUrl: zone.photo.dataUrl };
-        const placeholder = document.getElementById('zone-photo-placeholder');
-        const preview = document.getElementById('zone-photo-preview');
-        const previewImg = document.getElementById('zone-photo-img');
-        const photoName = document.getElementById('zone-photo-name');
-        if (placeholder) placeholder.classList.add('hidden');
-        if (preview) preview.classList.remove('hidden');
-        if (previewImg) previewImg.src = zone.photo.dataUrl;
-        if (photoName) photoName.textContent = zone.photo.name || 'Photo zone';
+    // Restaurer les photos de zone
+    if (zone.photos?.length > 0) {
+        currentZonePhotos = zone.photos.map(p => ({ name: p.name, dataUrl: p.dataUrl }));
+    } else if (zone.photo?.dataUrl) {
+        // Backward compat: single photo -> array
+        currentZonePhotos = [{ name: zone.photo.name, dataUrl: zone.photo.dataUrl }];
     } else {
-        clearZonePhoto();
+        currentZonePhotos = [];
     }
+    renderZonePhotoGallery();
 
     // Activer les boutons selon les valeurs pré-remplies
     updateZoneWizardButtonStates();
@@ -3641,7 +3662,7 @@ function addZone() {
     const risque = determineRisque(volumeTotal, friabilite);
 
     // Creer l'objet zone avec la nouvelle structure multi-surfaces
-    const zonePhoto = getZonePhoto();
+    const zonePhotos = getZonePhotos();
     const zoneData = {
         nom,
         categorie,
@@ -3654,7 +3675,7 @@ function addZone() {
         surfaceTotal,
         volumeTotal,
         risque,
-        photo: zonePhoto ? { name: zonePhoto.name, dataUrl: zonePhoto.dataUrl } : null,
+        photos: zonePhotos.map(p => ({ name: p.name, dataUrl: p.dataUrl })),
         surface: surfaceTotal,
         volume: volumeTotal
     };
@@ -3759,8 +3780,8 @@ function resetZoneForm() {
     if (btnNext3c) btnNext3c.disabled = true;
     if (btnAddFinal) btnAddFinal.disabled = true;
 
-    // Reset photo
-    clearZonePhoto();
+    // Reset photos
+    clearZonePhotos();
 
     // Reset editing state and title
     if (state.editingZoneId) {
@@ -3773,26 +3794,23 @@ function resetZoneForm() {
 // ZONE PHOTO UPLOAD
 // =====================================================
 
-// Store current zone photo data
-let currentZonePhoto = null;
+// Store current zone photos data (array for multi-photo support)
+let currentZonePhotos = [];
 
 function setupZonePhotoUpload() {
     const dropzone = document.getElementById('zone-photo-dropzone');
     const fileInput = document.getElementById('zone-photo-input');
-    const placeholder = document.getElementById('zone-photo-placeholder');
-    const preview = document.getElementById('zone-photo-preview');
-    const previewImg = document.getElementById('zone-photo-img');
-    const photoName = document.getElementById('zone-photo-name');
-    const removeBtn = document.getElementById('zone-photo-remove');
 
     if (!dropzone || !fileInput) return;
 
-    // Click to upload
+    // Click to upload (add new photo)
     dropzone.addEventListener('click', (e) => {
-        // Don't trigger if clicking on the remove button or the preview image (for lightbox)
-        if (e.target.closest('#zone-photo-remove')) return;
-        if (e.target.closest('#zone-photo-img') && currentZonePhoto) {
-            openLightbox(currentZonePhoto.dataUrl, currentZonePhoto.name);
+        if (e.target.closest('.zone-photo-remove-btn')) return;
+        if (e.target.closest('.zone-photo-thumb')) {
+            const idx = parseInt(e.target.closest('.zone-photo-thumb').dataset.photoIndex);
+            if (currentZonePhotos[idx]) {
+                openLightbox(currentZonePhotos[idx].dataUrl, currentZonePhotos[idx].name);
+            }
             return;
         }
         fileInput.click();
@@ -3802,6 +3820,7 @@ function setupZonePhotoUpload() {
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) handleZonePhotoFile(file);
+        fileInput.value = '';
     });
 
     // Drag & drop events (desktop)
@@ -3818,17 +3837,22 @@ function setupZonePhotoUpload() {
     dropzone.addEventListener('drop', (e) => {
         e.preventDefault();
         dropzone.classList.remove('border-primary', 'bg-blue-50/50');
-        
+
         const file = e.dataTransfer.files[0];
         if (file && file.type.startsWith('image/')) {
             handleZonePhotoFile(file);
         }
     });
 
-    // Remove photo button
-    removeBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        clearZonePhoto();
+    // Remove photo buttons (event delegation)
+    dropzone.addEventListener('click', (e) => {
+        const removeBtn = e.target.closest('.zone-photo-remove-btn');
+        if (removeBtn) {
+            e.stopPropagation();
+            const idx = parseInt(removeBtn.dataset.photoIndex);
+            currentZonePhotos.splice(idx, 1);
+            renderZonePhotoGallery();
+        }
     });
 
     // Setup lightbox
@@ -3848,55 +3872,62 @@ function handleZonePhotoFile(file) {
         return;
     }
 
-    // Read file, compress, and create preview
+    // Read file, compress, and add to array
     const reader = new FileReader();
     reader.onload = async (e) => {
         const rawDataUrl = e.target.result;
         const dataUrl = await compressImage(rawDataUrl);
 
-        // Store photo data
-        currentZonePhoto = {
+        // Add photo to array
+        currentZonePhotos.push({
             name: file.name,
             type: file.type,
             size: file.size,
             dataUrl: dataUrl
-        };
+        });
 
-        // Update UI
-        const placeholder = document.getElementById('zone-photo-placeholder');
-        const preview = document.getElementById('zone-photo-preview');
-        const previewImg = document.getElementById('zone-photo-img');
-        const photoName = document.getElementById('zone-photo-name');
-
-        if (placeholder) placeholder.classList.add('hidden');
-        if (preview) preview.classList.remove('hidden');
-        if (previewImg) previewImg.src = dataUrl;
-        if (photoName) photoName.textContent = file.name;
-
-        console.log('📷 Photo zone ajoutée:', file.name);
+        renderZonePhotoGallery();
+        console.log('📷 Photo zone ajoutée:', file.name, `(${currentZonePhotos.length} total)`);
     };
 
     reader.readAsDataURL(file);
 }
 
-function clearZonePhoto() {
-    currentZonePhoto = null;
-
+function renderZonePhotoGallery() {
+    const gallery = document.getElementById('zone-photo-gallery');
     const placeholder = document.getElementById('zone-photo-placeholder');
-    const preview = document.getElementById('zone-photo-preview');
-    const previewImg = document.getElementById('zone-photo-img');
-    const photoName = document.getElementById('zone-photo-name');
-    const fileInput = document.getElementById('zone-photo-input');
+    if (!gallery) return;
 
-    if (placeholder) placeholder.classList.remove('hidden');
-    if (preview) preview.classList.add('hidden');
-    if (previewImg) previewImg.src = '';
-    if (photoName) photoName.textContent = '';
+    if (currentZonePhotos.length === 0) {
+        gallery.innerHTML = '';
+        gallery.classList.add('hidden');
+        if (placeholder) placeholder.classList.remove('hidden');
+        return;
+    }
+
+    if (placeholder) placeholder.classList.add('hidden');
+    gallery.classList.remove('hidden');
+
+    gallery.innerHTML = currentZonePhotos.map((photo, i) => `
+        <div class="zone-photo-thumb relative rounded-lg overflow-hidden bg-slate-100 cursor-pointer group" data-photo-index="${i}">
+            <img src="${photo.dataUrl}" alt="Photo ${i + 1}" class="w-full h-24 object-cover group-hover:scale-105 transition-transform duration-300">
+            <button type="button" class="zone-photo-remove-btn absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-colors" data-photo-index="${i}">
+                <span class="material-symbols-outlined text-sm">close</span>
+            </button>
+            <div class="absolute bottom-0 left-0 right-0 bg-black/40 px-1.5 py-0.5 text-[10px] text-white truncate">${photo.name}</div>
+        </div>
+    `).join('');
+}
+
+function clearZonePhotos() {
+    currentZonePhotos = [];
+    renderZonePhotoGallery();
+    const fileInput = document.getElementById('zone-photo-input');
     if (fileInput) fileInput.value = '';
 }
 
-function getZonePhoto() {
-    return currentZonePhoto;
+function getZonePhotos() {
+    return currentZonePhotos;
 }
 
 // =====================================================
@@ -4166,8 +4197,8 @@ async function loadConfig() {
             nb_employes_equipe: 3,
             zone1_modere: 736,
             zone_supp_modere: 368,
-            zone1_eleve: 1472,
-            zone_supp_eleve: 736,
+            zone1_eleve: 2500,
+            zone_supp_eleve: 740,
             douche_zone1: 800,
             douche_zone_supp: 600,
             test_zone1: 600,
@@ -4181,7 +4212,8 @@ async function loadConfig() {
             seuil_demo_palier2: 1500,
             seuil_transport_palier1: 50,
             seuil_transport_palier2: 100,
-            seuil_assurance: 500
+            seuil_assurance: 500,
+            prix_test_air_journalier: 275
         };
     }
 }
@@ -4248,6 +4280,23 @@ function setupStep4Events() {
         state.ventilateurCount = Math.max(1, current - 1);
         if (countEl) countEl.textContent = state.ventilateurCount;
         recalculerVentilateurs();
+    });
+
+    // Tests d'air journaliers +/- buttons
+    document.getElementById('btn-test-air-jour-plus')?.addEventListener('click', () => {
+        const countEl = document.getElementById('test-air-jour-count');
+        const current = parseInt(countEl?.textContent || '0');
+        state.testAirJournalierCount = current + 1;
+        if (countEl) countEl.textContent = state.testAirJournalierCount;
+        recalculerTestsAirJournaliers();
+    });
+
+    document.getElementById('btn-test-air-jour-minus')?.addEventListener('click', () => {
+        const countEl = document.getElementById('test-air-jour-count');
+        const current = parseInt(countEl?.textContent || '0');
+        state.testAirJournalierCount = Math.max(0, current - 1);
+        if (countEl) countEl.textContent = state.testAirJournalierCount;
+        recalculerTestsAirJournaliers();
     });
 
     // Transport +/- buttons
@@ -4329,6 +4378,17 @@ function recalculerTestsAir() {
     const testsInput = document.getElementById('prix-tests');
     if (testsInput) testsInput.value = formatInputValue(prixTests);
     state.prix.tests = prixTests;
+    recalculerTotaux();
+}
+
+function recalculerTestsAirJournaliers() {
+    const config = state.config;
+    const count = state.testAirJournalierCount ?? 0;
+    const prixParJour = config.prix_test_air_journalier || 275;
+    const prixTestsJour = count * prixParJour;
+    const input = document.getElementById('prix-test-air-journalier');
+    if (input) input.value = formatInputValue(prixTestsJour);
+    state.prix.testsAirJournalier = prixTestsJour;
     recalculerTotaux();
 }
 
@@ -4464,6 +4524,24 @@ function calculatePrix() {
         prixPerteTemps = joursHommes * heuresPerteParJour * tauxHoraire;
     }
 
+    // 3b. Tests d'air journaliers (risque eleve seulement)
+    // Regle: 1 test par jour de travail, auto-calcule si null, ajustable manuellement
+    let prixTestsAirJournalier = 0;
+    if (hasEleveEffectif) {
+        const heuresTotalesDemo = prixDemo / tauxHoraire;
+        const joursTravauxCalc = Math.max(1, Math.ceil(heuresTotalesDemo / 8));
+        const testAirJourCount = state.testAirJournalierCount ?? joursTravauxCalc;
+
+        // Sync le count affiche si auto-calcule
+        if (state.testAirJournalierCount === null) {
+            const countEl = document.getElementById('test-air-jour-count');
+            if (countEl) countEl.textContent = testAirJourCount;
+        }
+
+        const prixParJour = config.prix_test_air_journalier || 275;
+        prixTestsAirJournalier = testAirJourCount * prixParJour;
+    }
+
     // 4. Transport (dynamique selon durée du projet)
     // Formule: (heures totales / 3 gars / 8h/jour) x tarif$/jour
     const heuresTotalesProjet = prixDemo / tauxHoraire;
@@ -4513,7 +4591,7 @@ function calculatePrix() {
     }
 
     // Sous-total (coûts calculés par le logiciel seulement)
-    const sousTotal = prixZones + prixDemo + prixDouches + prixTests + prixPerteTemps + prixVentilateur + prixTransport + prixDisposition + prixAssurance;
+    const sousTotal = prixZones + prixDemo + prixDouches + prixTests + prixPerteTemps + prixTestsAirJournalier + prixVentilateur + prixTransport + prixDisposition + prixAssurance;
 
     // Marge de profit (appliquée sur les coûts, PAS sur les extras)
     // Handle both formats: 20 (percentage) or 0.2 (decimal)
@@ -4537,6 +4615,7 @@ function calculatePrix() {
         douches: prixDouches,
         tests: prixTests,
         perteTemps: prixPerteTemps,
+        testsAirJournalier: prixTestsAirJournalier,
         ventilateur: prixVentilateur,
         transport: prixTransport,
         transportDetails: transportDetails,
@@ -4592,7 +4671,7 @@ function renderRecap() {
         
         // Nombre de surfaces et de photos
         const surfaceCount = zone.surfaces?.length || 1;
-        const photoCount = zone.surfaces?.filter(s => s.photo?.dataUrl).length || (zone.photo ? 1 : 0);
+        const photoCount = (zone.photos?.length || (zone.photo ? 1 : 0)) + (zone.surfaces?.filter(s => s.photo?.dataUrl).length || 0);
         const surfaceLabel = surfaceCount > 1 ? `${surfaceCount} murs` : '';
         const photoLabel = photoCount > 0 ? `${photoCount} photo${photoCount > 1 ? 's' : ''}` : '';
         const detailParts = [surfaceLabel, photoLabel].filter(Boolean);
@@ -4677,6 +4756,15 @@ function renderRecap() {
     }
     document.getElementById('prix-perte-temps').value = formatInputValue(state.prix.perteTemps || 0);
 
+    // Tests d'air journaliers (risque eleve)
+    // Si null (auto), la valeur sera mise a jour par calculerCouts()
+    const testAirJourCountEl = document.getElementById('test-air-jour-count');
+    if (testAirJourCountEl && state.testAirJournalierCount !== null) {
+        testAirJourCountEl.textContent = state.testAirJournalierCount;
+    }
+    const testAirJourInput = document.getElementById('prix-test-air-journalier');
+    if (testAirJourInput) testAirJourInput.value = formatInputValue(state.prix.testsAirJournalier || 0);
+
     // Ventilateur HEPA (toujours visible, tous niveaux de risque)
     // Par defaut: 1 par zone
     const ventInput = document.getElementById('prix-ventilateur');
@@ -4708,110 +4796,210 @@ function renderRecap() {
     // Lignes personnalisees
     renderCustomLines();
 
+    // Non-inclus modifiables
+    renderNonInclus();
+    setupNonInclusEvents();
+
     // Setup event listeners for editable inputs (only once)
     setupPrixInputListeners();
 }
 
 // =====================================================
-// LIGNES DE COUTS PERSONNALISEES
+// SECTIONS EXTRAS (remplace customLines)
 // =====================================================
 
-let customLinesSetup = false;
+let extraSectionsSetup = false;
 
-function renderCustomLines() {
-    const container = document.getElementById('custom-lines-list');
+function migrateCustomLinesToSections() {
+    // Migration : si customLines existe et extraSections est vide, wrapper dans une section par defaut
+    if (state.customLines?.length > 0 && (!state.extraSections || state.extraSections.length === 0)) {
+        state.extraSections = [{
+            id: 'migrated-' + Date.now(),
+            titre: 'Travaux supplémentaires',
+            lines: state.customLines.map(l => ({ ...l }))
+        }];
+    }
+    if (!state.extraSections) state.extraSections = [];
+}
+
+function renderExtraSections() {
+    migrateCustomLinesToSections();
+
+    const container = document.getElementById('extra-sections-list');
     if (!container) return;
 
-    // Show/hide empty placeholder
-    const emptyMsg = document.getElementById('custom-lines-empty');
-    if (emptyMsg) {
-        emptyMsg.classList.toggle('hidden', state.customLines.length > 0);
-    }
+    const emptyMsg = document.getElementById('extra-sections-empty');
+    if (emptyMsg) emptyMsg.classList.toggle('hidden', state.extraSections.length > 0);
 
-    container.innerHTML = state.customLines.map((line) => `
-        <div class="bg-amber-50/50 rounded-xl p-3 border border-amber-200/60" data-custom-line-id="${line.id}">
-            <div class="flex items-center gap-2 mb-2">
-                <input type="text" class="custom-line-desc flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:border-primary focus:outline-none placeholder:text-slate-300"
-                    placeholder="Description (ex: Peinture, Gypse...)" value="${line.description}" data-line-id="${line.id}" data-field="description">
-                <button type="button" class="btn-toggle-pdf-visibility w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${line.showInPdf ? 'text-primary bg-primary/10 hover:bg-primary/20' : 'text-slate-400 bg-slate-100 hover:bg-slate-200'}"
-                    data-line-id="${line.id}" title="${line.showInPdf ? 'Prix visible sur le PDF client' : 'Prix masqu\u00e9 sur le PDF client'}">
-                    <span class="material-symbols-outlined text-lg">${line.showInPdf ? 'visibility' : 'visibility_off'}</span>
-                </button>
-                <button type="button" class="btn-remove-custom-line w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-400 hover:text-red-600 transition-colors" data-line-id="${line.id}">
-                    <span class="material-symbols-outlined text-lg">delete</span>
+    container.innerHTML = state.extraSections.map((section) => `
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-4" data-section-id="${section.id}">
+            <div class="flex items-center gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
+                <span class="material-symbols-outlined text-slate-400">folder_open</span>
+                <input type="text" class="section-titre flex-1 px-2 py-1 bg-transparent border-b-2 border-transparent hover:border-slate-300 focus:border-primary text-base font-bold text-slate-800 focus:outline-none placeholder:text-slate-400 transition-colors"
+                    placeholder="Titre de la section (ex: Reconstruction cuisine)" value="${section.titre}" data-section-id="${section.id}">
+                <button type="button" class="btn-remove-section px-2 py-1.5 rounded-md text-xs font-medium text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors flex items-center gap-1" data-section-id="${section.id}" title="Supprimer la section">
+                    <span class="material-symbols-outlined text-[16px]">delete</span>
+                    <span class="hidden sm:inline">Supprimer</span>
                 </button>
             </div>
-            <div class="flex items-center gap-2">
-                <div class="flex items-center gap-1.5">
-                    <label class="text-xs text-slate-400">Qté</label>
-                    <input type="number" class="custom-line-qty w-16 px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-center text-slate-800 focus:border-primary focus:outline-none"
-                        min="1" value="${line.quantite}" data-line-id="${line.id}" data-field="quantite">
-                    <span class="text-slate-300">\u00d7</span>
-                </div>
-                <div class="flex items-center gap-1.5 flex-1">
-                    <label class="text-xs text-slate-400">Prix</label>
-                    <input type="text" class="custom-line-prix flex-1 px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-right text-slate-800 focus:border-primary focus:outline-none placeholder:text-slate-300"
-                        value="${line.prixUnitaire ? formatInputValue(line.prixUnitaire) : ''}" placeholder="0,00" inputmode="decimal" data-line-id="${line.id}" data-field="prixUnitaire">
-                    <span class="text-xs text-slate-400">$</span>
-                </div>
-                <div class="text-right min-w-[80px] pl-2 border-l border-slate-200">
-                    <span class="text-sm font-bold text-slate-800">${line.prixUnitaire ? formatInputValue(line.quantite * line.prixUnitaire) + ' $' : '—'}</span>
-                </div>
+            
+            <div class="p-4 space-y-3 bg-slate-50/30">
+                ${section.lines.map((line) => `
+                    <div class="bg-white rounded-lg p-3 border border-slate-200 shadow-sm relative group transition-all hover:border-slate-300 hover:shadow-md" data-line-id="${line.id}" data-section-id="${section.id}">
+                        <div class="flex flex-col lg:flex-row lg:items-center gap-4">
+                            <!-- Description -->
+                            <div class="flex-1 flex items-center gap-3">
+                                <div class="w-1 h-8 bg-primary/40 rounded-full hidden lg:block"></div>
+                                <input type="text" class="extra-line-desc flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-800 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all placeholder:text-slate-400"
+                                    placeholder="Description de l'extra..." value="${line.description}" data-line-id="${line.id}" data-section-id="${section.id}" data-field="description">
+                            </div>
+                            
+                            <!-- Controls -->
+                            <div class="flex items-center justify-between lg:justify-end gap-4">
+                                <div class="flex items-center gap-3 bg-slate-50 p-1.5 rounded-md border border-slate-200">
+                                    <div class="flex items-center gap-2 px-1">
+                                        <label class="text-xs font-medium text-slate-500 uppercase tracking-wider">Qté</label>
+                                        <input type="number" class="extra-line-qty w-16 px-2 py-1.5 bg-white border border-slate-200 rounded text-sm text-center text-slate-800 focus:border-primary focus:outline-none"
+                                            min="1" value="${line.quantite}" data-line-id="${line.id}" data-section-id="${section.id}" data-field="quantite">
+                                    </div>
+                                    <div class="w-px h-6 bg-slate-300"></div>
+                                    <div class="flex items-center gap-2 px-1">
+                                        <label class="text-xs font-medium text-slate-500 uppercase tracking-wider">Prix</label>
+                                        <div class="relative">
+                                            <input type="text" class="extra-line-prix w-24 pl-2 pr-6 py-1.5 bg-white border border-slate-200 rounded text-sm text-right text-slate-800 focus:border-primary focus:outline-none placeholder:text-slate-300"
+                                                value="${line.prixUnitaire ? formatInputValue(line.prixUnitaire) : ''}" placeholder="0,00" inputmode="decimal" data-line-id="${line.id}" data-section-id="${section.id}" data-field="prixUnitaire">
+                                            <span class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">$</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-center gap-1 border-l border-slate-200 pl-3">
+                                    <button type="button" class="btn-remove-line w-9 h-9 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-colors" data-line-id="${line.id}" data-section-id="${section.id}" title="Supprimer la ligne">
+                                        <span class="material-symbols-outlined text-[20px]">delete</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+            
+            <div class="px-4 py-3 bg-slate-50 border-t border-slate-200">
+                <button type="button" class="btn-add-line-to-section w-full lg:w-auto px-4 py-2 bg-white border border-slate-200 hover:border-primary hover:text-primary text-sm font-medium text-slate-700 rounded-lg transition-all shadow-sm flex items-center justify-center gap-2" data-section-id="${section.id}">
+                    <span class="material-symbols-outlined text-[18px]">add_circle</span>
+                    Ajouter un extra
+                </button>
             </div>
         </div>
     `).join('');
 
-    if (!customLinesSetup) {
-        setupCustomLinesEvents();
-        customLinesSetup = true;
+    // Sync customLines for backward compat (total calculation, snapshot)
+    syncCustomLinesFromSections();
+
+    if (!extraSectionsSetup) {
+        setupExtraSectionsEvents();
+        extraSectionsSetup = true;
     }
 }
 
-function setupCustomLinesEvents() {
-    // Add button
-    document.getElementById('btn-add-custom-line')?.addEventListener('click', () => {
-        state.customLines.push({
-            id: Date.now(),
-            description: '',
-            quantite: 1,
-            prixUnitaire: 0,
-            showInPdf: true
+function syncCustomLinesFromSections() {
+    // Flatten all lines from all sections into customLines for backward compat
+    state.customLines = [];
+    (state.extraSections || []).forEach(section => {
+        section.lines.forEach(line => {
+            state.customLines.push({ ...line, _sectionTitre: section.titre });
         });
-        renderCustomLines();
+    });
+}
+
+function setupExtraSectionsEvents() {
+    // Add section button
+    document.getElementById('btn-add-extra-section')?.addEventListener('click', () => {
+        state.extraSections.push({
+            id: 'section-' + Date.now(),
+            titre: '',
+            lines: [{
+                id: Date.now(),
+                description: '',
+                quantite: 1,
+                prixUnitaire: 0,
+                showInPdf: true
+            }]
+        });
+        renderExtraSections();
     });
 
     // Event delegation on the container
-    const container = document.getElementById('custom-lines-list');
+    const container = document.getElementById('extra-sections-list');
     if (!container) return;
 
     container.addEventListener('click', (e) => {
-        const removeBtn = e.target.closest('.btn-remove-custom-line');
-        if (removeBtn) {
-            const lineId = parseFloat(removeBtn.dataset.lineId);
-            state.customLines = state.customLines.filter(l => l.id !== lineId);
-            renderCustomLines();
+        // Remove section
+        const removeSection = e.target.closest('.btn-remove-section');
+        if (removeSection) {
+            const sId = removeSection.dataset.sectionId;
+            state.extraSections = state.extraSections.filter(s => s.id !== sId);
+            renderExtraSections();
             recalculerTotaux();
             return;
         }
 
-        const toggleBtn = e.target.closest('.btn-toggle-pdf-visibility');
-        if (toggleBtn) {
-            const lineId = parseFloat(toggleBtn.dataset.lineId);
-            const line = state.customLines.find(l => l.id === lineId);
-            if (line) {
-                line.showInPdf = !line.showInPdf;
-                renderCustomLines();
+        // Remove line
+        const removeLine = e.target.closest('.btn-remove-line');
+        if (removeLine) {
+            const sId = removeLine.dataset.sectionId;
+            const lId = parseFloat(removeLine.dataset.lineId);
+            const section = state.extraSections.find(s => s.id === sId);
+            if (section) {
+                section.lines = section.lines.filter(l => l.id !== lId);
+                if (section.lines.length === 0) {
+                    state.extraSections = state.extraSections.filter(s => s.id !== sId);
+                }
+            }
+            renderExtraSections();
+            recalculerTotaux();
+            return;
+        }
+
+        // Add line to section
+        const addLine = e.target.closest('.btn-add-line-to-section');
+        if (addLine) {
+            const sId = addLine.dataset.sectionId;
+            const section = state.extraSections.find(s => s.id === sId);
+            if (section) {
+                section.lines.push({
+                    id: Date.now(),
+                    description: '',
+                    quantite: 1,
+                    prixUnitaire: 0,
+                    showInPdf: true
+                });
+                renderExtraSections();
             }
         }
     });
 
     container.addEventListener('input', (e) => {
         const input = e.target;
-        const lineId = parseFloat(input.dataset.lineId);
-        const field = input.dataset.field;
-        if (!lineId || !field) return;
 
-        const line = state.customLines.find(l => l.id === lineId);
+        // Section title
+        if (input.classList.contains('section-titre')) {
+            const sId = input.dataset.sectionId;
+            const section = state.extraSections.find(s => s.id === sId);
+            if (section) section.titre = input.value;
+            syncCustomLinesFromSections();
+            saveStateToStorage();
+            return;
+        }
+
+        // Line fields
+        const sId = input.dataset.sectionId;
+        const lId = parseFloat(input.dataset.lineId);
+        const field = input.dataset.field;
+        if (!sId || !lId || !field) return;
+
+        const section = state.extraSections.find(s => s.id === sId);
+        const line = section?.lines.find(l => l.id === lId);
         if (!line) return;
 
         if (field === 'description') {
@@ -4823,18 +5011,122 @@ function setupCustomLinesEvents() {
         }
 
         // Update total display for this line
-        const lineEl = input.closest('[data-custom-line-id]');
+        const lineEl = input.closest('[data-line-id]');
         const totalSpan = lineEl?.querySelector('.font-bold.text-slate-800');
         if (totalSpan) {
             totalSpan.textContent = `${formatInputValue(line.quantite * line.prixUnitaire)} $`;
         }
 
+        syncCustomLinesFromSections();
         recalculerTotaux();
     });
 }
 
 function getCustomLinesTotal() {
-    return state.customLines.reduce((sum, line) => sum + (line.quantite * line.prixUnitaire), 0);
+    // Sum all lines across all sections
+    return (state.extraSections || []).reduce((sum, section) => {
+        return sum + section.lines.reduce((sSum, line) => sSum + (line.quantite * line.prixUnitaire), 0);
+    }, 0);
+}
+
+// Keep old renderCustomLines as alias for backward compat
+function renderCustomLines() {
+    renderExtraSections();
+}
+
+// =====================================================
+// NON-INCLUS MODIFIABLES PAR SOUMISSION
+// =====================================================
+
+const DEFAULT_NON_INCLUS = [
+    'Déplacement et entreposage du mobilier du client',
+    'Protection autre que celle reliée à nos travaux',
+    'Chauffage temporaire',
+    'Stationnement, toilettes et local pour les pauses et diner',
+    "Démolition de matériaux sans amiante et des éléments d'électromécanique",
+    'Travaux sur le bâtiment pour permettre la sortie de nos matériaux et de notre pression négative',
+    'Travaux de ragréage ou de reconstruction',
+    'Tout élément non mentionné dans la présente soumission est exclu'
+];
+
+function initNonInclus() {
+    if (state.nonInclus && state.nonInclus.length > 0) return;
+
+    // Load from config_textes if available, else use defaults
+    let defaults = DEFAULT_NON_INCLUS;
+    try {
+        if (configTextes.non_inclus_defaut) {
+            const parsed = JSON.parse(configTextes.non_inclus_defaut);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                defaults = parsed;
+            }
+        }
+    } catch (e) { /* use defaults */ }
+
+    state.nonInclus = defaults.map(text => ({ text, active: true }));
+}
+
+function renderNonInclus() {
+    const container = document.getElementById('non-inclus-list');
+    if (!container) return;
+
+    initNonInclus();
+
+    container.innerHTML = state.nonInclus.map((item, i) => `
+        <div class="flex items-center gap-2 group" data-non-inclus-index="${i}">
+            <input type="checkbox" ${item.active ? 'checked' : ''} data-ni-toggle="${i}"
+                class="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer flex-shrink-0">
+            <span class="flex-1 text-sm ${item.active ? 'text-slate-700' : 'text-slate-400 line-through'}">${item.text}</span>
+            <button type="button" class="btn-remove-non-inclus opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center text-red-400 hover:text-red-600 rounded transition-all" data-ni-remove="${i}">
+                <span class="material-symbols-outlined text-sm">close</span>
+            </button>
+        </div>
+    `).join('');
+
+    // Event delegation
+    container.onclick = (e) => {
+        const removeBtn = e.target.closest('[data-ni-remove]');
+        if (removeBtn) {
+            const idx = parseInt(removeBtn.dataset.niRemove);
+            state.nonInclus.splice(idx, 1);
+            renderNonInclus();
+            saveStateToStorage();
+            return;
+        }
+    };
+
+    container.onchange = (e) => {
+        const toggle = e.target.closest('[data-ni-toggle]');
+        if (toggle) {
+            const idx = parseInt(toggle.dataset.niToggle);
+            state.nonInclus[idx].active = toggle.checked;
+            renderNonInclus();
+            saveStateToStorage();
+        }
+    };
+}
+
+function setupNonInclusEvents() {
+    const addBtn = document.getElementById('btn-add-non-inclus');
+    const input = document.getElementById('non-inclus-new-input');
+
+    const addItem = () => {
+        const text = input?.value?.trim();
+        if (!text) return;
+        state.nonInclus.push({ text, active: true });
+        if (input) input.value = '';
+        renderNonInclus();
+        saveStateToStorage();
+    };
+
+    addBtn?.addEventListener('click', addItem);
+    input?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); addItem(); }
+    });
+}
+
+function getActiveNonInclus() {
+    return (state.nonInclus || []).filter(item => item.active).map(item => item.text);
 }
 
 // =====================================================
@@ -4892,12 +5184,13 @@ function recalculerTotaux() {
     const transport = parseFormattedValue(document.getElementById('prix-transport')?.value);
     const disposition = parseFormattedValue(document.getElementById('prix-disposition')?.value);
     const assurance = parseFormattedValue(document.getElementById('prix-assurance')?.value);
+    const testsAirJournalier = parseFormattedValue(document.getElementById('prix-test-air-journalier')?.value);
     // Allow 0 as valid marge value (don't use || which treats 0 as falsy)
     const margeValue = document.getElementById('marge-percent')?.value;
     const margePourcent = margeValue !== '' && !isNaN(parseFloat(margeValue)) ? parseFloat(margeValue) : 20;
 
     // Calculate sous-total (coûts calculés seulement, sans extras)
-    const sousTotal = zones + demolition + douches + tests + perteTemps + ventilateur + transport + disposition + assurance;
+    const sousTotal = zones + demolition + douches + tests + perteTemps + ventilateur + transport + disposition + assurance + testsAirJournalier;
 
     // Calculate marge (sur les coûts, PAS sur les extras)
     const marge = sousTotal * (margePourcent / 100);
@@ -4923,6 +5216,7 @@ function recalculerTotaux() {
     state.prix.transport = transport;
     state.prix.disposition = disposition;
     state.prix.assurance = assurance;
+    state.prix.testsAirJournalier = testsAirJournalier;
     state.prix.sousTotal = sousTotal;
     state.prix.margePourcent = margePourcent;
     state.prix.marge = marge;
@@ -5207,8 +5501,9 @@ async function generatePreviewPDF() {
 function renderStep5Summary() {
     const zones = state.zones || [];
     const photosCount = zones.reduce((count, zone) => {
+        const zonePhotos = zone.photos?.length || (zone.photo ? 1 : 0);
         const surfacePhotos = (zone.surfaces || []).filter(s => s.photo).length;
-        return count + surfacePhotos;
+        return count + zonePhotos + surfacePhotos;
     }, 0);
 
     const resumeZones = document.getElementById('pdf-resume-zones');
@@ -5806,8 +6101,9 @@ function renderStep5() {
     // Update summary
     const zones = state.zones || [];
     const photosCount = zones.reduce((count, zone) => {
+        const zonePhotos = zone.photos?.length || (zone.photo ? 1 : 0);
         const surfacePhotos = (zone.surfaces || []).filter(s => s.photo).length;
-        return count + surfacePhotos;
+        return count + zonePhotos + surfacePhotos;
     }, 0);
 
     document.getElementById('pdf-resume-zones').textContent = zones.length;
@@ -6144,9 +6440,12 @@ window.loadSubmissionIntoForm = function(restoredState, isRevision) {
     state.risqueGlobalOverride = restoredState.risqueGlobalOverride;
     state.doucheCount = restoredState.doucheCount;
     state.testAirCount = restoredState.testAirCount;
+    state.testAirJournalierCount = restoredState.testAirJournalierCount ?? null;
     state.ventilateurCount = restoredState.ventilateurCount;
     state.transportCount = restoredState.transportCount;
     state.customLines = restoredState.customLines || [];
+    state.extraSections = restoredState.extraSections || [];
+    state.nonInclus = restoredState.nonInclus || [];
     state.prix = restoredState.prix || {};
     state.soumissionNumber = restoredState.soumissionNumber;
 

@@ -71,7 +71,8 @@ const CONFIG_KEYS = {
     'config-disposition_par_1000pi2': 'disposition_par_1000pi2',
     'config-assurance_petit': 'assurance_petit',
     'config-assurance_grand': 'assurance_grand',
-    'config-ventilateur_par_jour': 'ventilateur_par_jour'
+    'config-ventilateur_par_jour': 'ventilateur_par_jour',
+    'config-prix_test_air_journalier': 'prix_test_air_journalier'
 };
 
 // Config keys mapping for config_textes table (PDF configuration)
@@ -116,6 +117,19 @@ const CONFIG_TEXTES_JSON_KEYS = {
     'config-liste_inclusions': 'liste_inclusions',
     'config-liste_exclusions': 'liste_exclusions'
 };
+
+// Non-inclus par defaut - managed via interactive list, not textarea
+const SETTINGS_NON_INCLUS_DEFAULTS = [
+    'Déplacement et entreposage du mobilier du client',
+    'Protection autre que celle reliée à nos travaux',
+    'Chauffage temporaire',
+    'Stationnement, toilettes et local pour les pauses et diner',
+    "Démolition de matériaux sans amiante et des éléments d'électromécanique",
+    'Travaux sur le bâtiment pour permettre la sortie de nos matériaux et de notre pression négative',
+    'Travaux de ragréage ou de reconstruction',
+    'Tout élément non mentionné dans la présente soumission est exclu'
+];
+let settingsNonInclusList = [];
 
 // Document storage state
 const uploadedDocs = {
@@ -231,6 +245,25 @@ async function loadConfigTextes() {
                 }
             }
         });
+
+        // Load non-inclus defaut into interactive list
+        if (configMap['non_inclus_defaut']) {
+            try {
+                const arr = JSON.parse(configMap['non_inclus_defaut']);
+                if (Array.isArray(arr) && arr.length > 0) {
+                    settingsNonInclusList = arr;
+                } else {
+                    settingsNonInclusList = [...SETTINGS_NON_INCLUS_DEFAULTS];
+                }
+            } catch (e) {
+                console.warn('Erreur parsing JSON pour non_inclus_defaut:', e);
+                settingsNonInclusList = [...SETTINGS_NON_INCLUS_DEFAULTS];
+            }
+        } else {
+            settingsNonInclusList = [...SETTINGS_NON_INCLUS_DEFAULTS];
+        }
+        renderSettingsNonInclus();
+        setupSettingsNonInclusEvents();
 
         console.log(`✅ ${data.length} paramètres textes chargés`);
 
@@ -447,6 +480,12 @@ async function saveConfigTextes() {
                 valeur: JSON.stringify(lines)
             });
         }
+    });
+
+    // Non-inclus defaut from interactive list
+    updates.push({
+        cle: 'non_inclus_defaut',
+        valeur: JSON.stringify(settingsNonInclusList)
     });
 
     // Upsert each config value
@@ -960,4 +999,129 @@ function updateCompanySigStatus() {
             }
         }
     }
+}
+
+// =====================================================
+// NON-INCLUS PAR DEFAUT - INTERACTIVE LIST
+// =====================================================
+
+function renderSettingsNonInclus() {
+    const container = document.getElementById('settings-non-inclus-list');
+    if (!container) return;
+
+    if (settingsNonInclusList.length === 0) {
+        container.innerHTML = '<p class="text-sm text-slate-400 italic py-2">Aucun item. Ajoutez-en avec le champ ci-dessous.</p>';
+        return;
+    }
+
+    container.innerHTML = settingsNonInclusList.map((text, i) => `
+        <div class="flex items-center gap-2 group bg-slate-50 rounded-lg px-3 py-2" data-sni-index="${i}">
+            <span class="material-symbols-outlined text-slate-400 text-sm flex-shrink-0 cursor-grab">drag_indicator</span>
+            <span class="sni-text flex-1 text-sm text-slate-700 cursor-text" data-sni-edit="${i}">${text}</span>
+            <input type="text" class="sni-edit-input hidden flex-1 px-2 py-1 text-sm border border-primary rounded bg-white" data-sni-save="${i}" value="${text.replace(/"/g, '&quot;')}">
+            <button type="button" class="sni-btn-edit opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center text-slate-400 hover:text-primary rounded transition-all" data-sni-edit-btn="${i}" title="Modifier">
+                <span class="material-symbols-outlined text-sm">edit</span>
+            </button>
+            <button type="button" class="sni-btn-remove opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center text-red-400 hover:text-red-600 rounded transition-all" data-sni-remove="${i}" title="Retirer">
+                <span class="material-symbols-outlined text-sm">close</span>
+            </button>
+        </div>
+    `).join('');
+}
+
+function setupSettingsNonInclusEvents() {
+    const container = document.getElementById('settings-non-inclus-list');
+    const addBtn = document.getElementById('btn-add-settings-non-inclus');
+    const input = document.getElementById('settings-non-inclus-input');
+
+    if (!container) return;
+
+    // Delegated click events
+    container.addEventListener('click', (e) => {
+        // Remove
+        const removeBtn = e.target.closest('[data-sni-remove]');
+        if (removeBtn) {
+            const idx = parseInt(removeBtn.dataset.sniRemove);
+            settingsNonInclusList.splice(idx, 1);
+            renderSettingsNonInclus();
+            return;
+        }
+
+        // Edit button click
+        const editBtn = e.target.closest('[data-sni-edit-btn]');
+        if (editBtn) {
+            const idx = parseInt(editBtn.dataset.sniEditBtn);
+            startEditNonInclus(idx);
+            return;
+        }
+
+        // Double-click on text to edit
+        const textEl = e.target.closest('[data-sni-edit]');
+        if (textEl) {
+            const idx = parseInt(textEl.dataset.sniEdit);
+            startEditNonInclus(idx);
+        }
+    });
+
+    // Save on blur or Enter in edit input
+    container.addEventListener('keydown', (e) => {
+        const saveInput = e.target.closest('[data-sni-save]');
+        if (saveInput && e.key === 'Enter') {
+            e.preventDefault();
+            finishEditNonInclus(parseInt(saveInput.dataset.sniSave), saveInput.value);
+        }
+        if (saveInput && e.key === 'Escape') {
+            renderSettingsNonInclus();
+        }
+    });
+
+    container.addEventListener('focusout', (e) => {
+        const saveInput = e.target.closest('[data-sni-save]');
+        if (saveInput) {
+            finishEditNonInclus(parseInt(saveInput.dataset.sniSave), saveInput.value);
+        }
+    });
+
+    // Add new item
+    const addItem = () => {
+        const text = input?.value?.trim();
+        if (!text) return;
+        settingsNonInclusList.push(text);
+        if (input) input.value = '';
+        renderSettingsNonInclus();
+    };
+
+    addBtn?.addEventListener('click', addItem);
+    input?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addItem();
+        }
+    });
+}
+
+function startEditNonInclus(idx) {
+    const container = document.getElementById('settings-non-inclus-list');
+    const row = container?.querySelector(`[data-sni-index="${idx}"]`);
+    if (!row) return;
+
+    const textEl = row.querySelector('.sni-text');
+    const inputEl = row.querySelector('.sni-edit-input');
+    const editBtn = row.querySelector('.sni-btn-edit');
+
+    if (textEl) textEl.classList.add('hidden');
+    if (editBtn) editBtn.classList.add('hidden');
+    if (inputEl) {
+        inputEl.classList.remove('hidden');
+        inputEl.focus();
+        inputEl.select();
+    }
+}
+
+function finishEditNonInclus(idx, newValue) {
+    const trimmed = newValue.trim();
+    if (trimmed && idx >= 0 && idx < settingsNonInclusList.length) {
+        settingsNonInclusList[idx] = trimmed;
+    }
+    renderSettingsNonInclus();
 }

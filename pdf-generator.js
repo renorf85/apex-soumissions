@@ -101,6 +101,7 @@ async function generatePDF(options) {
     // 4. Pages photos et mesures (optionnel) — après signatures, avant documents légaux
     if (includePhotos && state.zones && state.zones.length > 0) {
         const hasPhotos = state.zones.some(zone =>
+            zone.photos?.length > 0 ||
             zone.photo?.dataUrl ||
             (zone.surfaces && zone.surfaces.some(s => s.photo?.dataUrl))
         );
@@ -193,7 +194,7 @@ function buildLineItems(state) {
                            'risque modéré';
         const surface = formatNumber(zone.surface || zone.surfaceTotal || 0);
         travauxItems.push({
-            description: `Retrait de ${(zone.materiauNom || 'matériaux').toLowerCase()} contenant de l'amiante (${risqueLabel}) — ${zone.nom} (${surface} pi²)`
+            description: `Retrait de ${(zone.materiauNom || 'matériaux').toLowerCase()} contenant de l'amiante (${risqueLabel}) — ${zone.nom} (± ${surface} pi²)`
         });
     });
 
@@ -222,14 +223,36 @@ function buildLineItems(state) {
     fraisItems.push({ description: 'Livraison et manutention de matériaux' });
     fraisItems.push({ description: 'Frais de déplacement' });
 
-    // Lignes personnalisees visibles dans le PDF client
-    const customLines = (state.customLines || []).filter(l => l.showInPdf && l.description);
-    customLines.forEach(line => {
-        const qtyText = line.quantite > 1 ? ` (x${line.quantite})` : '';
-        fraisItems.push({ description: `${line.description}${qtyText}` });
-    });
+    // ─── GROUPE 3 : Sections extras (blocs independants avec titres) ───
+    const extraBlocks = [];
+    const sections = state.extraSections || [];
+    if (sections.length > 0) {
+        sections.forEach(section => {
+            const visibleLines = section.lines.filter(l => l.showInPdf && l.description);
+            if (visibleLines.length === 0) return;
+            extraBlocks.push({
+                titre: section.titre || 'Travaux supplémentaires',
+                items: visibleLines.map(line => {
+                    const qtyText = line.quantite > 1 ? ` (x${line.quantite})` : '';
+                    return { description: `${line.description}${qtyText}` };
+                })
+            });
+        });
+    } else {
+        // Backward compat: flat customLines without sections
+        const backwardLines = (state.customLines || []).filter(l => l.showInPdf && l.description);
+        if (backwardLines.length > 0) {
+            extraBlocks.push({
+                titre: 'Travaux supplémentaires',
+                items: backwardLines.map(line => {
+                    const qtyText = line.quantite > 1 ? ` (x${line.quantite})` : '';
+                    return { description: `${line.description}${qtyText}` };
+                })
+            });
+        }
+    }
 
-    return { travauxItems, fraisItems };
+    return { travauxItems, fraisItems, extraBlocks };
 }
 
 // =====================================================
@@ -498,7 +521,35 @@ function drawLineItemsTable(doc, data, startY) {
 
     y += 4;
 
-    // ─── PARTIE 2 : Frais généraux (format liste simple, comme travaux) ───
+    // ─── PARTIES EXTRAS : Sections independantes avec titres (avant frais generaux) ───
+    if (data.extraBlocks && data.extraBlocks.length > 0) {
+        data.extraBlocks.forEach(block => {
+            y = checkPageBreak(doc, y, 15);
+
+            // Titre de section en bleu
+            doc.setFontSize(PDF_CONFIG.fontSizes.sectionTitle);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(...primaryBlue);
+            doc.text(block.titre, margin + 2, y);
+            doc.setFont(undefined, 'normal');
+            y += 5;
+
+            // Items de la section
+            doc.setFontSize(PDF_CONFIG.fontSizes.item);
+            doc.setTextColor(...textColor);
+
+            block.items.forEach(item => {
+                y = checkPageBreak(doc, y, 7);
+                const descLines = doc.splitTextToSize(item.description, contentWidth - 10);
+                doc.text(descLines, margin + 5, y);
+                y += descLines.length > 1 ? descLines.length * 4 + 1 : PDF_CONFIG.lineHeight.tableRow;
+            });
+
+            y += 4;
+        });
+    }
+
+    // ─── PARTIE FINALE : Frais généraux (format liste simple) ───
 
     // Titre de section en bleu
     doc.setFontSize(PDF_CONFIG.fontSizes.sectionTitle);
@@ -558,17 +609,11 @@ function drawDetailedPricing(doc, state, startY) {
         ['Douches de decontamination', prix.douches],
         ['Tests d\'air', prix.tests],
         ['Perte de temps', prix.perteTemps],
+        ['Tests d\'air journaliers', prix.testsAirJournalier],
         ['Transport', prix.transport],
         ['Disposition', prix.disposition],
         ['Assurance', prix.assurance]
     ];
-
-    // Lignes personnalisees
-    (state.customLines || []).forEach(line => {
-        if (line.description) {
-            items.push([line.description, line.quantite * line.prixUnitaire]);
-        }
-    });
 
     items.forEach(([label, amount]) => {
         if (amount > 0) {
@@ -578,6 +623,40 @@ function drawDetailedPricing(doc, state, startY) {
             y += 5;
         }
     });
+
+    // Sections extras (avec titres personnalises)
+    const sections = state.extraSections || [];
+    if (sections.length > 0) {
+        sections.forEach(section => {
+            const visibleLines = section.lines.filter(l => l.description && l.quantite * l.prixUnitaire > 0);
+            if (visibleLines.length === 0) return;
+
+            y = checkPageBreak(doc, y, 12);
+            y += 3;
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(PDF_CONFIG.fontSizes.item);
+            doc.text(section.titre || 'Travaux supplémentaires', margin + 4, y);
+            doc.setFont(undefined, 'normal');
+            y += 5;
+
+            visibleLines.forEach(line => {
+                y = checkPageBreak(doc, y, 6);
+                doc.text(line.description, margin + 6, y);
+                doc.text(`${formatNumber(line.quantite * line.prixUnitaire, 2)} $`, rightX, y, { align: 'right' });
+                y += 5;
+            });
+        });
+    } else if (state.customLines?.length > 0) {
+        // Backward compat: flat customLines without sections
+        state.customLines.forEach(line => {
+            if (line.description && line.quantite * line.prixUnitaire > 0) {
+                y = checkPageBreak(doc, y, 6);
+                doc.text(line.description, margin + 4, y);
+                doc.text(`${formatNumber(line.quantite * line.prixUnitaire, 2)} $`, rightX, y, { align: 'right' });
+                y += 5;
+            }
+        });
+    }
 
     // Sous-total
     y += 2;
@@ -683,7 +762,7 @@ function drawNotesAndExclusions(doc, exclusions, configTextes, state, y) {
     // Défauts pour les notes (comme le template)
     const defaultNotes = "Une procédure de désamiantage selon les normes du CSTC sera fourni avant d'effectuer les travaux\nL'ouverture de chantier au près de la CNESST relève de l'entrepreneur général";
 
-    // Défauts pour les exclusions (comme le template)
+    // Non-inclus : utiliser state.nonInclus (modifiable par soumission) si disponible
     const defaultExclusions = [
         'Déplacement et entreposage du mobilier du client',
         'Protection autre que celle reliée à nos travaux',
@@ -695,35 +774,7 @@ function drawNotesAndExclusions(doc, exclusions, configTextes, state, y) {
         'Tout élément non mentionné dans la présente soumission est exclu'
     ];
 
-    // Description technique selon le risque
-    let descriptif;
-    if (state.risqueGlobal === 'ÉLEVÉ') {
-        descriptif = configTextes.descriptif_risque_eleve || '';
-    } else if (state.risqueGlobal === 'ÉLEVÉ_ALLÉGÉ') {
-        descriptif = configTextes.descriptif_risque_eleve_allege || configTextes.descriptif_risque_modere || '';
-    } else {
-        descriptif = configTextes.descriptif_risque_modere || '';
-    }
-
-    if (descriptif && descriptif !== '[À configurer dans Settings]') {
-        y = checkPageBreak(doc, y, 20);
-
-        doc.setFontSize(PDF_CONFIG.fontSizes.sectionTitle);
-        doc.setTextColor(...textColor);
-        const descTitle = 'Description des travaux';
-        doc.text(descTitle, margin + 3, y);
-        const dTitleWidth = doc.getTextWidth(descTitle);
-        doc.setDrawColor(...textColor);
-        doc.setLineWidth(0.2);
-        doc.line(margin + 3, y + 1, margin + 3 + dTitleWidth, y + 1);
-
-        y += 6;
-        doc.setFontSize(PDF_CONFIG.fontSizes.item);
-        doc.setTextColor(...textColor);
-        const descLines = doc.splitTextToSize(descriptif, contentWidth - 8);
-        doc.text(descLines, margin + 5, y);
-        y += descLines.length * PDF_CONFIG.lineHeight.bodyText + 6;
-    }
+    // Description technique selon le risque - RETIRÉ (redondant avec le contrat, rencontre 27 mars)
 
     // Notes (comme le template : "Notes:")
     const notes = configTextes.notes_techniques || defaultNotes;
@@ -749,8 +800,11 @@ function drawNotesAndExclusions(doc, exclusions, configTextes, state, y) {
         y += 2;
     }
 
-    // Non inclus (comme le template : "Non inclus:")
-    const exclItems = (exclusions && exclusions.length > 0) ? exclusions : defaultExclusions;
+    // Non inclus : priorite state.nonInclus (actifs), sinon exclusions passees, sinon defaults
+    const stateNonInclus = state.nonInclus?.filter(item => item.active).map(item => item.text);
+    const exclItems = (stateNonInclus && stateNonInclus.length > 0) ? stateNonInclus
+        : (exclusions && exclusions.length > 0) ? exclusions
+        : defaultExclusions;
     y = checkPageBreak(doc, y, 10);
 
     doc.setFontSize(PDF_CONFIG.fontSizes.body);
@@ -881,7 +935,7 @@ async function createPhotosPages(doc, zones) {
                 doc.setTextColor(...accentTan);
                 doc.text('  |  Superficie : ', dimEndX, y);
                 doc.setTextColor(...textColor);
-                doc.text(surface.surface ? `${surface.surface} pi²` : '—', dimEndX + doc.getTextWidth('  |  Superficie : '), y);
+                doc.text(surface.surface ? `± ${surface.surface} pi²` : '—', dimEndX + doc.getTextWidth('  |  Superficie : '), y);
                 y += 5;
             }
 
@@ -899,13 +953,13 @@ async function createPhotosPages(doc, zones) {
 
     // Parcourir les zones et rendre toutes les photos
     for (const zone of zones) {
-        const hasZonePhoto = zone.photo?.dataUrl;
+        const zonePhotos = zone.photos?.length > 0 ? zone.photos : (zone.photo?.dataUrl ? [zone.photo] : []);
         const surfacesWithPhotos = (zone.surfaces || []).filter(s => s.photo?.dataUrl);
-        if (!hasZonePhoto && surfacesWithPhotos.length === 0) continue;
+        if (zonePhotos.length === 0 && surfacesWithPhotos.length === 0) continue;
 
-        // Photo de zone (vue d'ensemble)
-        if (hasZonePhoto) {
-            await renderPhoto(zone.photo.dataUrl, zone, null);
+        // Photos de zone (vue d'ensemble, multi-photo)
+        for (const photo of zonePhotos) {
+            await renderPhoto(photo.dataUrl, zone, null);
         }
 
         // Photos de surfaces
