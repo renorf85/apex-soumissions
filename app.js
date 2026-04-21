@@ -4699,9 +4699,8 @@ function renderRecap() {
         zonesList.appendChild(div);
     });
 
-    // Surface totale (+ debug temporaire)
-    const _surfDbg = state.zones.map(z => `[${z.nom}:nbS=${z.surfaces?.length||'?'},vals=${(z.surfaces||[]).map(s=>s.surface).join('+')}]`).join(' ');
-    document.getElementById('recap-surface-total').textContent = `${formatNumber(state.prix.surfaceTotal || 0, 0)} (demo:${formatNumber(state.prix.surfacePourPrix || 0, 0)}) ${_surfDbg}`;
+    // Surface totale
+    document.getElementById('recap-surface-total').textContent = formatNumber(state.prix.surfaceTotal || 0, 0);
 
     // Risque global
     const risqueEl = document.getElementById('recap-risque-global');
@@ -4754,6 +4753,9 @@ function renderRecap() {
     // Prix details - Set values in inputs with formatted numbers (espaces milliers)
     document.getElementById('prix-zones').value = formatInputValue(state.prix.zones || 0);
     document.getElementById('prix-demolition').value = formatInputValue(state.prix.demolition || 0);
+    // DEBUG: afficher la valeur brute de demolition et surfacePourPrix
+    const _demoLabel = document.querySelector('label[for="prix-demolition"]') || document.getElementById('prix-demolition')?.closest('.flex')?.querySelector('.text-xs');
+    if (_demoLabel) _demoLabel.textContent = `Démolition [brut:${Math.round(state.prix.demolition)}, surfPrix:${state.prix.surfacePourPrix}, surfTot:${state.prix.surfaceTotal}]`;
     document.getElementById('prix-douches').value = formatInputValue(state.prix.douches || 0);
     // Update shower count display
     const doucheCountEl = document.getElementById('douche-count');
