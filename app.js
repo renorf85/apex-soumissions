@@ -4449,7 +4449,6 @@ function calculatePrix() {
     const surfaceTotal = zones.reduce((sum, z) => sum + (z.surface || z.surfaceTotal || 0), 0);
 
     // Surface pour le calcul du prix/pi² : plus grosse surface par zone (pas la somme)
-    const _debugSurfaces = zones.map(z => `${z.nom}: surfaces=${z.surfaces?.length || 0}, keys=${z.surfaces?.[0] ? Object.keys(z.surfaces[0]).join(',') : 'N/A'}`);
     const surfacePourPrix = zones.reduce((sum, z) => {
         if (z.surfaces && z.surfaces.length > 1) {
             const maxSurface = Math.max(...z.surfaces.map(s => s.surface || (s.longueur || 0) * (s.hauteur || 0)));
@@ -4457,10 +4456,11 @@ function calculatePrix() {
         }
         return sum + (z.surface || z.surfaceTotal || 0);
     }, 0);
-    if (typeof window._debugPrixShown === 'undefined') {
-        window._debugPrixShown = true;
-        alert(`DEBUG CALCUL:\nsurfacePourPrix=${surfacePourPrix}\nsurfaceTotal=${surfaceTotal}\nzones: ${_debugSurfaces.join(' | ')}`);
-    }
+    // DEBUG TEMPORAIRE : afficher dans la page
+    const _dbg = zones.map(z => `${z.nom}: nbSurf=${z.surfaces?.length||0} vals=[${(z.surfaces||[]).map(s=>`${s.surface||0}`).join(',')}]`).join(' | ');
+    let _dbgEl = document.getElementById('debug-calcul-prix');
+    if (!_dbgEl) { _dbgEl = document.createElement('div'); _dbgEl.id = 'debug-calcul-prix'; _dbgEl.style.cssText = 'position:fixed;top:0;left:0;right:0;background:yellow;color:black;padding:8px;font-size:14px;font-family:monospace;z-index:99999;border-bottom:3px solid red;'; document.body.prepend(_dbgEl); }
+    _dbgEl.textContent = `DEBUG: surfacePourPrix=${surfacePourPrix} | surfaceTotal=${surfaceTotal} | ${_dbg}`;
 
     // 1. Coûts des zones (ajustés selon le taux horaire)
     let prixZones = 0;
