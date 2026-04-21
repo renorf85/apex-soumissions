@@ -4449,15 +4449,18 @@ function calculatePrix() {
     const surfaceTotal = zones.reduce((sum, z) => sum + (z.surface || z.surfaceTotal || 0), 0);
 
     // Surface pour le calcul du prix/pi² : plus grosse surface par zone (pas la somme)
+    const _debugSurfaces = zones.map(z => `${z.nom}: surfaces=${z.surfaces?.length || 0}, keys=${z.surfaces?.[0] ? Object.keys(z.surfaces[0]).join(',') : 'N/A'}`);
     const surfacePourPrix = zones.reduce((sum, z) => {
         if (z.surfaces && z.surfaces.length > 1) {
             const maxSurface = Math.max(...z.surfaces.map(s => s.surface || (s.longueur || 0) * (s.hauteur || 0)));
-            console.log(`[Prix] Zone "${z.nom}": ${z.surfaces.length} surfaces, max=${maxSurface}, total=${z.surface || z.surfaceTotal}`);
             return sum + maxSurface;
         }
         return sum + (z.surface || z.surfaceTotal || 0);
     }, 0);
-    console.log(`[Prix] surfacePourPrix=${surfacePourPrix}, surfaceTotal=${surfaceTotal}`);
+    if (typeof window._debugPrixShown === 'undefined') {
+        window._debugPrixShown = true;
+        alert(`DEBUG CALCUL:\nsurfacePourPrix=${surfacePourPrix}\nsurfaceTotal=${surfaceTotal}\nzones: ${_debugSurfaces.join(' | ')}`);
+    }
 
     // 1. Coûts des zones (ajustés selon le taux horaire)
     let prixZones = 0;
