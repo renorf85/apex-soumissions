@@ -4451,11 +4451,13 @@ function calculatePrix() {
     // Surface pour le calcul du prix/pi² : plus grosse surface par zone (pas la somme)
     const surfacePourPrix = zones.reduce((sum, z) => {
         if (z.surfaces && z.surfaces.length > 1) {
-            const maxSurface = Math.max(...z.surfaces.map(s => (s.longueur || 0) * (s.hauteur || 0)));
+            const maxSurface = Math.max(...z.surfaces.map(s => s.surface || (s.longueur || 0) * (s.hauteur || 0)));
+            console.log(`[Prix] Zone "${z.nom}": ${z.surfaces.length} surfaces, max=${maxSurface}, total=${z.surface || z.surfaceTotal}`);
             return sum + maxSurface;
         }
         return sum + (z.surface || z.surfaceTotal || 0);
     }, 0);
+    console.log(`[Prix] surfacePourPrix=${surfacePourPrix}, surfaceTotal=${surfaceTotal}`);
 
     // 1. Coûts des zones (ajustés selon le taux horaire)
     let prixZones = 0;
