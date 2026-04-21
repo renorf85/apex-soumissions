@@ -4456,11 +4456,6 @@ function calculatePrix() {
         }
         return sum + (z.surface || z.surfaceTotal || 0);
     }, 0);
-    // DEBUG TEMPORAIRE : afficher dans la page
-    const _dbg = zones.map(z => `${z.nom}: nbSurf=${z.surfaces?.length||0} vals=[${(z.surfaces||[]).map(s=>`${s.surface||0}`).join(',')}]`).join(' | ');
-    let _dbgEl = document.getElementById('debug-calcul-prix');
-    if (!_dbgEl) { _dbgEl = document.createElement('div'); _dbgEl.id = 'debug-calcul-prix'; _dbgEl.style.cssText = 'position:fixed;top:0;left:0;right:0;background:yellow;color:black;padding:8px;font-size:14px;font-family:monospace;z-index:99999;border-bottom:3px solid red;'; document.body.prepend(_dbgEl); }
-    _dbgEl.textContent = `DEBUG: surfacePourPrix=${surfacePourPrix} | surfaceTotal=${surfaceTotal} | ${_dbg}`;
 
     // 1. Coûts des zones (ajustés selon le taux horaire)
     let prixZones = 0;
@@ -4639,6 +4634,7 @@ function calculatePrix() {
         marge: marge,
         total: total,
         surfaceTotal: surfaceTotal,
+        surfacePourPrix: surfacePourPrix,
         margePourcent: margePourcent
     };
 
@@ -4703,8 +4699,9 @@ function renderRecap() {
         zonesList.appendChild(div);
     });
 
-    // Surface totale
-    document.getElementById('recap-surface-total').textContent = formatNumber(state.prix.surfaceTotal || 0, 0);
+    // Surface totale (+ debug temporaire)
+    const _surfDbg = state.zones.map(z => `[${z.nom}:nbS=${z.surfaces?.length||'?'},vals=${(z.surfaces||[]).map(s=>s.surface).join('+')}]`).join(' ');
+    document.getElementById('recap-surface-total').textContent = `${formatNumber(state.prix.surfaceTotal || 0, 0)} (demo:${formatNumber(state.prix.surfacePourPrix || 0, 0)}) ${_surfDbg}`;
 
     // Risque global
     const risqueEl = document.getElementById('recap-risque-global');
