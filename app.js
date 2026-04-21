@@ -93,6 +93,7 @@ const state = {
     customLines: [], // Backward compat: flat lines (synced from extraSections)
     extraSections: [], // Sections extras [{id, titre, lines: [{id, description, quantite, prixUnitaire, showInPdf}]}]
     nonInclus: [], // Non-inclus modifiables par soumission [{text, active}]
+    notesTechniques: null, // null = utilise config global, string = override par soumission
     // Multi-surfaces : surfaces temporaires lors de la création/édition d'une zone
     currentSurfaces: [],
     prix: {
@@ -4447,6 +4448,15 @@ function calculatePrix() {
     // Surface totale (compatible ancien et nouveau format)
     const surfaceTotal = zones.reduce((sum, z) => sum + (z.surface || z.surfaceTotal || 0), 0);
 
+    // Surface pour le calcul du prix/pi² : plus grosse surface par zone (pas la somme)
+    const surfacePourPrix = zones.reduce((sum, z) => {
+        if (z.surfaces && z.surfaces.length > 1) {
+            const maxSurface = Math.max(...z.surfaces.map(s => (s.longueur || 0) * (s.hauteur || 0)));
+            return sum + maxSurface;
+        }
+        return sum + (z.surface || z.surfaceTotal || 0);
+    }, 0);
+
     // 1. Coûts des zones (ajustés selon le taux horaire)
     let prixZones = 0;
 
@@ -4467,21 +4477,20 @@ function calculatePrix() {
         }
     }
 
-    // 2. Prix démolition (selon surface totale, ajusté selon le taux horaire)
-    // NOTE: Le tarif de démolition au pi2 reste le MEME quel que soit le risque
+    // 2. Prix démolition (selon la plus grosse surface par zone, ajusté selon le taux horaire)
     const seuilDemo1 = config.seuil_demo_palier1 || 500;
     const seuilDemo2 = config.seuil_demo_palier2 || 1500;
     const plageDemo2 = seuilDemo2 - seuilDemo1;
     let prixDemo = 0;
-    if (surfaceTotal <= seuilDemo1) {
-        prixDemo = surfaceTotal * (config.prix_demo_palier1 || 8) * facteurTaux;
-    } else if (surfaceTotal <= seuilDemo2) {
+    if (surfacePourPrix <= seuilDemo1) {
+        prixDemo = surfacePourPrix * (config.prix_demo_palier1 || 8) * facteurTaux;
+    } else if (surfacePourPrix <= seuilDemo2) {
         prixDemo = seuilDemo1 * (config.prix_demo_palier1 || 8) * facteurTaux;
-        prixDemo += (surfaceTotal - seuilDemo1) * (config.prix_demo_palier2 || 6.5) * facteurTaux;
+        prixDemo += (surfacePourPrix - seuilDemo1) * (config.prix_demo_palier2 || 6.5) * facteurTaux;
     } else {
         prixDemo = seuilDemo1 * (config.prix_demo_palier1 || 8) * facteurTaux;
         prixDemo += plageDemo2 * (config.prix_demo_palier2 || 6.5) * facteurTaux;
-        prixDemo += (surfaceTotal - seuilDemo2) * (config.prix_demo_palier3 || 4.5) * facteurTaux;
+        prixDemo += (surfacePourPrix - seuilDemo2) * (config.prix_demo_palier3 || 4.5) * facteurTaux;
     }
 
     // 3. Frais GLOBAUX selon le niveau de risque
@@ -4795,6 +4804,9 @@ function renderRecap() {
 
     // Lignes personnalisees
     renderCustomLines();
+
+    // Notes techniques (override par soumission)
+    initNotesTechniques();
 
     // Non-inclus modifiables
     renderNonInclus();
@@ -5127,6 +5139,31 @@ function setupNonInclusEvents() {
 
 function getActiveNonInclus() {
     return (state.nonInclus || []).filter(item => item.active).map(item => item.text);
+}
+
+// =====================================================
+// NOTES TECHNIQUES (override par soumission)
+// =====================================================
+
+const DEFAULT_NOTES_TECHNIQUES = "Une procédure de désamiantage selon les normes du CSTC sera fourni avant d'effectuer les travaux\nL'ouverture de chantier au près de la CNESST relève de l'entrepreneur général";
+
+function initNotesTechniques() {
+    const textarea = document.getElementById('notes-techniques-input');
+    if (!textarea) return;
+
+    const notes = state.notesTechniques ?? configTextes.notes_techniques ?? DEFAULT_NOTES_TECHNIQUES;
+    textarea.value = notes;
+
+    textarea.addEventListener('input', () => {
+        state.notesTechniques = textarea.value;
+        saveStateToStorage();
+    });
+
+    document.getElementById('btn-reset-notes')?.addEventListener('click', () => {
+        state.notesTechniques = null;
+        textarea.value = configTextes.notes_techniques || DEFAULT_NOTES_TECHNIQUES;
+        saveStateToStorage();
+    });
 }
 
 // =====================================================
@@ -6446,6 +6483,7 @@ window.loadSubmissionIntoForm = function(restoredState, isRevision) {
     state.customLines = restoredState.customLines || [];
     state.extraSections = restoredState.extraSections || [];
     state.nonInclus = restoredState.nonInclus || [];
+    state.notesTechniques = restoredState.notesTechniques ?? null;
     state.prix = restoredState.prix || {};
     state.soumissionNumber = restoredState.soumissionNumber;
 

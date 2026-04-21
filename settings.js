@@ -602,7 +602,7 @@ function showAddMateriauForm() {
     if (btn) btn.classList.add('hidden');
     // Reset form
     document.getElementById('new-mat-nom').value = '';
-    document.getElementById('new-mat-categorie').value = 'Murs et Plafonds';
+    document.getElementById('new-mat-categorie').value = 'Mur/Plafond';
     document.getElementById('new-mat-friabilite').value = 'non_friable';
     document.getElementById('new-mat-epaisseur').value = '0.5';
     document.getElementById('new-mat-risque').value = '';
@@ -635,7 +635,7 @@ async function saveNewMateriau() {
                 categorie,
                 friabilite,
                 epaisseur_defaut: epaisseur,
-                niveau_risque_typique: risque || null,
+                notes: risque || null,
                 actif: true,
                 ordre: 99
             })
@@ -674,11 +674,11 @@ async function editMateriau(id) {
             </td>
             <td class="py-2 pr-2">
                 <select class="edit-mat-categorie px-2 py-1 border border-slate-200 rounded text-sm bg-white" data-id="${id}">
-                    <option value="Isolants" ${mat.categorie === 'Isolants' ? 'selected' : ''}>Isolants</option>
-                    <option value="Murs et Plafonds" ${mat.categorie === 'Murs et Plafonds' ? 'selected' : ''}>Murs et Plafonds</option>
-                    <option value="Sols" ${mat.categorie === 'Sols' ? 'selected' : ''}>Sols</option>
-                    <option value="Extérieur" ${mat.categorie === 'Extérieur' ? 'selected' : ''}>Extérieur</option>
-                    <option value="Mécanique" ${mat.categorie === 'Mécanique' ? 'selected' : ''}>Mécanique</option>
+                    <option value="Isolation" ${mat.categorie === 'Isolation' ? 'selected' : ''}>Isolation</option>
+                    <option value="Mur/Plafond" ${mat.categorie === 'Mur/Plafond' ? 'selected' : ''}>Mur/Plafond</option>
+                    <option value="Plancher" ${mat.categorie === 'Plancher' ? 'selected' : ''}>Plancher</option>
+                    <option value="Revêtement extérieur/Toiture" ${mat.categorie === 'Revêtement extérieur/Toiture' ? 'selected' : ''}>Revêtement extérieur/Toiture</option>
+                    <option value="Autre" ${mat.categorie === 'Autre' ? 'selected' : ''}>Autre</option>
                 </select>
             </td>
             <td class="py-2 pr-2">
@@ -691,7 +691,7 @@ async function editMateriau(id) {
                 <input type="number" value="${mat.epaisseur_defaut}" class="edit-mat-epaisseur w-20 px-2 py-1 border border-slate-200 rounded text-sm" step="0.0625" data-id="${id}">
             </td>
             <td class="py-2 pr-2">
-                <input type="text" value="${mat.niveau_risque_typique || ''}" class="edit-mat-risque w-full px-2 py-1 border border-slate-200 rounded text-sm" data-id="${id}">
+                <input type="text" value="${mat.notes || ''}" class="edit-mat-risque w-full px-2 py-1 border border-slate-200 rounded text-sm" data-id="${id}">
             </td>
             <td class="py-2 text-right">
                 <div class="flex items-center justify-end gap-1">
@@ -732,7 +732,7 @@ async function saveEditMateriau(id) {
                 categorie,
                 friabilite,
                 epaisseur_defaut: epaisseur,
-                niveau_risque_typique: risque || null
+                notes: risque || null
             })
             .eq('id', id);
 

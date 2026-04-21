@@ -113,7 +113,7 @@ async function generatePDF(options) {
 
     // 5. Annexer documents légaux (licence RBQ, assurance)
     if (includeLegalDocs) {
-        const pdfWithAnnexes = await appendLegalDocuments(doc);
+        const pdfWithAnnexes = await appendLegalDocuments(doc, state);
         if (pdfWithAnnexes) {
             return pdfWithAnnexes;
         }
@@ -146,18 +146,6 @@ function drawContinuationHeader(doc) {
 }
 
 function drawPageFooter(doc, configTextes) {
-    const { margin, pageWidth, pageHeight, mutedColor } = PDF_CONFIG;
-    const footerY = pageHeight - 8;
-    doc.setFontSize(PDF_CONFIG.fontSizes.footer);
-    doc.setTextColor(...mutedColor);
-    doc.text(
-        '*La soumission sera valide dans un délai de 30 jours.',
-        margin, footerY
-    );
-    doc.text(
-        "*Des frais d'administration seront facturés s'il y a annulation des travaux suite à l'acceptation de la soumission.",
-        margin, footerY + 3
-    );
 }
 
 // =====================================================
@@ -325,13 +313,14 @@ async function createMainDocument(doc, state, configTextes, soumissionNumber, da
     doc.setFontSize(18);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(...primaryBlue);
-    doc.text(titleText, margin, y);
+    const titleWidth = doc.getTextWidth(titleText);
+    const titleX = (pageWidth - titleWidth) / 2;
+    doc.text(titleText, titleX, y);
 
     y += 2;
-    // Ligne sous le titre (bleue comme le texte)
     doc.setDrawColor(...primaryBlue);
     doc.setLineWidth(0.5);
-    doc.line(margin, y, margin + doc.getTextWidth(titleText) + 2, y);
+    doc.line(titleX, y, titleX + titleWidth + 2, y);
 
     y += 6;
 
@@ -369,8 +358,12 @@ async function createMainDocument(doc, state, configTextes, soumissionNumber, da
     doc.text(state.client.nom || 'Nom du client', leftX, y);
 
     // Adresse travaux (aligné à droite)
-    if (state.client.adresseChantier) {
-        doc.text(state.client.adresseChantier, pageWidth - margin, y, { align: 'right' });
+    const stripCountry = (addr) => addr.replace(/,?\s*Canada\s*$/i, '').trim();
+    const chantierAddr = state.client.adresseChantier ? stripCountry(state.client.adresseChantier) : '';
+    const factAddr = state.client.adresseFacturation ? stripCountry(state.client.adresseFacturation) : '';
+
+    if (chantierAddr && chantierAddr !== factAddr) {
+        doc.text(chantierAddr, pageWidth - margin, y, { align: 'right' });
     } else {
         doc.setTextColor(...accentTan);
         doc.text('Même', pageWidth - margin, y, { align: 'right' });
@@ -380,14 +373,14 @@ async function createMainDocument(doc, state, configTextes, soumissionNumber, da
     y += 4;
     doc.setFontSize(PDF_CONFIG.fontSizes.small);
 
-    // Adresse facturation
+    // Adresse facturation (2 lignes : rue / ville)
     let clientY = y;
-    const billingAddr = state.client.adresseFacturation || state.client.adresseChantier || '';
+    const billingAddr = factAddr || chantierAddr || '';
     if (billingAddr) {
         doc.text(billingAddr, leftX, clientY);
         clientY += 4;
     }
-    const billingCity = state.client.villeFacturation || '';
+    const billingCity = state.client.villeFacturation ? stripCountry(state.client.villeFacturation) : '';
     if (billingCity) {
         doc.text(billingCity, leftX, clientY);
         clientY += 4;
@@ -776,8 +769,8 @@ function drawNotesAndExclusions(doc, exclusions, configTextes, state, y) {
 
     // Description technique selon le risque - RETIRÉ (redondant avec le contrat, rencontre 27 mars)
 
-    // Notes (comme le template : "Notes:")
-    const notes = configTextes.notes_techniques || defaultNotes;
+    // Notes (override par soumission si disponible, sinon config global)
+    const notes = state.notesTechniques ?? configTextes.notes_techniques ?? defaultNotes;
     if (notes && notes !== '[À configurer dans Settings]') {
         y = checkPageBreak(doc, y, 20);
 
@@ -1165,21 +1158,25 @@ async function createSignatureSection(doc, signatureDataUrl, companySignatureDat
         doc.text('Date:', rightCol, y);
     }
 
-    // Footer validité
-    y = pageHeight - 12;
-    doc.setFontSize(PDF_CONFIG.fontSizes.footer);
-    doc.setTextColor(...PDF_CONFIG.mutedColor);
-    doc.text('*La soumission sera valide dans un délai de 30 jours.', margin, y);
-    doc.text("*Des frais d'administration seront facturés s'il y a annulation des travaux suite à l'acceptation de la soumission.", margin, y + 3);
 }
 
 // =====================================================
 // ANNEXES: DOCUMENTS LÉGAUX
 // =====================================================
 
-async function appendLegalDocuments(doc) {
+async function appendLegalDocuments(doc, state) {
     const docTypes = ['licence', 'assurance', 'contrat', 'icrc', 'cq'];
     const pdfBuffers = [];
+
+    // Rapport de caracterisation (File object dans state.rapport)
+    if (state.rapport && state.rapport instanceof File && state.rapport.type === 'application/pdf') {
+        try {
+            const rapportBuffer = await state.rapport.arrayBuffer();
+            pdfBuffers.push(new Uint8Array(rapportBuffer));
+        } catch (e) {
+            console.warn('Erreur lecture rapport de caracterisation:', e);
+        }
+    }
 
     for (const docType of docTypes) {
         const docInfo = localStorage.getItem(`apex_doc_${docType}`);
