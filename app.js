@@ -4639,6 +4639,10 @@ function calculatePrix() {
         margePourcent: margePourcent
     };
 
+    // Forcer la valeur dans le DOM pour eviter qu'un recalcul lise une ancienne valeur
+    const _demoInput = document.getElementById('prix-demolition');
+    if (_demoInput) _demoInput.value = formatInputValue(prixDemo);
+
     console.log('💰 Prix calculés (facteur taux horaire:', facteurTaux.toFixed(4), '):', state.prix);
     return state.prix;
 }
