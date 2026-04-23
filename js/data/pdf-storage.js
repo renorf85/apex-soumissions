@@ -31,17 +31,7 @@ window.PdfStorage = {
 
         if (error) throw error;
 
-        const blobUrl = URL.createObjectURL(data);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = filename || 'document.pdf';
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => {
-            document.body.removeChild(a);
-            URL.revokeObjectURL(blobUrl);
-        }, 100);
+        await downloadBlob(data, filename || 'document.pdf');
     },
 
     async uploadBothPdfs(pdfClientBlob, pdfDetailBlob, numero) {

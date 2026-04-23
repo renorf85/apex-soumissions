@@ -6307,15 +6307,33 @@ async function generateAndDownloadPDF() {
 /**
  * Download a blob as a file
  */
-function downloadBlob(blob, filename) {
+async function downloadBlob(blob, filename) {
+    if (window.showSaveFilePicker) {
+        try {
+            const ext = filename.split('.').pop();
+            const types = ext === 'zip'
+                ? [{ description: 'Archive ZIP', accept: { 'application/zip': ['.zip'] } }]
+                : [{ description: 'Document PDF', accept: { 'application/pdf': ['.pdf'] } }];
+            const handle = await window.showSaveFilePicker({ suggestedName: filename, types });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            return;
+        } catch (e) {
+            if (e.name === 'AbortError') return;
+        }
+    }
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
+    a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, 100);
 }
 
 /**
