@@ -1169,10 +1169,15 @@ async function appendLegalDocuments(doc, state) {
     const pdfBuffers = [];
 
     // Rapport de caracterisation (File object dans state.rapport)
-    if (state.rapport && state.rapport instanceof File && state.rapport.type === 'application/pdf') {
+    if (state.rapport && state.rapport instanceof File) {
         try {
             const rapportBuffer = await state.rapport.arrayBuffer();
-            pdfBuffers.push(new Uint8Array(rapportBuffer));
+            if (state.rapport.type === 'application/pdf') {
+                pdfBuffers.push(new Uint8Array(rapportBuffer));
+            } else if (state.rapport.type.startsWith('image/')) {
+                const imgPdfBytes = await convertImageToPdfBytes(new Uint8Array(rapportBuffer), state.rapport.type);
+                if (imgPdfBytes) pdfBuffers.push(imgPdfBytes);
+            }
         } catch (e) {
             console.warn('Erreur lecture rapport de caracterisation:', e);
         }
@@ -1226,6 +1231,47 @@ async function appendLegalDocuments(doc, state) {
 
     } catch (e) {
         console.error('Erreur fusion PDFs:', e);
+        return null;
+    }
+}
+
+async function convertImageToPdfBytes(imageBytes, mimeType) {
+    try {
+        const { PDFDocument } = PDFLib;
+        const imgPdf = await PDFDocument.create();
+
+        let image;
+        if (mimeType === 'image/png') {
+            image = await imgPdf.embedPng(imageBytes);
+        } else {
+            const canvas = document.createElement('canvas');
+            const blob = new Blob([imageBytes], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const img = await new Promise((resolve, reject) => {
+                const i = new Image();
+                i.onload = () => resolve(i);
+                i.onerror = reject;
+                i.src = url;
+            });
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+            URL.revokeObjectURL(url);
+
+            const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+            const base64 = jpegDataUrl.split(',')[1];
+            const jpegBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+            image = await imgPdf.embedJpg(jpegBytes);
+        }
+
+        const pageWidth = image.width;
+        const pageHeight = image.height;
+        const page = imgPdf.addPage([pageWidth, pageHeight]);
+        page.drawImage(image, { x: 0, y: 0, width: pageWidth, height: pageHeight });
+
+        return new Uint8Array(await imgPdf.save());
+    } catch (e) {
+        console.warn('Erreur conversion image vers PDF:', e);
         return null;
     }
 }

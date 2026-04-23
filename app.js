@@ -791,10 +791,15 @@ function showChoiceSection() {
     state.hasReport = null;
 }
 
+const ACCEPTED_RAPPORT_TYPES = [
+    'application/pdf',
+    'image/png', 'image/jpeg', 'image/webp',
+    'image/heic', 'image/tiff', 'image/bmp'
+];
+
 function handleFileSelected(file) {
-    // Validate file type
-    if (file.type !== 'application/pdf') {
-        apexModal.error('Veuillez sélectionner un fichier PDF.');
+    if (!ACCEPTED_RAPPORT_TYPES.includes(file.type)) {
+        apexModal.error('Format non supporté. Accepté : PDF, PNG, JPG, WEBP, HEIC, TIFF, BMP.');
         return;
     }
 

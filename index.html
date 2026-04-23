@@ -446,7 +446,7 @@
                         class="w-full bg-primary hover:bg-primary-dark text-white py-5 px-6 rounded-2xl shadow-lg shadow-blue-500/10 flex flex-col items-center gap-3 transition-all active:scale-[0.98]">
                         <span class="material-symbols-outlined text-3xl">upload_file</span>
                         <span class="font-bold text-lg">Télécharger le rapport (PDF)</span>
-                        <span class="text-xs opacity-80 font-medium italic">Taille max. 25 Mo</span>
+                        <span class="text-xs opacity-80 font-medium italic">PDF ou image • Max 25 Mo</span>
                     </button>
 
                     <!-- Upload Success (Mobile) -->
@@ -487,7 +487,7 @@
                         </div>
                         <p class="text-base font-semibold text-slate-900 mb-1">Glissez votre PDF ici</p>
                         <p class="text-sm text-text-muted">ou cliquez pour parcourir</p>
-                        <p class="text-xs text-slate-400 mt-4">PDF uniquement • Max 25MB</p>
+                        <p class="text-xs text-slate-400 mt-4">PDF ou image (PNG, JPG, etc.) • Max 25MB</p>
                     </div>
 
                     <div id="upload-success-desktop" class="hidden flex flex-col items-center">
@@ -526,7 +526,7 @@
                 </div>
             </div>
 
-            <input type="file" id="file-input" accept=".pdf" class="hidden" />
+            <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg,.webp,.heic,.tiff,.bmp" class="hidden" />
         </section>
 
         <!-- Step 2: Informations du client (single page) -->
