@@ -366,7 +366,7 @@ async function createMainDocument(doc, state, configTextes, soumissionNumber, da
         doc.text(chantierAddr, pageWidth - margin, y, { align: 'right' });
     } else {
         doc.setTextColor(...accentTan);
-        doc.text('Même', pageWidth - margin, y, { align: 'right' });
+        doc.text('Même adresse que celle de facturation', pageWidth - margin, y, { align: 'right' });
         doc.setTextColor(...textColor);
     }
 
