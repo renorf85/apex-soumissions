@@ -25,17 +25,23 @@ window.PdfStorage = {
     },
 
     async downloadPdf(path, filename) {
-        const url = await this.getDownloadUrl(path);
-        const response = await fetch(url);
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
+        const { data, error } = await supabaseClient.storage
+            .from('soumissions-pdfs')
+            .download(path);
+
+        if (error) throw error;
+
+        const blobUrl = URL.createObjectURL(data);
         const a = document.createElement('a');
         a.href = blobUrl;
         a.download = filename || 'document.pdf';
+        a.style.display = 'none';
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(blobUrl);
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+        }, 100);
     },
 
     async uploadBothPdfs(pdfClientBlob, pdfDetailBlob, numero) {
