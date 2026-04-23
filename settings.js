@@ -580,13 +580,22 @@ function renderMateriauxTable(materiaux) {
             <td class="py-2.5 pr-2 text-slate-500">${mat.epaisseur_defaut}"</td>
             <td class="py-2.5 pr-2 text-slate-500 text-xs">${mat.niveau_risque_typique || '-'}</td>
             <td class="py-2.5 text-right">
-                <div class="flex items-center justify-end gap-1">
-                    <button onclick="editMateriau('${mat.id}')" class="p-1.5 text-slate-400 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors" title="Modifier">
-                        <span class="material-symbols-outlined text-base">edit</span>
+                <div class="relative inline-block">
+                    <button onclick="toggleMatMenu('${mat.id}')" class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                        <span class="material-symbols-outlined text-base">more_vert</span>
                     </button>
-                    <button onclick="toggleMateriauActif('${mat.id}', ${mat.actif})" class="p-1.5 ${mat.actif ? 'text-slate-400 hover:text-red-500 hover:bg-red-50' : 'text-green-500 hover:text-green-600 hover:bg-green-50'} rounded-lg transition-colors" title="${mat.actif ? 'Désactiver' : 'Activer'}">
-                        <span class="material-symbols-outlined text-base">${mat.actif ? 'visibility_off' : 'visibility'}</span>
-                    </button>
+                    <div id="mat-menu-${mat.id}" class="hidden absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-50">
+                        <button onclick="editMateriau('${mat.id}')" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
+                            <span class="material-symbols-outlined text-base">edit</span> Modifier
+                        </button>
+                        <button onclick="toggleMateriauActif('${mat.id}', ${mat.actif})" class="w-full flex items-center gap-2 px-3 py-2 text-sm ${mat.actif ? 'text-slate-700 hover:bg-slate-50' : 'text-green-600 hover:bg-green-50'} transition-colors">
+                            <span class="material-symbols-outlined text-base">${mat.actif ? 'visibility_off' : 'visibility'}</span> ${mat.actif ? 'Désactiver' : 'Activer'}
+                        </button>
+                        <div class="border-t border-slate-100 my-1"></div>
+                        <button onclick="deleteMateriau('${mat.id}', '${mat.nom.replace(/'/g, "\\'")}')" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                            <span class="material-symbols-outlined text-base">delete</span> Supprimer
+                        </button>
+                    </div>
                 </div>
             </td>
         `;
@@ -605,7 +614,7 @@ function showAddMateriauForm() {
     document.getElementById('new-mat-categorie').value = 'Mur/Plafond';
     document.getElementById('new-mat-friabilite').value = 'non_friable';
     document.getElementById('new-mat-epaisseur').value = '0.5';
-    document.getElementById('new-mat-risque').value = '';
+    document.getElementById('new-mat-risque').value = 'Modéré';
 }
 
 function cancelAddMateriau() {
@@ -635,7 +644,7 @@ async function saveNewMateriau() {
                 categorie,
                 friabilite,
                 epaisseur_defaut: epaisseur,
-                notes: risque || null,
+                niveau_risque_typique: risque || null,
                 actif: true,
                 ordre: 99
             })
@@ -691,7 +700,14 @@ async function editMateriau(id) {
                 <input type="number" value="${mat.epaisseur_defaut}" class="edit-mat-epaisseur w-20 px-2 py-1 border border-slate-200 rounded text-sm" step="0.0625" data-id="${id}">
             </td>
             <td class="py-2 pr-2">
-                <input type="text" value="${mat.notes || ''}" class="edit-mat-risque w-full px-2 py-1 border border-slate-200 rounded text-sm" data-id="${id}">
+                <select class="edit-mat-risque px-2 py-1 border border-slate-200 rounded text-sm bg-white" data-id="${id}">
+                    <option value="Faible" ${mat.niveau_risque_typique === 'Faible' ? 'selected' : ''}>Faible</option>
+                    <option value="Faible à Modéré" ${mat.niveau_risque_typique === 'Faible à Modéré' ? 'selected' : ''}>Faible à Modéré</option>
+                    <option value="Modéré" ${(mat.niveau_risque_typique === 'Modéré' || !mat.niveau_risque_typique) ? 'selected' : ''}>Modéré</option>
+                    <option value="Modéré à Élevé" ${mat.niveau_risque_typique === 'Modéré à Élevé' ? 'selected' : ''}>Modéré à Élevé</option>
+                    <option value="Élevé" ${mat.niveau_risque_typique === 'Élevé' ? 'selected' : ''}>Élevé</option>
+                    <option value="Élevé allégé" ${mat.niveau_risque_typique === 'Élevé allégé' ? 'selected' : ''}>Élevé allégé</option>
+                </select>
             </td>
             <td class="py-2 text-right">
                 <div class="flex items-center justify-end gap-1">
@@ -732,7 +748,7 @@ async function saveEditMateriau(id) {
                 categorie,
                 friabilite,
                 epaisseur_defaut: epaisseur,
-                notes: risque || null
+                niveau_risque_typique: risque || null
             })
             .eq('id', id);
 
@@ -762,6 +778,45 @@ async function toggleMateriauActif(id, currentState) {
     }
 }
 
+function toggleMatMenu(id) {
+    const menu = document.getElementById(`mat-menu-${id}`);
+    if (!menu) return;
+
+    const wasHidden = menu.classList.contains('hidden');
+
+    document.querySelectorAll('[id^="mat-menu-"]').forEach(m => m.classList.add('hidden'));
+
+    if (wasHidden) {
+        menu.classList.remove('hidden');
+        setTimeout(() => {
+            document.addEventListener('click', function closeMenu(e) {
+                if (!menu.contains(e.target) && !e.target.closest(`[onclick="toggleMatMenu('${id}')"]`)) {
+                    menu.classList.add('hidden');
+                    document.removeEventListener('click', closeMenu);
+                }
+            });
+        }, 0);
+    }
+}
+
+async function deleteMateriau(id, nom) {
+    if (!confirm(`Supprimer le matériau "${nom}" ? Cette action est irréversible.`)) return;
+
+    try {
+        const { error } = await supabaseClient
+            .from('materiaux')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+
+        await loadMateriauxSettings();
+    } catch (err) {
+        console.error('Erreur suppression matériau:', err);
+        alert('Erreur lors de la suppression.');
+    }
+}
+
 // Expose materials functions globally for onclick handlers
 window.showAddMateriauForm = showAddMateriauForm;
 window.cancelAddMateriau = cancelAddMateriau;
@@ -769,6 +824,8 @@ window.saveNewMateriau = saveNewMateriau;
 window.editMateriau = editMateriau;
 window.saveEditMateriau = saveEditMateriau;
 window.toggleMateriauActif = toggleMateriauActif;
+window.toggleMatMenu = toggleMatMenu;
+window.deleteMateriau = deleteMateriau;
 window.loadMateriauxSettings = loadMateriauxSettings;
 
 // =====================================================
