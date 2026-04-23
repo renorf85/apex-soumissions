@@ -201,7 +201,7 @@ async function loadConfig() {
 
     } catch (err) {
         console.error('Erreur chargement config:', err);
-        alert('Erreur lors du chargement des paramètres.');
+        apexModal.error('Erreur lors du chargement des paramètres.');
     }
 }
 
@@ -304,13 +304,13 @@ function handleDocUpload(docType, input) {
     if (!file) return;
 
     if (file.type !== 'application/pdf') {
-        alert('Veuillez sélectionner un fichier PDF.');
+        apexModal.error('Veuillez sélectionner un fichier PDF.');
         input.value = '';
         return;
     }
 
     if (file.size > 10 * 1024 * 1024) { // 10MB limit
-        alert('Le fichier est trop volumineux. Maximum 10 MB.');
+        apexModal.error('Le fichier est trop volumineux. Maximum 10 MB.');
         input.value = '';
         return;
     }
@@ -427,7 +427,7 @@ async function saveAllConfig() {
         console.error('Erreur sauvegarde config:', err);
         btn.innerHTML = originalText;
         btn.disabled = false;
-        alert('Erreur lors de l\'enregistrement des paramètres.');
+        apexModal.error('Erreur lors de l\'enregistrement des paramètres.');
     }
 }
 
@@ -625,7 +625,7 @@ async function saveNewMateriau() {
     const risque = document.getElementById('new-mat-risque').value.trim();
 
     if (!nom) {
-        alert('Veuillez entrer un nom de matériau.');
+        apexModal.error('Veuillez entrer un nom de matériau.');
         return;
     }
 
@@ -650,7 +650,7 @@ async function saveNewMateriau() {
         await loadMateriauxSettings();
     } catch (err) {
         console.error('Erreur ajout matériau:', err);
-        alert('Erreur lors de l\'ajout du matériau.');
+        apexModal.error('Erreur lors de l\'ajout du matériau.');
     }
 }
 
@@ -729,7 +729,7 @@ async function saveEditMateriau(id) {
     const risque = row.querySelector('.edit-mat-risque').value.trim();
 
     if (!nom) {
-        alert('Le nom ne peut pas être vide.');
+        apexModal.error('Le nom ne peut pas être vide.');
         return;
     }
 
@@ -751,7 +751,7 @@ async function saveEditMateriau(id) {
         await loadMateriauxSettings();
     } catch (err) {
         console.error('Erreur mise à jour matériau:', err);
-        alert('Erreur lors de la mise à jour.');
+        apexModal.error('Erreur lors de la mise à jour.');
     }
 }
 
@@ -828,7 +828,8 @@ function openMatMenu(btn) {
 }
 
 async function deleteMateriau(id, nom) {
-    if (!confirm(`Supprimer le matériau "${nom}" ? Cette action est irréversible.`)) return;
+    const confirmed = await apexModal.confirmDanger(`Supprimer le matériau « ${nom} » ? Cette action est irréversible.`);
+    if (!confirmed) return;
 
     try {
         const { error } = await supabaseClient
@@ -841,7 +842,7 @@ async function deleteMateriau(id, nom) {
         await loadMateriauxSettings();
     } catch (err) {
         console.error('Erreur suppression matériau:', err);
-        alert('Erreur lors de la suppression.');
+        apexModal.error('Erreur lors de la suppression.');
     }
 }
 

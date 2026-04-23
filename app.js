@@ -794,13 +794,13 @@ function showChoiceSection() {
 function handleFileSelected(file) {
     // Validate file type
     if (file.type !== 'application/pdf') {
-        alert('Veuillez sélectionner un fichier PDF.');
+        apexModal.error('Veuillez sélectionner un fichier PDF.');
         return;
     }
 
     // Validate file size (25MB max)
     if (file.size > 25 * 1024 * 1024) {
-        alert('Le fichier est trop volumineux. Maximum 25MB.');
+        apexModal.error('Le fichier est trop volumineux. Maximum 25MB.');
         return;
     }
 
@@ -1019,10 +1019,10 @@ function setupNewSubmissionButton() {
     const btnNewMobile = document.getElementById('btn-new-soumission-mobile');
     const btnNewDesktop = document.getElementById('btn-new-soumission-desktop');
 
-    const handleNewSubmission = () => {
+    const handleNewSubmission = async () => {
         if (state.zones.length > 0 || state.client.nom || state.client.adresseChantier) {
-            // Show confirmation if there's data
-            if (confirm('Voulez-vous vraiment recommencer ? Toutes les données seront perdues.')) {
+            const confirmed = await apexModal.confirmDanger('Voulez-vous vraiment recommencer ? Toutes les données seront perdues.', { title: 'Nouvelle soumission', confirmText: 'Recommencer' });
+            if (confirmed) {
                 clearSavedState();
                 resetAllState();
             }
@@ -2353,7 +2353,7 @@ function saveInlineEdit() {
     // Validate
     const validSurfaces = state.inlineEditSurfaces.filter(s => s.longueur > 0 && s.hauteur > 0);
     if (!data.nom || !data.categorie || !data.materiauId || validSurfaces.length === 0 || data.epaisseur <= 0) {
-        alert('Veuillez remplir tous les champs et avoir au moins une surface valide.');
+        apexModal.error('Veuillez remplir tous les champs et avoir au moins une surface valide.');
         return;
     }
 
@@ -2925,8 +2925,9 @@ function setupInlineEditDelegation(card) {
     }
 }
 
-function deleteZone(zoneId) {
-    if (!confirm('Supprimer cette zone ?')) return;
+async function deleteZone(zoneId) {
+    const confirmed = await apexModal.confirmDanger('Supprimer cette zone ?', { title: 'Supprimer la zone' });
+    if (!confirmed) return;
 
     state.zones = state.zones.filter(z => z.id !== zoneId);
     console.log('🗑️ Zone supprimée, total:', state.zones.length);
@@ -3623,7 +3624,7 @@ function addZone() {
         volumeTotal = surfaceTotal * (epaisseur / 12);
 
         if (!nom || !categorie || !materiauId || surfaceTotal <= 0 || epaisseur <= 0) {
-            alert('Veuillez remplir tous les champs et entrer une superficie.');
+            apexModal.error('Veuillez remplir tous les champs et entrer une superficie.');
             return;
         }
 
@@ -3642,7 +3643,7 @@ function addZone() {
         const validSurfaces = state.currentSurfaces.filter(s => s.longueur > 0 && s.hauteur > 0);
 
         if (!nom || !categorie || !materiauId || validSurfaces.length === 0 || epaisseur <= 0) {
-            alert('Veuillez remplir tous les champs et ajouter au moins une surface.');
+            apexModal.error('Veuillez remplir tous les champs et ajouter au moins une surface.');
             return;
         }
 
@@ -3863,13 +3864,13 @@ function setupZonePhotoUpload() {
 function handleZonePhotoFile(file) {
     // Validate file type
     if (!file.type.startsWith('image/')) {
-        alert('Veuillez sélectionner une image (JPG, PNG, etc.)');
+        apexModal.error('Veuillez sélectionner une image (JPG, PNG, etc.)');
         return;
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-        alert('L\'image est trop grande. Maximum 5 MB.');
+        apexModal.error('L\'image est trop grande. Maximum 5 MB.');
         return;
     }
 
@@ -5739,7 +5740,7 @@ function devGoToStep(step) {
             stepEl.classList.remove('hidden');
         } else {
             console.warn(`Étape ${step} pas encore implémentée`);
-            alert(`Étape ${step} pas encore implémentée`);
+            apexModal.alert(`Étape ${step} pas encore implémentée`, { title: 'En développement', icon: 'construction', iconBg: 'bg-amber-50', iconColor: 'text-amber-600' });
             return;
         }
     }
@@ -5875,8 +5876,9 @@ function setupStep5Events() {
     });
 
     // New soumission
-    document.getElementById('btn-new-soumission')?.addEventListener('click', () => {
-        if (confirm('Commencer une nouvelle soumission? Les données actuelles seront perdues.')) {
+    document.getElementById('btn-new-soumission')?.addEventListener('click', async () => {
+        const confirmed = await apexModal.confirmDanger('Commencer une nouvelle soumission ? Les données actuelles seront perdues.', { title: 'Nouvelle soumission', confirmText: 'Recommencer' });
+        if (confirmed) {
             localStorage.removeItem('apex_soumission_state');
             location.reload();
         }
@@ -6242,7 +6244,7 @@ function getSelectedInclusionsExclusions() {
  */
 async function generateAndDownloadPDF() {
     if (!hasSignature) {
-        alert('Veuillez signer avant de télécharger le PDF.');
+        apexModal.error('Veuillez signer avant de télécharger le PDF.');
         return;
     }
 
@@ -6292,7 +6294,7 @@ async function generateAndDownloadPDF() {
 
     } catch (err) {
         console.error('Erreur génération PDF:', err);
-        alert('Erreur lors de la génération du PDF. Veuillez réessayer.');
+        apexModal.error('Erreur lors de la génération du PDF. Veuillez réessayer.');
     } finally {
         loadingEl?.classList.add('hidden');
     }
@@ -6330,7 +6332,7 @@ function blobToBase64(blob) {
 async function sendSoumissionEmail() {
     const courriel = state.client.courriel;
     if (!courriel) {
-        alert('Aucun courriel client défini.');
+        apexModal.error('Aucun courriel client défini.');
         return;
     }
 
