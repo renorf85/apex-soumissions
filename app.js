@@ -4753,9 +4753,6 @@ function renderRecap() {
     // Prix details - Set values in inputs with formatted numbers (espaces milliers)
     document.getElementById('prix-zones').value = formatInputValue(state.prix.zones || 0);
     document.getElementById('prix-demolition').value = formatInputValue(state.prix.demolition || 0);
-    // DEBUG: afficher la valeur brute de demolition et surfacePourPrix
-    const _demoLabel = document.querySelector('label[for="prix-demolition"]') || document.getElementById('prix-demolition')?.closest('.flex')?.querySelector('.text-xs');
-    if (_demoLabel) _demoLabel.textContent = `Démolition [brut:${Math.round(state.prix.demolition)}, surfPrix:${state.prix.surfacePourPrix}, surfTot:${state.prix.surfaceTotal}]`;
     document.getElementById('prix-douches').value = formatInputValue(state.prix.douches || 0);
     // Update shower count display
     const doucheCountEl = document.getElementById('douche-count');
