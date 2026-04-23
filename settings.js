@@ -580,27 +580,20 @@ function renderMateriauxTable(materiaux) {
             <td class="py-2.5 pr-2 text-slate-500">${mat.epaisseur_defaut}"</td>
             <td class="py-2.5 pr-2 text-slate-500 text-xs">${mat.niveau_risque_typique || '-'}</td>
             <td class="py-2.5 text-right">
-                <div class="relative inline-block">
-                    <button onclick="toggleMatMenu('${mat.id}')" class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
-                        <span class="material-symbols-outlined text-base">more_vert</span>
-                    </button>
-                    <div id="mat-menu-${mat.id}" class="hidden absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-50">
-                        <button onclick="editMateriau('${mat.id}')" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
-                            <span class="material-symbols-outlined text-base">edit</span> Modifier
-                        </button>
-                        <button onclick="toggleMateriauActif('${mat.id}', ${mat.actif})" class="w-full flex items-center gap-2 px-3 py-2 text-sm ${mat.actif ? 'text-slate-700 hover:bg-slate-50' : 'text-green-600 hover:bg-green-50'} transition-colors">
-                            <span class="material-symbols-outlined text-base">${mat.actif ? 'visibility_off' : 'visibility'}</span> ${mat.actif ? 'Désactiver' : 'Activer'}
-                        </button>
-                        <div class="border-t border-slate-100 my-1"></div>
-                        <button onclick="deleteMateriau('${mat.id}', '${mat.nom.replace(/'/g, "\\'")}')" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
-                            <span class="material-symbols-outlined text-base">delete</span> Supprimer
-                        </button>
-                    </div>
-                </div>
+                <button class="mat-menu-btn p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" data-id="${mat.id}" data-actif="${mat.actif}">
+                    <span class="material-symbols-outlined text-base">more_vert</span>
+                </button>
             </td>
         `;
 
         tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll('.mat-menu-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openMatMenu(btn);
+        });
     });
 }
 
@@ -778,25 +771,60 @@ async function toggleMateriauActif(id, currentState) {
     }
 }
 
-function toggleMatMenu(id) {
-    const menu = document.getElementById(`mat-menu-${id}`);
-    if (!menu) return;
+function closeMatMenu() {
+    const existing = document.getElementById('mat-context-menu');
+    if (existing) existing.remove();
+}
 
-    const wasHidden = menu.classList.contains('hidden');
+function openMatMenu(btn) {
+    closeMatMenu();
 
-    document.querySelectorAll('[id^="mat-menu-"]').forEach(m => m.classList.add('hidden'));
+    const id = btn.dataset.id;
+    const actif = btn.dataset.actif === 'true';
+    const row = btn.closest('tr');
+    const nom = row ? row.querySelector('td .font-medium')?.textContent || '' : '';
 
-    if (wasHidden) {
-        menu.classList.remove('hidden');
-        setTimeout(() => {
-            document.addEventListener('click', function closeMenu(e) {
-                if (!menu.contains(e.target) && !e.target.closest(`[onclick="toggleMatMenu('${id}')"]`)) {
-                    menu.classList.add('hidden');
-                    document.removeEventListener('click', closeMenu);
-                }
-            });
-        }, 0);
-    }
+    const rect = btn.getBoundingClientRect();
+
+    const menu = document.createElement('div');
+    menu.id = 'mat-context-menu';
+    menu.className = 'fixed w-44 bg-white rounded-xl shadow-lg border border-slate-200 py-1';
+    menu.style.zIndex = '9999';
+    menu.style.top = `${rect.bottom + 4}px`;
+    menu.style.left = `${rect.right - 176}px`;
+
+    menu.innerHTML = `
+        <button class="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors" data-action="edit">
+            <span class="material-symbols-outlined text-base">edit</span> Modifier
+        </button>
+        <button class="w-full flex items-center gap-2 px-3 py-2 text-sm ${actif ? 'text-slate-700 hover:bg-slate-50' : 'text-green-600 hover:bg-green-50'} transition-colors" data-action="toggle">
+            <span class="material-symbols-outlined text-base">${actif ? 'visibility_off' : 'visibility'}</span> ${actif ? 'Désactiver' : 'Activer'}
+        </button>
+        <div class="border-t border-slate-100 my-1"></div>
+        <button class="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors" data-action="delete">
+            <span class="material-symbols-outlined text-base">delete</span> Supprimer
+        </button>
+    `;
+
+    menu.addEventListener('click', (e) => {
+        const action = e.target.closest('[data-action]')?.dataset.action;
+        if (!action) return;
+        closeMatMenu();
+        if (action === 'edit') editMateriau(id);
+        if (action === 'toggle') toggleMateriauActif(id, actif);
+        if (action === 'delete') deleteMateriau(id, nom);
+    });
+
+    document.body.appendChild(menu);
+
+    setTimeout(() => {
+        document.addEventListener('click', function handler(e) {
+            if (!menu.contains(e.target) && !btn.contains(e.target)) {
+                closeMatMenu();
+                document.removeEventListener('click', handler);
+            }
+        });
+    }, 0);
 }
 
 async function deleteMateriau(id, nom) {
@@ -824,7 +852,6 @@ window.saveNewMateriau = saveNewMateriau;
 window.editMateriau = editMateriau;
 window.saveEditMateriau = saveEditMateriau;
 window.toggleMateriauActif = toggleMateriauActif;
-window.toggleMatMenu = toggleMatMenu;
 window.deleteMateriau = deleteMateriau;
 window.loadMateriauxSettings = loadMateriauxSettings;
 
