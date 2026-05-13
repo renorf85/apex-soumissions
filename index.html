@@ -1,71 +1,2112 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html class="light" lang="fr">
+
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Apex Soumissions - Maintenance</title>
+    <title>Apex Soumissions</title>
     <link rel="icon" type="image/png" href="assets/favicon.png" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #0f172a;
-            color: #e2e8f0;
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Mapbox Search -->
+    <script src="https://api.mapbox.com/search-js/v1.0.0-beta.22/web.js"></script>
+
+    <!-- PDF Generation Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1E73BE",
+                        "primary-dark": "#1a65a8",
+                        "surface": "#ffffff",
+                        "card-border": "#e2e8f0",
+                        "text-main": "#0f172a",
+                        "text-muted": "#64748b",
+                    },
+                    fontFamily: {
+                        "sans": ["Inter", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer base {
+            body {
+                @apply bg-white md:bg-[#f1f5f9] text-text-main antialiased font-sans;
+            }
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        /* Mobile card style */
+        .plan-card {
+            @apply flex items-center p-5 bg-white border border-slate-200 rounded-2xl transition-all duration-300 cursor-pointer relative overflow-hidden;
+        }
+        .plan-card:hover {
+            @apply border-primary/50 shadow-sm;
+        }
+        .plan-card.active {
+            @apply border-primary ring-2 ring-primary/10 bg-blue-50/20;
+        }
+
+        /* Desktop card style */
+        @media (min-width: 768px) {
+            .plan-card {
+                @apply p-5 border-card-border rounded-xl shadow-sm;
+            }
+            .plan-card.active {
+                @apply border-primary ring-1 ring-primary bg-blue-50/30;
+            }
+        }
+
+        .progress-bar {
+            @apply h-1.5 w-full bg-slate-100 rounded-full overflow-hidden;
+        }
+        .progress-fill {
+            @apply h-full bg-primary transition-all duration-500;
+        }
+
+        /* Radio circle */
+        .radio-circle {
+            @apply w-5 h-5 rounded-full border-2 border-slate-200 flex items-center justify-center transition-all duration-200;
+        }
+        .plan-card.active .radio-circle {
+            @apply border-primary;
+        }
+        .plan-card.active .radio-inner {
+            @apply w-2.5 h-2.5 bg-primary rounded-full;
+        }
+
+        /* Zone cards */
+        .zone-card {
+            @apply relative bg-white border border-gray-100 rounded-xl px-5 py-4 transition-all duration-300;
+            box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.04);
+        }
+        .zone-card:hover {
+            @apply border-primary/20 shadow-lg;
+        }
+
+        /* Risk badges */
+        .risk-high {
+            @apply bg-red-50 text-red-600;
+        }
+        .risk-allege {
+            @apply bg-orange-50 text-orange-600;
+        }
+        .risk-moderate {
+            @apply bg-amber-50 text-amber-600;
+        }
+        .risk-low {
+            @apply bg-green-50 text-green-600;
+        }
+
+        /* Mobile Sticky Footer */
+        @media (max-width: 640px) {
+            .mobile-sticky-footer {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                padding: 1rem 1.5rem;
+                background: white;
+                border-top: 1px solid #f1f5f9;
+                z-index: 50;
+                box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
+            }
+            /* Add padding to the bottom of the section to prevent content from being hidden behind the sticky footer */
+            section.step-content {
+                padding-bottom: 80px; 
+            }
+        }
+
+        /* Compact wizard navigation for mobile */
+        .wizard-nav-compact {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        .wizard-nav-compact::-webkit-scrollbar {
+            display: none;
+        }
+        .wizard-nav-compact .nav-arrow {
+            display: none;
+        }
+        @media (min-width: 640px) {
+            .wizard-nav-compact {
+                gap: 0.5rem;
+            }
+            .wizard-nav-compact .nav-arrow {
+                display: inline;
+            }
+        }
+        .wizard-nav-compact .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.375rem 0.625rem;
+            border-radius: 9999px;
+            font-size: 0.65rem;
+            font-weight: 500;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        @media (min-width: 640px) {
+            .wizard-nav-compact .nav-btn {
+                padding: 0.375rem 0.75rem;
+                font-size: 0.75rem;
+            }
+        }
+        .wizard-nav-compact .nav-btn .nav-num {
+            width: 1.125rem;
+            height: 1.125rem;
+            border-radius: 9999px;
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
-            padding: 2rem;
+            font-size: 0.5rem;
+            flex-shrink: 0;
         }
-        .container {
-            text-align: center;
-            max-width: 480px;
+        @media (min-width: 640px) {
+            .wizard-nav-compact .nav-btn .nav-num {
+                width: 1.25rem;
+                height: 1.25rem;
+                font-size: 0.625rem;
+            }
         }
-        .logo {
-            width: 120px;
-            margin-bottom: 2.5rem;
-            opacity: 0.9;
-        }
-        .icon {
-            font-size: 3rem;
-            margin-bottom: 1.5rem;
-            opacity: 0.6;
-        }
-        h1 {
-            font-size: 1.5rem;
+        .wizard-nav-compact .nav-btn.active {
+            background-color: #3b82f6;
+            color: white;
             font-weight: 600;
-            margin-bottom: 1rem;
-            color: #f8fafc;
         }
-        p {
-            font-size: 1rem;
-            line-height: 1.6;
+        .wizard-nav-compact .nav-btn.active .nav-num {
+            background-color: rgba(255,255,255,0.2);
+        }
+        .wizard-nav-compact .nav-btn.completed {
+            background-color: #dcfce7;
+            color: #15803d;
+        }
+        .wizard-nav-compact .nav-btn.pending {
             color: #94a3b8;
-            margin-bottom: 2rem;
         }
-        .contact {
-            font-size: 0.875rem;
-            color: #64748b;
+        .wizard-nav-compact .nav-btn.pending:hover {
+            background-color: #f1f5f9;
         }
-        .contact a {
-            color: #60a5fa;
-            text-decoration: none;
+        .wizard-nav-compact .nav-btn.pending .nav-num {
+            background-color: #e2e8f0;
         }
-        .contact a:hover {
-            text-decoration: underline;
+
+        /* Custom Dropdown Styles */
+        .custom-dropdown-panel.hidden {
+            display: none;
+        }
+        
+        .custom-dropdown-option {
+            @apply flex items-center gap-4 px-4 py-3.5 rounded-xl cursor-pointer transition-all duration-150;
+        }
+        .custom-dropdown-option:hover {
+            @apply bg-blue-50;
+        }
+        .custom-dropdown-option.selected {
+            @apply bg-primary/10;
+        }
+        .custom-dropdown-option .option-icon {
+            @apply w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 flex-shrink-0;
+        }
+        .custom-dropdown-option.selected .option-icon {
+            @apply bg-primary/20 text-primary;
+        }
+        .custom-dropdown-option .option-text {
+            @apply flex-1 text-left;
+        }
+        .custom-dropdown-option .option-name {
+            @apply text-base font-medium text-slate-900;
+        }
+        .custom-dropdown-option .option-meta {
+            @apply text-xs text-slate-500 mt-0.5;
+        }
+        .custom-dropdown-option .option-check {
+            @apply w-6 h-6 rounded-full flex items-center justify-center opacity-0 transition-opacity;
+        }
+        .custom-dropdown-option.selected .option-check {
+            @apply opacity-100 bg-primary text-white;
+        }
+        
+        /* Dropdown trigger active state */
+        .custom-dropdown.open #materiau-dropdown-trigger {
+            @apply border-primary ring-4 ring-primary/10;
+        }
+        .custom-dropdown.open #materiau-dropdown-arrow {
+            transform: rotate(180deg);
+        }
+        
+        /* Safe area for iOS */
+        .safe-area-inset-bottom {
+            padding-bottom: max(1rem, env(safe-area-inset-bottom));
+        }
+        
+        /* No results message */
+        .dropdown-no-results {
+            @apply text-center py-8 text-slate-400;
+        }
+        .dropdown-no-results .material-symbols-outlined {
+            @apply text-4xl mb-2 opacity-50;
+        }
+
+        /* Auto-fit text - shrinks font to fit on one line */
+        .auto-fit-text {
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            line-height: 1.2;
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <img src="assets/logo-apex-full.png" alt="Apex" class="logo" />
-        <div class="icon">&#128736;</div>
-        <h1>Application en maintenance</h1>
-        <p>Le service est temporairement suspendu. Veuillez contacter l'administrateur pour plus d'informations.</p>
-        <div class="contact">
-            <a href="mailto:contact@actionflow.ca">contact@actionflow.ca</a>
+
+<body class="min-h-screen flex flex-col">
+
+    <!-- Mobile Header -->
+    <header class="md:hidden sticky top-0 z-20 bg-white/80 backdrop-blur-md px-6 pt-6 pb-4">
+        <div class="flex items-center justify-between mb-6">
+            <button id="btn-back-mobile"
+                class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 transition-colors invisible">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </button>
+            <div class="flex flex-col items-center">
+                <span id="step-label-mobile"
+                    class="text-[11px] font-bold tracking-[0.1em] text-slate-500 uppercase">Étape 1 sur 5</span>
+            </div>
+            <div class="flex items-center gap-1">
+                <button id="btn-historique-mobile"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-primary transition-colors"
+                    title="Historique">
+                    <span class="material-symbols-outlined">history</span>
+                </button>
+                <button id="btn-new-soumission-mobile"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-primary transition-colors"
+                    title="Nouvelle soumission">
+                    <span class="material-symbols-outlined">add_circle</span>
+                </button>
+                <a href="settings.html"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-primary transition-colors"
+                    title="Paramètres">
+                    <span class="material-symbols-outlined">settings</span>
+                </a>
+                <button id="btn-logout-mobile"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-red-500 transition-colors"
+                    title="Deconnexion">
+                    <span class="material-symbols-outlined">logout</span>
+                </button>
+            </div>
+        </div>
+        <div class="progress-bar">
+            <div id="progress-fill-mobile" class="progress-fill" style="width: 20%;"></div>
+        </div>
+    </header>
+
+    <!-- Desktop Header -->
+    <header class="hidden md:block w-full pt-8 px-8">
+        <div class="flex items-center justify-between max-w-5xl mx-auto">
+            <!-- Logo à gauche -->
+            <div class="flex items-center">
+                <img src="assets/logo-apex.png" alt="Apex" class="h-10">
+            </div>
+
+            <!-- Progress au centre -->
+            <div class="flex flex-col gap-2 items-center flex-1 max-w-md mx-8">
+                <span id="step-label" class="text-xs font-semibold uppercase tracking-wider text-primary">Étape 1 sur
+                    5</span>
+                <div class="flex gap-1 h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                    <div id="progress-1" class="w-1/5 bg-primary rounded-full transition-all duration-300"></div>
+                    <div id="progress-2" class="flex-1 transition-all duration-300"></div>
+                    <div id="progress-3" class="flex-1 transition-all duration-300"></div>
+                    <div id="progress-4" class="flex-1 transition-all duration-300"></div>
+                    <div id="progress-5" class="flex-1 transition-all duration-300"></div>
+                </div>
+            </div>
+
+            <!-- Boutons à droite -->
+            <div class="w-[220px] flex justify-end gap-2">
+                <button id="btn-historique-desktop"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-primary transition-colors"
+                    title="Historique">
+                    <span class="material-symbols-outlined">history</span>
+                </button>
+                <button id="btn-new-soumission-desktop"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-primary transition-colors"
+                    title="Nouvelle soumission">
+                    <span class="material-symbols-outlined">add_circle</span>
+                </button>
+                <a href="settings.html"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-primary transition-colors"
+                    title="Paramètres">
+                    <span class="material-symbols-outlined">settings</span>
+                </a>
+                <button id="btn-logout"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-red-500 transition-colors"
+                    title="Deconnexion">
+                    <span class="material-symbols-outlined">logout</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col md:items-center md:justify-center px-6 py-4 md:py-12">
+
+        <!-- Step 1: Rapport Question -->
+        <section id="step-1" class="step-content max-w-xl w-full">
+            <!-- Title -->
+            <div class="mb-6 md:mb-10">
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 md:whitespace-nowrap">
+                    Avez-vous un rapport de caractérisation ?
+                </h1>
+            </div>
+
+            <!-- Cards -->
+            <div class="space-y-4">
+                <button id="btn-has-report" class="plan-card w-full group text-left">
+                    <div
+                        class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mr-4 shrink-0">
+                        <span class="material-symbols-outlined">description</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="block font-bold text-slate-900">Oui, j'ai un rapport</span>
+                        <p class="text-[13px] text-slate-500 mt-0.5 leading-snug">J'ai un document prêt à être partagé.
+                        </p>
+                    </div>
+                    <div class="ml-3 flex items-center justify-center shrink-0">
+                        <div class="radio-circle">
+                            <div class="radio-inner"></div>
+                        </div>
+                    </div>
+                </button>
+
+                <button id="btn-no-report" class="plan-card w-full group text-left">
+                    <div
+                        class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mr-4 shrink-0">
+                        <span class="material-symbols-outlined">close</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="block font-bold text-slate-900">Non, pas encore</span>
+                        <p class="text-[13px] text-slate-500 mt-0.5 leading-snug">Je souhaite procéder sans rapport pour
+                            le moment.</p>
+                    </div>
+                    <div class="ml-3 flex items-center justify-center shrink-0">
+                        <div class="radio-circle">
+                            <div class="radio-inner"></div>
+                        </div>
+                    </div>
+                </button>
+            </div>
+        </section>
+
+        <!-- Step 1b: Upload Report (hidden by default) -->
+        <section id="step-1b" class="step-content max-w-xl w-full hidden">
+
+            <!-- Mobile Upload View -->
+            <div class="md:hidden flex flex-col items-center text-center">
+                <div class="mb-10">
+                    <h1 class="text-2xl font-bold text-slate-800 mb-4">Rapport de caractérisation</h1>
+                    <p class="text-slate-500 text-sm leading-relaxed">
+                        Veuillez nous transmettre votre rapport de caractérisation de l'amiante pour une estimation plus
+                        précise de vos travaux.
+                    </p>
+                </div>
+
+                <div class="w-full space-y-6">
+                    <!-- Upload Button (Mobile) -->
+                    <button id="btn-upload-mobile"
+                        class="w-full bg-primary hover:bg-primary-dark text-white py-5 px-6 rounded-2xl shadow-lg shadow-blue-500/10 flex flex-col items-center gap-3 transition-all active:scale-[0.98]">
+                        <span class="material-symbols-outlined text-3xl">upload_file</span>
+                        <span class="font-bold text-lg">Télécharger le rapport (PDF)</span>
+                        <span class="text-xs opacity-80 font-medium italic">PDF ou image • Max 25 Mo</span>
+                    </button>
+
+                    <!-- Upload Success (Mobile) -->
+                    <div id="upload-success-mobile"
+                        class="hidden w-full bg-emerald-50 border-2 border-emerald-200 text-emerald-700 py-5 px-6 rounded-2xl flex flex-col items-center gap-3">
+                        <span class="material-symbols-outlined text-3xl">check_circle</span>
+                        <span id="file-name-mobile" class="font-bold text-lg"></span>
+                        <button id="btn-change-file-mobile" class="text-sm text-emerald-600 underline">Changer de
+                            fichier</button>
+                    </div>
+                </div>
+
+                <div class="mt-12 p-5 bg-blue-50/50 rounded-2xl border border-blue-100/50 flex gap-4 text-left">
+                    <span class="material-symbols-outlined text-primary">info</span>
+                    <p class="text-xs text-slate-600 leading-relaxed italic">
+                        Un rapport est fortement recommandé pour identifier précisément les zones contaminées et
+                        garantir la conformité de l'intervention.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Desktop Upload View -->
+            <div class="hidden md:block">
+                <div class="mb-8">
+                    <h1 class="text-3xl font-bold tracking-tight text-slate-900 md:whitespace-nowrap">Rapport de
+                        caractérisation</h1>
+                    <p class="text-sm text-slate-500 mt-2">Téléchargez votre document pour obtenir des prix plus précis.
+                    </p>
+                </div>
+
+                <!-- Drop Zone (Desktop) -->
+                <div id="drop-zone"
+                    class="w-full p-12 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer transition-all hover:border-primary hover:bg-blue-50/30">
+                    <div id="upload-default-desktop" class="flex flex-col items-center">
+                        <div
+                            class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4">
+                            <span class="material-symbols-outlined text-3xl">cloud_upload</span>
+                        </div>
+                        <p class="text-base font-semibold text-slate-900 mb-1">Glissez votre PDF ici</p>
+                        <p class="text-sm text-text-muted">ou cliquez pour parcourir</p>
+                        <p class="text-xs text-slate-400 mt-4">PDF ou image (PNG, JPG, etc.) • Max 25MB</p>
+                    </div>
+
+                    <div id="upload-success-desktop" class="hidden flex flex-col items-center">
+                        <div
+                            class="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-4">
+                            <span class="material-symbols-outlined text-3xl">check_circle</span>
+                        </div>
+                        <p id="file-name-desktop" class="text-base font-semibold text-slate-900 mb-1"></p>
+                        <p class="text-sm text-primary cursor-pointer hover:underline" id="btn-change-file-desktop">
+                            Changer de fichier</p>
+                    </div>
+                </div>
+
+                <!-- Info Box (Desktop) -->
+                <div class="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div class="flex items-start gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm shrink-0">
+                            <span class="material-symbols-outlined text-slate-400">help_outline</span>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold text-slate-800 mb-1.5">C'est quoi un rapport ?</h4>
+                            <p class="text-sm leading-relaxed text-slate-500">
+                                C'est un document légal rédigé par un professionnel certifié qui identifie la présence,
+                                le type et la concentration d'amiante dans les matériaux de votre bâtiment.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-start">
+                    <button id="btn-back-to-choice"
+                        class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                        <span class="material-symbols-outlined text-lg">arrow_back</span>
+                        Retour
+                    </button>
+                </div>
+            </div>
+
+            <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg,.webp,.heic,.tiff,.bmp" class="hidden" />
+        </section>
+
+        <!-- Step 2: Informations du client (single page) -->
+        <section id="step-2" class="step-content max-w-xl w-full hidden">
+            <div class="mb-6">
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
+                    Informations du client
+                </h1>
+            </div>
+
+            <div class="space-y-6">
+                <!-- Nom du client -->
+                <div>
+                    <label for="client-nom" class="block text-sm font-medium text-slate-700 mb-1">Nom du client <span class="text-red-500">*</span></label>
+                    <input type="text" id="client-nom" name="nom" required autofocus
+                        class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                        placeholder="Jean Tremblay">
+                </div>
+
+                <!-- Telephone -->
+                <div>
+                    <label for="client-telephone" class="block text-sm font-medium text-slate-700 mb-1">Téléphone <span class="text-slate-400 font-normal">(optionnel)</span></label>
+                    <input type="tel" id="client-telephone" name="telephone"
+                        class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                        placeholder="(418) 555-1234">
+                </div>
+
+                <!-- Courriel -->
+                <div>
+                    <label for="client-courriel" class="block text-sm font-medium text-slate-700 mb-1">Courriel <span class="text-slate-400 font-normal">(optionnel)</span></label>
+                    <input type="email" id="client-courriel" name="courriel"
+                        class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                        placeholder="jean@exemple.com">
+                </div>
+
+                <!-- Adresse du chantier -->
+                <div>
+                    <label for="client-adresse" class="block text-sm font-medium text-slate-700 mb-1">Adresse du chantier <span class="text-red-500">*</span></label>
+                    <div class="relative">
+                        <input type="text" id="client-adresse" name="adresse" required autocomplete="off"
+                            class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                            placeholder="Entrez l'adresse...">
+                        <span id="adresse-loading" class="hidden absolute right-4 top-1/2 -translate-y-1/2">
+                            <svg class="animate-spin h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                                </circle>
+                                <path class="opacity-75" fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                </path>
+                            </svg>
+                        </span>
+                        <!-- Suggestions dropdown -->
+                        <div id="adresse-suggestions"
+                            class="hidden absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                            <!-- Suggestions will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Distance info card (appears after address selection) -->
+                <div id="distance-card" class="hidden bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-primary">route</span>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-500">Distance depuis Québec</p>
+                                <p class="text-xl font-bold text-slate-900"><span id="distance-display">0</span> km</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-slate-500">Transport</p>
+                            <p id="transport-cost-display" class="text-xl font-bold text-primary">55$ (local)</p>
+                            <p class="text-[10px] text-slate-400 mt-1">Calculé selon durée du projet</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hidden inputs for form data -->
+                <input type="hidden" id="client-distance" name="distance" value="0">
+
+                <!-- Adresse de facturation -->
+                <div class="pt-2">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" id="same-billing-address" checked
+                            class="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary/20">
+                        <span class="text-sm text-slate-700">Adresse de facturation identique à l'adresse du chantier</span>
+                    </label>
+                </div>
+
+                <div id="billing-address-section" class="hidden space-y-4">
+                    <div>
+                        <label for="adresse-facturation" class="block text-sm font-medium text-slate-700 mb-1">Adresse de facturation</label>
+                        <input type="text" id="adresse-facturation" name="adresseFacturation"
+                            class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                            placeholder="123 rue Exemple">
+                    </div>
+                    <div>
+                        <label for="ville-facturation" class="block text-sm font-medium text-slate-700 mb-1">Ville et code postal</label>
+                        <input type="text" id="ville-facturation" name="villeFacturation"
+                            class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                            placeholder="Québec (QC) G3G 2B4">
+                    </div>
+                </div>
+
+                <!-- Numero de soumission -->
+                <div>
+                    <label for="soumission-number" class="block text-sm font-medium text-slate-700 mb-1">Numéro de soumission</label>
+                    <input type="text" id="soumission-number" name="soumissionNumber"
+                        class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 font-mono placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                        placeholder="000184 ou Revision 1">
+                </div>
+
+                <!-- Nom du projet -->
+                <div>
+                    <label for="description-projet" class="block text-sm font-medium text-slate-700 mb-1">Nom du projet</label>
+                    <input type="text" id="description-projet" name="nomProjet"
+                        class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                        placeholder="Ex: École du gymnase - réfection sous-sol">
+                </div>
+
+                <!-- Error message -->
+                <p id="step2-error-message" class="hidden text-red-500 text-sm font-medium text-center mt-2"></p>
+
+                <div class="flex items-center justify-between pt-4">
+                    <button type="button" id="btn-back-step2"
+                        class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                        <span class="material-symbols-outlined text-lg">arrow_back</span>
+                        Retour
+                    </button>
+                    <button type="button" id="btn-next-step2"
+                        class="px-8 py-4 bg-slate-300 hover:bg-slate-400 text-white font-semibold rounded-xl transition-colors flex items-center gap-2 cursor-pointer">
+                        Continuer
+                        <span class="material-symbols-outlined text-lg">arrow_forward</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 3: Zone Library (Liste des zones) -->
+        <section id="step-3" class="step-content max-w-4xl w-full hidden">
+            <div class="mb-8 md:mb-10">
+                <h1 class="text-2xl md:text-[32px] font-semibold tracking-tight text-slate-900">Zones de travail</h1>
+                <p class="text-slate-500 text-sm md:text-base mt-2 leading-relaxed">
+                    Identifiez les différentes zones d'intervention pour cette soumission.
+                </p>
+            </div>
+
+            <!-- Add Zone Button -->
+            <button id="btn-add-zone"
+                class="group w-full flex items-center justify-center gap-2 py-3 mb-5 bg-white border-2 border-dashed border-gray-200 rounded-xl hover:border-primary/40 hover:bg-blue-50/30 transition-all duration-300">
+                <div
+                    class="w-8 h-8 rounded-full border border-primary/20 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+                    <span class="material-symbols-outlined text-primary group-hover:text-white text-lg">add</span>
+                </div>
+                <span
+                    class="text-[15px] font-medium text-slate-600 group-hover:text-primary transition-colors">Ajouter une zone</span>
+            </button>
+
+            <!-- Zone Cards List (vertical) -->
+            <div id="zones-grid" class="flex flex-col gap-4">
+                <!-- Zone cards will be dynamically inserted here -->
+            </div>
+
+            <!-- Empty state message (shown when no zones) -->
+            <div id="zones-empty-hint"
+                class="mt-6 p-4 bg-blue-50/50 rounded-xl border border-blue-100/50 flex gap-3 items-start">
+                <span class="material-symbols-outlined text-primary text-xl">info</span>
+                <p class="text-sm text-slate-600 leading-relaxed">
+                    Commencez par ajouter au moins une zone de travail pour continuer.
+                </p>
+            </div>
+
+            <!-- Error message -->
+            <p id="step3-error-message" class="hidden text-red-500 text-sm font-medium text-center mt-4"></p>
+
+            <!-- Navigation buttons -->
+            <div class="flex items-center justify-between pt-8 mt-8 border-t border-slate-100">
+                <button type="button" id="btn-back-step3"
+                    class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                    <span class="material-symbols-outlined text-lg">arrow_back</span>
+                    Retour
+                </button>
+                <button type="button" id="btn-continue-step3"
+                    class="px-6 py-3 bg-slate-300 hover:bg-slate-400 text-white font-semibold rounded-xl transition-colors flex items-center gap-2 cursor-pointer">
+                    Continuer
+                    <span class="material-symbols-outlined text-lg">arrow_forward</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Step 3a: Nom de la zone -->
+        <section id="step-3a" class="step-content max-w-xl w-full hidden">
+            <!-- Mini navigation compact -->
+            <div class="wizard-nav-compact mb-6">
+                <button data-zone-goto="3a" class="nav-btn active">
+                    <span class="nav-num">1</span>
+                    Nom
+                </button>
+                <span class="nav-arrow text-slate-300">→</span>
+                <button data-zone-goto="3b" class="nav-btn pending">
+                    <span class="nav-num">2</span>
+                    Catégorie
+                </button>
+                <span class="nav-arrow text-slate-300">→</span>
+                <button data-zone-goto="3c" class="nav-btn pending">
+                    <span class="nav-num">3</span>
+                    Matériau
+                </button>
+                <span class="nav-arrow text-slate-300">→</span>
+                <button data-zone-goto="3d" class="nav-btn pending">
+                    <span class="nav-num">4</span>
+                    Dimensions
+                </button>
+            </div>
+
+            <div class="mb-6">
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
+                    Nom de la zone ?
+                </h1>
+                <p class="text-slate-500 text-sm mt-2">Donnez un nom pour identifier cette zone.</p>
+            </div>
+
+            <div class="space-y-6">
+                <input type="text" id="zone-nom" name="nom" required autofocus
+                    class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-slate-900 placeholder-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                    placeholder="Ex: Cuisine, Sous-sol, Chambre...">
+
+                <!-- Photo de la zone -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">
+                        Photo de la zone <span class="text-slate-400 font-normal">(optionnel)</span>
+                    </label>
+                    
+                    <!-- Upload zone (multi-photo) -->
+                    <div id="zone-photo-upload" class="relative">
+                        <div id="zone-photo-dropzone"
+                            class="w-full p-4 md:p-6 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer transition-all hover:border-primary hover:bg-blue-50/30 group">
+
+                            <!-- Photo gallery (populated by JS) -->
+                            <div id="zone-photo-gallery" class="hidden grid grid-cols-3 gap-2 mb-3"></div>
+
+                            <!-- Placeholder / Add more button -->
+                            <div id="zone-photo-placeholder" class="flex flex-col items-center text-center">
+                                <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-3 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                                    <span class="material-symbols-outlined text-2xl">add_photo_alternate</span>
+                                </div>
+                                <p class="text-sm font-medium text-slate-600 group-hover:text-primary transition-colors">
+                                    <span class="hidden md:inline">Glissez une photo ou </span>cliquez pour ajouter
+                                </p>
+                                <p class="text-xs text-slate-400 mt-1">JPG, PNG • Max 5 MB • Plusieurs photos possibles</p>
+                            </div>
+                        </div>
+
+                        <!-- Hidden file input -->
+                        <input type="file" id="zone-photo-input" accept="image/*" class="hidden">
+                    </div>
+                </div>
+
+                <div class="mobile-sticky-footer flex items-center justify-between pt-4">
+                    <button type="button" id="btn-back-step3a"
+                        class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                        <span class="material-symbols-outlined text-lg">arrow_back</span>
+                        Retour aux zones
+                    </button>
+                    <button type="button" id="btn-next-step3a"
+                        class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled>
+                        Continuer
+                        <span class="material-symbols-outlined text-lg">arrow_forward</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 3b: Catégorie -->
+        <section id="step-3b" class="step-content max-w-xl w-full hidden">
+            <!-- Mini navigation compact -->
+            <div class="wizard-nav-compact mb-6">
+                <button data-zone-goto="3a" class="nav-btn completed">
+                    <span class="material-symbols-outlined text-xs">check</span>
+                    Nom
+                </button>
+                <span class="nav-arrow text-slate-300">→</span>
+                <button data-zone-goto="3b" class="nav-btn active">
+                    <span class="nav-num">2</span>
+                    Catégorie
+                </button>
+                <span class="nav-arrow text-slate-300">→</span>
+                <button data-zone-goto="3c" class="nav-btn pending">
+                    <span class="nav-num">3</span>
+                    Matériau
+                </button>
+                <span class="nav-arrow text-slate-300">→</span>
+                <button data-zone-goto="3d" class="nav-btn pending">
+                    <span class="nav-num">4</span>
+                    Dimensions
+                </button>
+            </div>
+
+            <div class="mb-6">
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
+                    Type de travaux ?
+                </h1>
+                <p class="text-slate-500 text-sm mt-2">Sélectionnez la catégorie de cette zone.</p>
+            </div>
+
+            <div class="space-y-4">
+                <button type="button" data-categorie="Isolants"
+                    class="categorie-btn plan-card w-full group text-left">
+                    <div
+                        class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
+                        <span class="material-symbols-outlined">thermostat</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="block font-bold text-slate-900">Isolants</span>
+                        <p class="text-[13px] text-slate-500 mt-0.5">Flocage, calorifuge, vermiculite...</p>
+                    </div>
+                    <div class="ml-3 flex items-center justify-center shrink-0">
+                        <div class="radio-circle">
+                            <div class="radio-inner"></div>
+                        </div>
+                    </div>
+                </button>
+
+                <button type="button" data-categorie="Murs et Plafonds" class="categorie-btn plan-card w-full group text-left">
+                    <div
+                        class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
+                        <span class="material-symbols-outlined">dashboard</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="block font-bold text-slate-900">Murs et Plafonds</span>
+                        <p class="text-[13px] text-slate-500 mt-0.5">Plâtre, stucco, gypse, tuiles...</p>
+                    </div>
+                    <div class="ml-3 flex items-center justify-center shrink-0">
+                        <div class="radio-circle">
+                            <div class="radio-inner"></div>
+                        </div>
+                    </div>
+                </button>
+
+                <button type="button" data-categorie="Sols" class="categorie-btn plan-card w-full group text-left">
+                    <div
+                        class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
+                        <span class="material-symbols-outlined">grid_view</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="block font-bold text-slate-900">Sols</span>
+                        <p class="text-[13px] text-slate-500 mt-0.5">Linoléum, dalles vinyle, mastic...</p>
+                    </div>
+                    <div class="ml-3 flex items-center justify-center shrink-0">
+                        <div class="radio-circle">
+                            <div class="radio-inner"></div>
+                        </div>
+                    </div>
+                </button>
+
+                <button type="button" data-categorie="Extérieur"
+                    class="categorie-btn plan-card w-full group text-left">
+                    <div
+                        class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
+                        <span class="material-symbols-outlined">roofing</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="block font-bold text-slate-900">Extérieur</span>
+                        <p class="text-[13px] text-slate-500 mt-0.5">Bardeaux, calfeutrant, stucco...</p>
+                    </div>
+                    <div class="ml-3 flex items-center justify-center shrink-0">
+                        <div class="radio-circle">
+                            <div class="radio-inner"></div>
+                        </div>
+                    </div>
+                </button>
+
+                <button type="button" data-categorie="Mécanique"
+                    class="categorie-btn plan-card w-full group text-left">
+                    <div
+                        class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4 shrink-0">
+                        <span class="material-symbols-outlined">plumbing</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="block font-bold text-slate-900">Mécanique</span>
+                        <p class="text-[13px] text-slate-500 mt-0.5">Conduits, tuyaux, panneaux électriques...</p>
+                    </div>
+                    <div class="ml-3 flex items-center justify-center shrink-0">
+                        <div class="radio-circle">
+                            <div class="radio-inner"></div>
+                        </div>
+                    </div>
+                </button>
+            </div>
+
+            <!-- Hidden input for selected category -->
+            <input type="hidden" id="zone-categorie" name="categorie" value="">
+
+            <div class="mobile-sticky-footer flex items-center justify-between pt-6">
+                <button type="button" id="btn-back-step3b"
+                    class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                    <span class="material-symbols-outlined text-lg">arrow_back</span>
+                    Retour
+                </button>
+                <!-- Button added for consistency if needed, though originally 3b had only back button because selection triggers next step -->
+            </div>
+        </section>
+
+        <!-- Step 3c: Matériau -->
+        <section id="step-3c" class="step-content max-w-xl w-full hidden">
+            <!-- Mini navigation compact -->
+            <div class="wizard-nav-compact mb-6">
+                <button data-zone-goto="3a" class="nav-btn completed">
+                    <span class="material-symbols-outlined text-xs">check</span>
+                    Nom
+                </button>
+                <span class="nav-arrow text-slate-300">→</span>
+                <button data-zone-goto="3b" class="nav-btn completed">
+                    <span class="material-symbols-outlined text-xs">check</span>
+                    Catégorie
+                </button>
+                <span class="nav-arrow text-slate-300">→</span>
+                <button data-zone-goto="3c" class="nav-btn active">
+                    <span class="nav-num">3</span>
+                    Matériau
+                </button>
+                <span class="nav-arrow text-slate-300">→</span>
+                <button data-zone-goto="3d" class="nav-btn pending">
+                    <span class="nav-num">4</span>
+                    Dimensions
+                </button>
+            </div>
+
+            <div class="mb-6">
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
+                    Quel matériau ?
+                </h1>
+                <p class="text-slate-500 text-sm mt-2">Le matériau détermine la friabilité et l'épaisseur par défaut.
+                </p>
+            </div>
+
+            <div class="space-y-6">
+                <!-- Custom Dropdown for Material Selection -->
+                <div id="materiau-dropdown" class="custom-dropdown relative">
+                    <!-- Trigger Button -->
+                    <button type="button" id="materiau-dropdown-trigger"
+                        class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-lg text-left flex items-center justify-between focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all">
+                        <span id="materiau-dropdown-text" class="text-slate-400">Sélectionner un matériau</span>
+                        <span class="material-symbols-outlined text-slate-400 transition-transform" id="materiau-dropdown-arrow">expand_more</span>
+                    </button>
+                    
+                    <!-- Hidden input for form value -->
+                    <input type="hidden" id="zone-materiau" name="materiau" value="">
+
+                <!-- Custom Dropdown Modal/Panel -->
+                <div id="materiau-dropdown-panel" class="custom-dropdown-panel hidden">
+                    <!-- Backdrop -->
+                    <div id="materiau-dropdown-backdrop" class="fixed inset-0 bg-black/50 md:bg-transparent z-[60]"></div>
+                    
+                    <!-- Panel Content -->
+                    <div class="custom-dropdown-content fixed md:absolute inset-x-0 bottom-0 md:inset-auto md:top-full md:left-0 md:right-0 md:mt-2 bg-white rounded-t-3xl md:rounded-2xl shadow-2xl z-[70] max-h-[80vh] md:max-h-[400px] flex flex-col overflow-hidden">
+                        <!-- Header with Search -->
+                        <div class="sticky top-0 bg-white border-b border-slate-100 p-4 md:p-3">
+                            <!-- Mobile drag handle -->
+                            <div class="w-12 h-1 bg-slate-200 rounded-full mx-auto mb-4 md:hidden"></div>
+                            
+                            <div class="relative">
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+                                <input type="text" id="materiau-search-input" 
+                                    class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-base placeholder-slate-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+                                    placeholder="Rechercher un matériau...">
+                            </div>
+                        </div>
+                        
+                        <!-- Options List -->
+                        <div id="materiau-options-list" class="flex-1 overflow-y-auto p-2 md:p-1">
+                            <!-- Options will be inserted here -->
+                        </div>
+                        
+                        <!-- Mobile Close Button -->
+                        <div class="md:hidden sticky bottom-0 bg-white border-t border-slate-100 p-4 safe-area-inset-bottom">
+                            <button type="button" id="materiau-dropdown-close"
+                                class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors">
+                                Fermer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                </div>
+
+                <div class="mobile-sticky-footer flex items-center justify-between pt-4">
+                    <button type="button" id="btn-back-step3c"
+                        class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                        <span class="material-symbols-outlined text-lg">arrow_back</span>
+                        Retour
+                    </button>
+                    <button type="button" id="btn-next-step3c"
+                        class="px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled>
+                        Continuer
+                        <span class="material-symbols-outlined text-lg">arrow_forward</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 3d: Dimensions -->
+        <section id="step-3d" class="step-content max-w-xl w-full hidden">
+            <!-- Mini navigation compact -->
+            <div class="wizard-nav-compact mb-6">
+                <button data-zone-goto="3a" class="nav-btn completed">
+                    <span class="material-symbols-outlined text-xs">check</span>
+                    Nom
+                </button>
+                <span class="nav-arrow text-slate-300">→</span>
+                <button data-zone-goto="3b" class="nav-btn completed">
+                    <span class="material-symbols-outlined text-xs">check</span>
+                    Catégorie
+                </button>
+                <span class="nav-arrow text-slate-300">→</span>
+                <button data-zone-goto="3c" class="nav-btn completed">
+                    <span class="material-symbols-outlined text-xs">check</span>
+                    Matériau
+                </button>
+                <span class="nav-arrow text-slate-300">→</span>
+                <button data-zone-goto="3d" class="nav-btn active">
+                    <span class="nav-num">4</span>
+                    Dimensions
+                </button>
+            </div>
+
+            <div class="mb-6">
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
+                    Dimensions de la zone
+                </h1>
+                <p class="text-slate-500 text-sm mt-2">Ajoutez les mesures de chaque surface (mur). Vous pouvez ajouter plusieurs surfaces.</p>
+            </div>
+
+            <div class="space-y-6">
+                <!-- Épaisseur (commune à toutes les surfaces) -->
+                <div class="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="block text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">Épaisseur du matériau</label>
+                            <span class="text-xs text-blue-500">Commune à toutes les surfaces</span>
+                        </div>
+                        <div class="relative w-24">
+                            <input type="number" id="zone-epaisseur" name="epaisseur" min="0" step="0.0625" required
+                                class="w-full px-3 py-2 bg-white border-2 border-blue-200 rounded-lg text-lg text-slate-900 text-center focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                                placeholder="0">
+                            <span class="absolute -bottom-4 left-0 right-0 text-[10px] text-blue-400 text-center">pouces</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mode de saisie des surfaces -->
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-bold text-slate-600 uppercase tracking-wider">Surfaces</span>
+                        <div class="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+                            <button type="button" id="btn-mode-direct" class="px-3 py-1.5 text-xs font-medium rounded-md bg-white text-primary shadow-sm transition-all">Pied carré direct</button>
+                            <button type="button" id="btn-mode-details" class="px-3 py-1.5 text-xs font-medium rounded-md text-slate-500 hover:text-slate-700 transition-all">L × H</button>
+                        </div>
+                    </div>
+
+                    <!-- Mode direct (pi² total) - affiché par défaut -->
+                    <div id="surface-mode-direct">
+                        <div class="bg-white border-2 border-slate-200 rounded-xl p-4">
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Superficie totale</label>
+                            <div class="relative">
+                                <input type="number" id="surface-directe" min="0" step="1"
+                                    class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-lg text-slate-900 text-center focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                    placeholder="Ex: 250">
+                                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-medium">pi²</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mode détaillé (L × H) - caché par défaut -->
+                    <div id="surface-mode-details" class="hidden">
+                        <div class="flex justify-end mb-2">
+                            <button type="button" id="btn-add-surface"
+                                class="flex items-center gap-1 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium rounded-lg transition-colors">
+                                <span class="material-symbols-outlined text-lg">add</span>
+                                Ajouter un mur
+                            </button>
+                        </div>
+                        <div id="surfaces-list" class="space-y-3">
+                            <!-- Les surfaces seront ajoutées ici dynamiquement -->
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Friabilité badge -->
+                <div id="friabilite-badge" class="hidden">
+                    <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                        <div class="flex flex-col items-center text-center gap-2">
+                            <span id="friabilite-text"
+                                class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold tracking-wider uppercase"></span>
+                            <p id="friabilite-desc" class="text-sm text-slate-500"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Friabilité override -->
+                <div id="friabilite-override-section" class="hidden">
+                    <div class="bg-amber-50 rounded-2xl p-4 border border-amber-100 mt-3">
+                        <button type="button" id="btn-toggle-friabilite" class="flex items-center gap-2 text-sm text-amber-700 hover:text-amber-900 font-medium transition-colors">
+                            <span class="material-symbols-outlined text-base">tune</span>
+                            Modifier la friabilité manuellement
+                        </button>
+                        <div id="friabilite-override-controls" class="hidden mt-3">
+                            <select id="friabilite-override" class="w-full px-4 py-3 bg-white border-2 border-amber-200 rounded-xl text-base focus:border-amber-400 focus:ring-4 focus:ring-amber-100 transition-all">
+                                <option value="">Par défaut (automatique)</option>
+                                <option value="friable">Friable</option>
+                                <option value="non_friable">Non friable</option>
+                            </select>
+                            <p class="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-xs">warning</span>
+                                Override manuel — le calcul de risque sera recalculé
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Calculated values card (TOTAUX) -->
+                <div class="bg-slate-50 rounded-2xl p-6 border border-slate-100 mt-4">
+                    <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 text-center">Totaux de la zone</div>
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <span class="block text-xs font-bold text-slate-400 uppercase mb-1">Surface</span>
+                            <span class="auto-fit-text text-2xl font-bold text-slate-800" data-min-size="14" data-max-size="24"><span id="calc-surface">--</span></span>
+                            <span class="block text-sm text-slate-500">pi²</span>
+                        </div>
+                        <div>
+                            <span class="block text-xs font-bold text-slate-400 uppercase mb-1">Volume</span>
+                            <span class="auto-fit-text text-2xl font-bold text-slate-800" data-min-size="14" data-max-size="24"><span id="calc-volume">--</span></span>
+                            <span class="block text-sm text-slate-500">pi³</span>
+                        </div>
+                        <div>
+                            <span class="block text-xs font-bold text-slate-400 uppercase mb-1">Risque</span>
+                            <span id="calc-risque"
+                                class="inline-block mt-1 px-4 py-2 rounded-xl text-sm font-bold bg-slate-200 text-slate-400">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mobile-sticky-footer flex items-center justify-between pt-4">
+                    <button type="button" id="btn-back-step3d"
+                        class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                        <span class="material-symbols-outlined text-lg">arrow_back</span>
+                        Retour
+                    </button>
+                    <button type="button" id="btn-add-zone-final"
+                        class="px-8 py-4 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled>
+                        <span class="material-symbols-outlined">add_circle</span>
+                        Ajouter cette zone
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 4: Récapitulatif & Prix -->
+        <section id="step-4" class="step-content max-w-2xl w-full hidden">
+            <div class="mb-8">
+                <h1 class="text-2xl md:text-[32px] font-semibold tracking-tight text-slate-900">Récapitulatif</h1>
+                <p class="text-slate-500 text-sm md:text-base mt-2">Vérifiez les informations et le prix estimé.</p>
+            </div>
+
+            <!-- Client Summary -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 mb-4 shadow-sm">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-primary text-xl">person</span>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-900" id="recap-client-nom">—</h3>
+                        <p class="text-sm text-slate-500" id="recap-client-contact">—</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-2 text-sm text-slate-600 bg-slate-50 rounded-xl p-3">
+                    <span class="material-symbols-outlined text-slate-400 text-lg">location_on</span>
+                    <div>
+                        <p id="recap-client-adresse">—</p>
+                        <p class="text-xs text-slate-400 mt-1"><span id="recap-client-distance">0</span> km du bureau
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Zones Summary -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 mb-4 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-slate-500 text-xl">layers</span>
+                        </div>
+                        <h3 class="font-semibold text-slate-900">Zones de travail</h3>
+                    </div>
+                    <span class="text-sm font-medium text-slate-500" id="recap-zones-count">0 zone(s)</span>
+                </div>
+                <div id="recap-zones-list" class="space-y-2">
+                    <!-- Zones will be inserted here -->
+                </div>
+                <div class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-4 text-center">
+                    <div>
+                        <span class="block text-xs text-slate-400 uppercase tracking-wider">Surface totale</span>
+                        <span class="text-lg font-bold text-slate-900"><span id="recap-surface-total">0</span>
+                            pi²</span>
+                    </div>
+                    <div>
+                        <span class="block text-xs text-slate-400 uppercase tracking-wider">Risque global</span>
+                        <span id="recap-risque-global"
+                            class="inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold uppercase cursor-pointer hover:opacity-80 transition-opacity"
+                            title="Cliquer pour changer le risque">—</span>
+                        <span id="recap-risque-mode" class="block text-[10px] mt-1 text-slate-400 cursor-pointer">Automatique</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prix Breakdown -->
+            <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm mb-6">
+                <div class="bg-slate-50 px-5 py-4 border-b border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-primary text-xl">calculate</span>
+                        </div>
+                        <h3 class="font-semibold text-slate-900">Détail des coûts</h3>
+                    </div>
+                </div>
+
+                <div class="p-5" id="prix-details">
+                    <!-- Info: valeurs modifiables -->
+                    <div class="flex items-center gap-2 mb-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                        <span class="material-symbols-outlined text-primary text-lg">edit</span>
+                        <p class="text-xs text-slate-600">Les montants sont des suggestions. Vous pouvez les modifier.</p>
+                    </div>
+                    
+                    <!-- Tableau des coûts style Excel -->
+                    <div class="divide-y divide-slate-200 border-t border-b border-slate-200">
+                        <!-- Coûts zones -->
+                        <div class="flex justify-between items-center py-3 hover:bg-slate-50 transition-colors">
+                            <span class="text-slate-600">Coûts des zones</span>
+                            <div class="flex items-center gap-1">
+                                <input type="text" id="prix-zones" class="prix-input w-32 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0,00" inputmode="decimal">
+                                <span class="text-slate-400">$</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center py-3 hover:bg-slate-50 transition-colors">
+                            <span class="text-slate-600">Démolition</span>
+                            <div class="flex items-center gap-1">
+                                <input type="text" id="prix-demolition" class="prix-input w-32 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0,00" inputmode="decimal">
+                                <span class="text-slate-400">$</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center py-3 hover:bg-slate-50 transition-colors">
+                            <div class="flex items-center gap-2">
+                                <span class="text-slate-600">Ventilateur HEPA</span>
+                                <div class="flex items-center gap-1 ml-2">
+                                    <button type="button" id="btn-ventilateur-minus" class="w-6 h-6 rounded-full bg-slate-200 hover:bg-red-200 flex items-center justify-center text-xs font-bold text-slate-600 transition-colors">&minus;</button>
+                                    <span id="ventilateur-count" class="text-xs font-bold text-slate-700 min-w-[20px] text-center">1</span>
+                                    <button type="button" id="btn-ventilateur-plus" class="w-6 h-6 rounded-full bg-slate-200 hover:bg-green-200 flex items-center justify-center text-xs font-bold text-slate-600 transition-colors">+</button>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <input type="text" id="prix-ventilateur" class="prix-input w-32 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0,00" inputmode="decimal">
+                                <span class="text-slate-400">$</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tests d'air (conditionnel: ÉLEVÉ_ALLÉGÉ et ÉLEVÉ) -->
+                    <div id="prix-tests-air-section" class="hidden mt-4">
+                        <p class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Test d'air</p>
+                        <div class="divide-y divide-orange-100 border-t border-b border-orange-200 bg-orange-50/30 rounded-lg overflow-hidden">
+                            <div class="flex justify-between items-center py-3 px-2 hover:bg-orange-50 transition-colors">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-slate-600">Tests d'air</span>
+                                    <div class="flex items-center gap-1 ml-2">
+                                        <button type="button" id="btn-test-air-minus" class="w-6 h-6 rounded-full bg-slate-200 hover:bg-red-200 flex items-center justify-center text-xs font-bold text-slate-600 transition-colors">&minus;</button>
+                                        <span id="test-air-count" class="text-xs font-bold text-slate-700 min-w-[20px] text-center">1</span>
+                                        <button type="button" id="btn-test-air-plus" class="w-6 h-6 rounded-full bg-slate-200 hover:bg-green-200 flex items-center justify-center text-xs font-bold text-slate-600 transition-colors">+</button>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <input type="text" id="prix-tests" class="prix-input w-32 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0,00" inputmode="decimal">
+                                    <span class="text-slate-400">$</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Frais risque élevé: douches + perte de temps (conditionnel: ÉLEVÉ seulement) -->
+                    <div id="prix-risque-eleve-section" class="hidden mt-4">
+                        <p class="text-xs font-bold text-red-500 uppercase tracking-wider mb-2">Frais risque élevé</p>
+                        <div class="divide-y divide-red-100 border-t border-b border-red-200 bg-red-50/30 rounded-lg overflow-hidden">
+                            <div class="flex justify-between items-center py-3 px-2 hover:bg-red-50 transition-colors">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-slate-600">Douches de décontamination</span>
+                                    <div class="flex items-center gap-1 ml-2">
+                                        <button type="button" id="btn-douche-minus" class="w-6 h-6 rounded-full bg-slate-200 hover:bg-red-200 flex items-center justify-center text-xs font-bold text-slate-600 transition-colors">&minus;</button>
+                                        <span id="douche-count" class="text-xs font-bold text-slate-700 min-w-[20px] text-center">1</span>
+                                        <button type="button" id="btn-douche-plus" class="w-6 h-6 rounded-full bg-slate-200 hover:bg-green-200 flex items-center justify-center text-xs font-bold text-slate-600 transition-colors">+</button>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <input type="text" id="prix-douches" class="prix-input w-32 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0,00" inputmode="decimal">
+                                    <span class="text-slate-400">$</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center py-3 px-2 hover:bg-red-50 transition-colors">
+                                <span class="text-slate-600">Perte de temps</span>
+                                <div class="flex items-center gap-1">
+                                    <input type="text" id="prix-perte-temps" class="prix-input w-32 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0,00" inputmode="decimal">
+                                    <span class="text-slate-400">$</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center py-3 px-2 hover:bg-red-50 transition-colors">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-slate-600">Tests d'air journaliers</span>
+                                    <div class="flex items-center gap-1 ml-2">
+                                        <button type="button" id="btn-test-air-jour-minus" class="w-6 h-6 rounded-full bg-slate-200 hover:bg-red-200 flex items-center justify-center text-xs font-bold text-slate-600 transition-colors">&minus;</button>
+                                        <span id="test-air-jour-count" class="text-xs font-bold text-slate-700 min-w-[20px] text-center">0</span>
+                                        <button type="button" id="btn-test-air-jour-plus" class="w-6 h-6 rounded-full bg-slate-200 hover:bg-green-200 flex items-center justify-center text-xs font-bold text-slate-600 transition-colors">+</button>
+                                    </div>
+                                    <span class="text-[10px] text-slate-400">jours</span>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <input type="text" id="prix-test-air-journalier" class="prix-input w-32 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0,00" inputmode="decimal">
+                                    <span class="text-slate-400">$</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Autres frais -->
+                    <div class="divide-y divide-slate-200 border-t border-b border-slate-200 mt-4">
+                        <div class="py-3 hover:bg-slate-50 transition-colors">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-slate-600">Transport</span>
+                                    <div class="flex items-center gap-1 ml-2">
+                                        <button type="button" id="btn-transport-minus" class="w-6 h-6 rounded-full bg-slate-200 hover:bg-red-200 flex items-center justify-center text-xs font-bold text-slate-600 transition-colors">&minus;</button>
+                                        <span id="transport-count" class="text-xs font-bold text-slate-700 min-w-[20px] text-center">1</span>
+                                        <button type="button" id="btn-transport-plus" class="w-6 h-6 rounded-full bg-slate-200 hover:bg-green-200 flex items-center justify-center text-xs font-bold text-slate-600 transition-colors">+</button>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <input type="text" id="prix-transport" class="prix-input w-32 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0,00" inputmode="decimal">
+                                    <span class="text-slate-400">$</span>
+                                </div>
+                            </div>
+                            <!-- Détail du calcul transport -->
+                            <div id="transport-detail" class="mt-2">
+                                <p class="text-xs text-slate-500 italic" id="transport-explication">
+                                    <span id="transport-heures" class="hidden">0</span>
+                                    <span id="transport-jours" class="hidden">0</span>
+                                    <span id="transport-equipe" class="hidden">3</span>
+                                    <span id="transport-tarif" class="hidden">75</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center py-3 hover:bg-slate-50 transition-colors">
+                            <span class="text-slate-600">Disposition des matériaux</span>
+                            <div class="flex items-center gap-1">
+                                <input type="text" id="prix-disposition" class="prix-input w-32 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0,00" inputmode="decimal">
+                                <span class="text-slate-400">$</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center py-3 hover:bg-slate-50 transition-colors">
+                            <span class="text-slate-600">Assurance</span>
+                            <div class="flex items-center gap-1">
+                                <input type="text" id="prix-assurance" class="prix-input w-32 text-right font-semibold text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-primary focus:outline-none transition-colors" value="0,00" inputmode="decimal">
+                                <span class="text-slate-400">$</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Sous-total et marge -->
+                <div class="bg-slate-50 px-5 py-1 border-t border-slate-200">
+                    <div class="divide-y divide-slate-200">
+                        <div class="flex justify-between items-center py-3">
+                            <span class="text-slate-600 font-medium">Sous-total</span>
+                            <span class="font-bold text-slate-900 text-lg" id="prix-sous-total">0 $</span>
+                        </div>
+                        <!-- CONFIDENTIEL: Ne PAS inclure sur la soumission client -->
+                        <div id="marge-section" class="flex justify-between items-center py-3 internal-only" data-internal-only="true">
+                            <span class="text-slate-500 text-sm flex items-center gap-1">
+                                <span class="material-symbols-outlined text-amber-500 text-sm">visibility_off</span>
+                                Marge
+                                <input type="number" id="marge-percent" class="w-12 text-center font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded px-1 py-0.5 text-sm focus:border-amber-400 focus:outline-none" value="20" min="0" max="100" step="1">
+                                %
+                            </span>
+                            <span class="font-semibold text-amber-600 text-sm" id="prix-marge">0 $</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sections extras (après la marge, prix fixes non affectés) -->
+                <div id="extra-sections-container" class="border-t border-slate-200 bg-slate-50/50">
+                    <div class="px-5 py-6">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-primary text-xl">post_add</span>
+                                    <h3 class="text-base font-bold text-slate-800">Sections Extras</h3>
+                                    <span class="text-[10px] font-medium text-slate-500 bg-slate-200/70 px-2 py-0.5 rounded-full uppercase tracking-wider">Prix fixes</span>
+                                </div>
+                                <p class="text-xs text-slate-500 mt-1 ml-7">Ces montants s'ajoutent au total après le calcul de la marge.</p>
+                            </div>
+                            <button type="button" id="btn-add-extra-section"
+                                class="flex items-center justify-center gap-1.5 px-4 py-2 bg-white hover:bg-slate-50 text-primary text-sm font-semibold rounded-lg border border-slate-200 shadow-sm transition-all">
+                                <span class="material-symbols-outlined text-[18px]">add_box</span>
+                                Ajouter une section
+                            </button>
+                        </div>
+                        
+                        <div id="extra-sections-list" class="space-y-6">
+                            <!-- Sections extras injectees ici par JS -->
+                        </div>
+                        
+                        <div id="extra-sections-empty" class="text-center py-8 bg-white border border-slate-200 border-dashed rounded-xl">
+                            <div class="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <span class="material-symbols-outlined text-slate-300 text-2xl">receipt_long</span>
+                            </div>
+                            <p class="text-sm font-medium text-slate-600 mb-1">Aucune section extra</p>
+                            <p class="text-xs text-slate-400">Ajoutez des travaux supplémentaires (ex: gypse, peinture, reconstruction)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Total -->
+                <div class="bg-primary px-5 py-5">
+                    <div class="flex justify-between items-center">
+                        <span class="text-white font-bold text-lg">TOTAL ESTIMÉ</span>
+                        <div class="flex items-center gap-1">
+                            <input type="text" id="prix-total" class="w-40 text-right font-bold text-2xl text-white bg-transparent border-b-2 border-white/30 hover:border-white/50 focus:border-white focus:outline-none transition-colors" value="0,00" inputmode="decimal">
+                            <span class="text-white font-bold text-2xl">$</span>
+                        </div>
+                    </div>
+                    <p class="text-white/60 text-xs mt-2 flex items-center gap-1">
+                        <span class="material-symbols-outlined text-xs">info</span>
+                        Modifiez le total directement ou ajustez les lignes ci-dessus
+                    </p>
+                </div>
+            </div>
+
+            <!-- Warning if élevé allégé risk -->
+            <div id="recap-warning-eleve-allege" class="hidden mb-6 p-4 bg-orange-50 border border-orange-200 rounded-xl">
+                <div class="flex gap-3">
+                    <span class="material-symbols-outlined text-orange-500">warning</span>
+                    <div>
+                        <p class="text-sm font-semibold text-orange-700">Attention : Risque élevé allégé détecté</p>
+                        <p class="text-xs text-orange-600 mt-1">Ce projet nécessite un ventilateur HEPA et un test d'air final. Pas de douches requises.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Warning if high risk -->
+            <div id="recap-warning-eleve" class="hidden mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+                <div class="flex gap-3">
+                    <span class="material-symbols-outlined text-red-500">warning</span>
+                    <div>
+                        <p class="text-sm font-semibold text-red-700">Attention : Risque élevé détecté</p>
+                        <p class="text-xs text-red-600 mt-1">Ce projet nécessite des douches de décontamination et des
+                            tests d'air obligatoires.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notes techniques (modifiable par soumission) -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+                <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-slate-400">description</span>
+                        <h3 class="font-semibold text-slate-800">Notes techniques</h3>
+                    </div>
+                    <button type="button" id="btn-reset-notes" class="text-xs text-slate-400 hover:text-slate-600 transition-colors">
+                        Reinitialiser
+                    </button>
+                </div>
+                <div class="px-5 py-4">
+                    <textarea id="notes-techniques-input" rows="3"
+                        class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:border-primary focus:outline-none resize-y"
+                        placeholder="Notes techniques pour cette soumission..."></textarea>
+                </div>
+            </div>
+
+            <!-- Non-inclus (modifiable par soumission) -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+                <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-slate-400">block</span>
+                        <h3 class="font-semibold text-slate-800">Non inclus dans la soumission</h3>
+                    </div>
+                </div>
+                <div class="px-5 py-4">
+                    <div id="non-inclus-list" class="space-y-2 mb-3"></div>
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="non-inclus-new-input" placeholder="Ajouter un item non inclus..."
+                            class="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:border-primary focus:outline-none">
+                        <button type="button" id="btn-add-non-inclus"
+                            class="px-3 py-2 bg-primary hover:bg-primary-dark text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">add</span>
+                            Ajouter
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation buttons -->
+            <div class="flex items-center justify-between pt-4">
+                <button type="button" id="btn-back-step4"
+                    class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                    <span class="material-symbols-outlined text-lg">arrow_back</span>
+                    Modifier les zones
+                </button>
+                <button type="button" id="btn-continue-step4"
+                    class="px-6 py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors flex items-center gap-2">
+                    Générer la soumission
+                    <span class="material-symbols-outlined text-lg">description</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Step 5: Génération PDF et Signature -->
+        <!-- ============================================= -->
+        <!-- STEP 5A - Aperçu complet de la soumission -->
+        <!-- ============================================= -->
+        <section id="step-5a" class="step-content w-full hidden" style="max-width: 100%; padding: 0 16px;">
+            <div class="mb-4 text-center">
+                <h1 class="text-2xl md:text-[32px] font-semibold tracking-tight text-slate-900">Aperçu de la soumission</h1>
+                <p class="text-slate-500 text-sm md:text-base mt-1">Vérifiez toutes les informations avant de continuer.</p>
+                <!-- Mini-nav steps -->
+                <div class="flex items-center justify-center gap-2 mt-3">
+                    <span class="step5-nav-dot w-8 h-8 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">1</span>
+                    <span class="w-8 h-0.5 bg-slate-200"></span>
+                    <span class="step5-nav-dot w-8 h-8 rounded-full bg-slate-200 text-slate-400 text-xs font-bold flex items-center justify-center">2</span>
+                    <span class="w-8 h-0.5 bg-slate-200"></span>
+                    <span class="step5-nav-dot w-8 h-8 rounded-full bg-slate-200 text-slate-400 text-xs font-bold flex items-center justify-center">3</span>
+                    <span class="ml-3 text-xs text-slate-400">Aperçu &rarr; Signature &rarr; Envoi</span>
+                </div>
+            </div>
+
+            <!-- Warning photos perdues -->
+            <div id="photos-warning" class="hidden bg-amber-50 border border-amber-300 rounded-xl p-4 mb-4 flex items-start gap-3 max-w-2xl mx-auto">
+                <span class="material-symbols-outlined text-amber-600 mt-0.5">warning</span>
+                <div>
+                    <p class="text-sm font-semibold text-amber-800">Photos perdues</p>
+                    <p class="text-xs text-amber-700 mt-1">Les photos ont été supprimées pour libérer de l'espace. Retournez aux zones pour les reprendre si nécessaire.</p>
+                </div>
+            </div>
+
+            <!-- Aperçu du PDF - Full page style Google Drive -->
+            <div class="bg-slate-100 rounded-2xl overflow-hidden mb-4 shadow-sm border border-slate-200" style="max-width: 900px; margin-left: auto; margin-right: auto;">
+                <div class="flex items-center justify-between px-4 py-2 bg-white border-b border-slate-200">
+                    <h3 class="text-sm font-semibold text-slate-700">Aperçu du PDF</h3>
+                    <button type="button" id="btn-regenerate-preview" onclick="generatePreviewPDF()" class="text-xs text-primary hover:underline flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm">refresh</span>
+                        Régénérer
+                    </button>
+                </div>
+                <div id="pdf-preview-container" class="w-full overflow-hidden" style="height: calc(100vh - 130px); min-height: 700px;">
+                    <div id="pdf-preview-loading" class="flex flex-col items-center justify-center h-full text-slate-400">
+                        <span class="material-symbols-outlined text-4xl mb-2 animate-spin">progress_activity</span>
+                        <p class="text-sm">Génération du PDF en cours...</p>
+                    </div>
+                    <iframe id="pdf-preview-iframe" class="w-full h-full hidden" style="border: none;" type="application/pdf"></iframe>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="flex gap-3 mt-4 mb-4 max-w-2xl mx-auto">
+                <button type="button" id="btn-prev-step5a" class="flex-1 py-3 px-4 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-colors">
+                    <span class="material-symbols-outlined text-sm align-middle mr-1">arrow_back</span>
+                    Récapitulatif
+                </button>
+                <button type="button" id="btn-en-attente" class="py-3 px-4 rounded-xl border border-amber-400 bg-amber-50 text-amber-700 font-medium hover:bg-amber-100 transition-colors">
+                    <span class="material-symbols-outlined text-sm align-middle mr-1">schedule</span>
+                    En attente
+                </button>
+                <button type="button" id="btn-accepter" class="flex-1 py-3 px-6 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors shadow-sm">
+                    Accepter la soumission
+                    <span class="material-symbols-outlined text-sm align-middle ml-1">arrow_forward</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- ============================================= -->
+        <!-- STEP 5B - Confirmation client + Signature -->
+        <!-- ============================================= -->
+        <section id="step-5b" class="step-content max-w-2xl w-full hidden">
+            <div class="mb-6 text-center">
+                <h1 class="text-2xl md:text-[32px] font-semibold tracking-tight text-slate-900">Signature du client</h1>
+                <p class="text-slate-500 text-sm md:text-base mt-2">Confirmez les coordonnées et obtenez la signature.</p>
+                <!-- Mini-nav steps -->
+                <div class="flex items-center justify-center gap-2 mt-4">
+                    <span class="step5-nav-dot w-8 h-8 rounded-full bg-green-500 text-white text-xs font-bold flex items-center justify-center"><span class="material-symbols-outlined text-sm">check</span></span>
+                    <span class="w-8 h-0.5 bg-green-500"></span>
+                    <span class="step5-nav-dot w-8 h-8 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">2</span>
+                    <span class="w-8 h-0.5 bg-slate-200"></span>
+                    <span class="step5-nav-dot w-8 h-8 rounded-full bg-slate-200 text-slate-400 text-xs font-bold flex items-center justify-center">3</span>
+                    <span class="ml-3 text-xs text-slate-400">Aperçu &rarr; <strong class="text-slate-700">Signature</strong> &rarr; Envoi</span>
+                </div>
+            </div>
+
+            <!-- Infos client éditables -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 mb-6 shadow-sm">
+                <h3 class="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">person</span>
+                    Coordonnées du client
+                </h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nom complet</label>
+                        <input type="text" id="step5-client-nom"
+                            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-base text-slate-900 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                            placeholder="Nom du client">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Courriel</label>
+                            <input type="email" id="step5-client-courriel"
+                                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-base text-slate-900 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                placeholder="courriel@exemple.com">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Téléphone</label>
+                            <input type="tel" id="step5-client-telephone"
+                                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-base text-slate-900 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                placeholder="(418) 555-1234">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Signature du client -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 mb-6 shadow-sm">
+                <h3 class="font-semibold text-slate-900 mb-2 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">draw</span>
+                    Signature
+                </h3>
+                <p id="pdf-texte-signature" class="text-sm text-slate-500 mb-4">
+                    Je, soussigné(e), reconnais avoir pris connaissance de la présente soumission et accepte les termes et conditions.
+                </p>
+
+                <div class="relative">
+                    <div id="signature-container" class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl overflow-hidden">
+                        <canvas id="signature-canvas" class="w-full touch-none" style="height: 200px;"></canvas>
+                    </div>
+                    <div id="signature-placeholder" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span class="material-symbols-outlined text-4xl text-slate-300 mb-2">stylus_note</span>
+                        <p class="text-sm text-slate-400">Signez ici avec votre doigt ou stylet</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between mt-3">
+                    <button type="button" id="btn-clear-signature"
+                        class="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1 transition-colors">
+                        <span class="material-symbols-outlined text-lg">refresh</span>
+                        Effacer
+                    </button>
+                    <div id="signature-status" class="text-xs text-slate-400">
+                        En attente de signature
+                    </div>
+                </div>
+            </div>
+
+            <!-- Aperçu signature entrepreneur -->
+            <div id="company-sig-step5-preview" class="hidden bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <h3 class="font-semibold text-slate-900 mb-2 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-green-500">verified</span>
+                    Signature de l'entrepreneur
+                </h3>
+                <p class="text-sm text-slate-500 mb-3">Cette signature sera automatiquement incluse dans le PDF.</p>
+                <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                    <img id="company-sig-step5-img" class="max-h-20 mx-auto" alt="Signature de l'entrepreneur"/>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="flex items-center justify-between pt-4">
+                <button type="button" id="btn-back-step5b"
+                    class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                    <span class="material-symbols-outlined text-lg">arrow_back</span>
+                    Aperçu
+                </button>
+                <button type="button" id="btn-next-step5b"
+                    class="px-6 py-3 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled>
+                    Envoi
+                    <span class="material-symbols-outlined text-lg">arrow_forward</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- ============================================= -->
+        <!-- STEP 5C - Téléchargement + Envoi email -->
+        <!-- ============================================= -->
+        <section id="step-5c" class="step-content max-w-2xl w-full hidden">
+            <div class="mb-6 text-center">
+                <h1 class="text-2xl md:text-[32px] font-semibold tracking-tight text-slate-900">Envoyer la soumission</h1>
+                <p class="text-slate-500 text-sm md:text-base mt-2">Téléchargez le PDF ou envoyez-le directement par email.</p>
+                <!-- Mini-nav steps -->
+                <div class="flex items-center justify-center gap-2 mt-4">
+                    <span class="step5-nav-dot w-8 h-8 rounded-full bg-green-500 text-white text-xs font-bold flex items-center justify-center"><span class="material-symbols-outlined text-sm">check</span></span>
+                    <span class="w-8 h-0.5 bg-green-500"></span>
+                    <span class="step5-nav-dot w-8 h-8 rounded-full bg-green-500 text-white text-xs font-bold flex items-center justify-center"><span class="material-symbols-outlined text-sm">check</span></span>
+                    <span class="w-8 h-0.5 bg-green-500"></span>
+                    <span class="step5-nav-dot w-8 h-8 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">3</span>
+                    <span class="ml-3 text-xs text-slate-400">Aperçu &rarr; Signature &rarr; <strong class="text-slate-700">Envoi</strong></span>
+                </div>
+            </div>
+
+            <!-- Résumé rapide -->
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-6">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    <div>
+                        <p class="text-2xl font-bold text-slate-900" id="pdf-resume-pages">6</p>
+                        <p class="text-xs text-slate-500">Pages</p>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-slate-900" id="pdf-resume-zones">0</p>
+                        <p class="text-xs text-slate-500">Zones</p>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-slate-900" id="pdf-resume-photos">0</p>
+                        <p class="text-xs text-slate-500">Photos</p>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-primary" id="pdf-resume-total">0 $</p>
+                        <p class="text-xs text-slate-500">Total</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Télécharger PDF -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 mb-6 shadow-sm">
+                <h3 class="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">download</span>
+                    Télécharger
+                </h3>
+                <p class="text-sm text-slate-500 mb-4">Téléchargez le PDF de la soumission signée sur votre appareil.</p>
+                <button type="button" id="btn-download-pdf"
+                    class="w-full px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-lg">download</span>
+                    Télécharger les PDF
+                </button>
+            </div>
+
+            <!-- Envoyer par email -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 mb-6 shadow-sm">
+                <h3 class="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">mail</span>
+                    Envoyer par email
+                </h3>
+                <div class="flex items-center gap-3 bg-slate-50 rounded-xl p-4 mb-4">
+                    <span class="material-symbols-outlined text-slate-400">person</span>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-slate-900" id="send-email-client-nom">Client</p>
+                        <p class="text-xs text-slate-500" id="send-email-client-courriel">courriel@exemple.com</p>
+                    </div>
+                </div>
+                <button type="button" id="btn-send-email"
+                    class="w-full px-6 py-3 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span class="material-symbols-outlined text-lg">send</span>
+                    Envoyer au client
+                </button>
+                <div id="send-email-status" class="mt-3 text-sm text-center hidden"></div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="flex items-center justify-between pt-4">
+                <button type="button" id="btn-back-step5c"
+                    class="text-sm font-medium text-text-muted hover:text-slate-900 transition-colors flex items-center gap-1">
+                    <span class="material-symbols-outlined text-lg">arrow_back</span>
+                    Signature
+                </button>
+                <button type="button" id="btn-new-soumission"
+                    class="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg">add</span>
+                    Nouvelle soumission
+                </button>
+            </div>
+
+            <!-- Loading overlay for PDF generation -->
+            <div id="pdf-loading" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+                <div class="bg-white rounded-2xl p-8 shadow-xl text-center max-w-sm mx-4">
+                    <div class="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p class="font-semibold text-slate-900 mb-1">Génération du PDF...</p>
+                    <p class="text-sm text-slate-500">Veuillez patienter quelques secondes</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Lightbox Modal for Photo Preview -->
+    <div id="photo-lightbox" class="fixed inset-0 z-[100] hidden">
+        <!-- Backdrop -->
+        <div id="lightbox-backdrop" class="absolute inset-0 bg-black/90 backdrop-blur-sm"></div>
+        
+        <!-- Content -->
+        <div class="relative w-full h-full flex items-center justify-center">
+            <!-- Top controls bar -->
+            <div class="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-20">
+                <!-- Zoom level indicator -->
+                <div class="bg-black/50 px-3 py-1.5 rounded-full">
+                    <span id="lightbox-zoom-level" class="text-white text-sm font-medium">100%</span>
+                </div>
+                
+                <!-- Close button -->
+                <button id="lightbox-close" class="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            
+            <!-- Zoom controls (desktop) -->
+            <div class="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 flex-col gap-2 z-20">
+                <button id="lightbox-zoom-in" class="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors" title="Zoom avant">
+                    <span class="material-symbols-outlined">add</span>
+                </button>
+                <button id="lightbox-zoom-reset" class="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors text-xs font-bold" title="Réinitialiser">
+                    1:1
+                </button>
+                <button id="lightbox-zoom-out" class="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors" title="Zoom arrière">
+                    <span class="material-symbols-outlined">remove</span>
+                </button>
+            </div>
+            
+            <!-- Image container (zoomable & pannable) -->
+            <div id="lightbox-container" class="w-full h-full overflow-hidden touch-none">
+                <div id="lightbox-img-wrapper" class="w-full h-full flex items-center justify-center transition-transform duration-100">
+                    <img id="lightbox-img" src="" alt="Full preview" 
+                        class="max-w-none select-none pointer-events-none rounded-lg shadow-2xl"
+                        style="transform-origin: center center;">
+                </div>
+            </div>
+            
+            <!-- Bottom bar with name and mobile zoom hint -->
+            <div class="absolute bottom-4 left-4 right-4 flex justify-between items-center z-20">
+                <!-- Image name -->
+                <div class="bg-black/50 px-4 py-2 rounded-full max-w-[60%]">
+                    <p id="lightbox-name" class="text-white text-sm truncate"></p>
+                </div>
+                
+                <!-- Mobile zoom hint -->
+                <div class="md:hidden bg-black/50 px-3 py-2 rounded-full flex items-center gap-2">
+                    <span class="material-symbols-outlined text-white text-sm">pinch</span>
+                    <span class="text-white text-xs">Pincez pour zoomer</span>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Footer -->
+    <footer class="py-6 w-full border-t border-slate-100 bg-white mt-auto">
+        <div class="flex justify-center">
+            <p class="text-[10px] font-extrabold tracking-[0.2em] text-slate-300 uppercase">Apex Soumissions</p>
+        </div>
+    </footer>
+
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="hidden fixed inset-0 z-[500] bg-white flex items-center justify-center">
+        <div class="w-full max-w-sm mx-auto px-6">
+            <div class="text-center mb-8">
+                <img src="assets/logo-apex.png" alt="Apex" class="h-12 mx-auto mb-6">
+                <h1 class="text-2xl font-bold text-slate-900 mb-2">Apex Soumissions</h1>
+                <p class="text-sm text-text-muted">Entrez le code d'acces pour continuer</p>
+            </div>
+            <form id="auth-form" class="space-y-4">
+                <input type="password" id="auth-code-input"
+                    class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-center text-lg tracking-widest focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                    placeholder="Code d'acces" autocomplete="current-password" required>
+                <p id="auth-error" class="hidden text-sm text-red-500 text-center"></p>
+                <button type="submit" id="auth-submit-btn"
+                    class="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-3 rounded-xl transition-colors">
+                    Entrer
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Section Historique (hidden by default) -->
+    <div id="historique-container" class="hidden flex-col flex-1 bg-slate-50 w-full">
+        <header id="header-historique" class="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm px-4 md:px-8 py-4">
+            <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    <button id="btn-back-history" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition-colors">
+                        <span class="material-symbols-outlined">arrow_back</span>
+                    </button>
+                    <div class="border-l border-slate-200 pl-4">
+                        <h2 class="text-lg font-bold text-slate-900 leading-tight">Bibliothèque</h2>
+                        <p class="text-xs text-slate-500">Historique des soumissions</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-3 w-full md:w-auto">
+                    <div class="relative flex-1 md:w-80">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">search</span>
+                        <input type="text" id="historique-search"
+                            placeholder="Rechercher un client, projet..."
+                            class="w-full pl-10 pr-4 py-2 bg-slate-100 border-transparent rounded-xl text-sm focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all">
+                    </div>
+                    <select id="historique-filtre-statut"
+                        class="px-3 py-2 bg-slate-100 border-transparent rounded-xl text-sm text-slate-700 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer">
+                        <option value="">Tous les statuts</option>
+                        <option value="envoyee">Envoyées</option>
+                        <option value="acceptee">Acceptées</option>
+                        <option value="refusee">Refusées</option>
+                        <option value="completee">Complétées</option>
+                    </select>
+                    <button id="btn-new-from-history"
+                        class="flex items-center justify-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white text-sm font-medium rounded-xl transition-colors shadow-sm whitespace-nowrap">
+                        <span class="material-symbols-outlined text-lg">add</span>
+                        <span class="hidden md:inline">Nouvelle</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <section id="section-historique" class="max-w-7xl w-full mx-auto p-4 md:p-8 flex-1">
+            <!-- Stats pipeline -->
+            <div id="historique-stats" class="hidden grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+                <button class="stat-filter-btn flex items-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-xl hover:border-primary/40 transition-all cursor-pointer group" data-statut="">
+                    <div class="w-2.5 h-2.5 rounded-full bg-slate-400"></div>
+                    <div class="text-left">
+                        <span class="text-lg font-bold text-slate-900 leading-none" id="stat-total">0</span>
+                        <p class="text-[11px] text-slate-500 font-medium">Total</p>
+                    </div>
+                </button>
+                <button class="stat-filter-btn flex items-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-xl hover:border-blue-400/40 transition-all cursor-pointer group" data-statut="envoyee">
+                    <div class="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
+                    <div class="text-left">
+                        <span class="text-lg font-bold text-slate-900 leading-none" id="stat-envoyee">0</span>
+                        <p class="text-[11px] text-slate-500 font-medium">Envoyées</p>
+                    </div>
+                </button>
+                <button class="stat-filter-btn flex items-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-xl hover:border-emerald-400/40 transition-all cursor-pointer group" data-statut="acceptee">
+                    <div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                    <div class="text-left">
+                        <span class="text-lg font-bold text-slate-900 leading-none" id="stat-acceptee">0</span>
+                        <p class="text-[11px] text-slate-500 font-medium">Acceptées</p>
+                    </div>
+                </button>
+                <button class="stat-filter-btn flex items-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-xl hover:border-red-400/40 transition-all cursor-pointer group" data-statut="refusee">
+                    <div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+                    <div class="text-left">
+                        <span class="text-lg font-bold text-slate-900 leading-none" id="stat-refusee">0</span>
+                        <p class="text-[11px] text-slate-500 font-medium">Refusées</p>
+                    </div>
+                </button>
+                <button class="stat-filter-btn flex items-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-xl hover:border-green-400/40 transition-all cursor-pointer group" data-statut="completee">
+                    <div class="w-2.5 h-2.5 rounded-full bg-green-600"></div>
+                    <div class="text-left">
+                        <span class="text-lg font-bold text-slate-900 leading-none" id="stat-completee">0</span>
+                        <p class="text-[11px] text-slate-500 font-medium">Complétées</p>
+                    </div>
+                </button>
+            </div>
+
+            <!-- Toolbar: compteur -->
+            <div id="historique-toolbar" class="hidden flex items-center justify-between mb-4">
+                <p class="text-sm text-slate-500" id="historique-count"></p>
+            </div>
+
+            <div id="historique-loading" class="hidden flex flex-col items-center justify-center py-20">
+                <span class="material-symbols-outlined text-4xl text-primary animate-spin mb-4">progress_activity</span>
+                <p class="text-slate-500 font-medium">Chargement de la bibliothèque...</p>
+            </div>
+
+            <div id="historique-liste">
+                <!-- Le tableau sera injecte ici par JS -->
+            </div>
+            
+            <div id="historique-empty" class="hidden flex flex-col items-center justify-center py-20 text-center">
+                <div class="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                    <span class="material-symbols-outlined text-5xl text-slate-300">folder_open</span>
+                </div>
+                <h3 class="text-lg font-semibold text-slate-900 mb-1">Aucune soumission trouvée</h3>
+                <p class="text-slate-500 max-w-sm">Essayez de modifier vos critères de recherche ou créez une nouvelle soumission.</p>
+            </div>
+        </section>
+    </div>
+
+    <!-- Detail Panel Overlay -->
+    <div id="detail-panel-overlay" class="hidden fixed inset-0 bg-black/30 z-40 transition-opacity"></div>
+
+    <!-- Detail Panel Slide-out -->
+    <div id="detail-panel" class="fixed top-0 right-0 h-full w-full md:w-[560px] lg:w-[640px] bg-white shadow-2xl z-50 translate-x-full transition-transform duration-300 ease-out flex flex-col">
+        <!-- Header -->
+        <div class="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10 shrink-0">
+            <div class="flex items-center gap-3">
+                <span class="font-bold text-slate-900" id="detail-numero"></span>
+                <span id="detail-statut-badge"></span>
+            </div>
+            <button id="detail-close" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+        <!-- View tabs -->
+        <div class="flex border-b border-slate-200 shrink-0" id="detail-view-tabs">
+            <button class="detail-view-tab flex-1 px-3 py-3 text-xs md:text-sm font-medium text-center border-b-2 transition-colors" data-view="pdf-client">Soumission</button>
+            <button class="detail-view-tab flex-1 px-3 py-3 text-xs md:text-sm font-medium text-center border-b-2 transition-colors" data-view="pdf-detail">Détail Apex</button>
+            <button class="detail-view-tab flex-1 px-3 py-3 text-xs md:text-sm font-medium text-center border-b-2 transition-colors" data-view="resume">Résumé</button>
+        </div>
+
+        <!-- PDF View -->
+        <div id="detail-view-pdf" class="flex-1 flex flex-col overflow-hidden min-h-0">
+            <div class="flex items-center justify-center py-8 text-slate-400 text-sm" id="detail-pdf-loading">
+                <span class="material-symbols-outlined animate-spin mr-2">progress_activity</span>
+                Chargement du PDF...
+            </div>
+            <iframe id="detail-pdf-iframe" class="flex-1 w-full border-0 min-h-[300px]" style="display:none;"></iframe>
+            <div class="px-4 py-3 border-t border-slate-200 shrink-0 flex gap-2" id="detail-pdfs"></div>
+        </div>
+
+        <!-- Resume View (hidden by default) -->
+        <div id="detail-view-resume" class="p-6 space-y-6 overflow-y-auto flex-1 hidden">
+            <div>
+                <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Client</h4>
+                <div class="bg-slate-50 rounded-xl p-4 space-y-2.5" id="detail-client-info"></div>
+            </div>
+            <div>
+                <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Resume</h4>
+                <div class="grid grid-cols-2 gap-3" id="detail-metrics"></div>
+            </div>
+            <div>
+                <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Ventilation des couts</h4>
+                <div class="bg-slate-50 rounded-xl p-4" id="detail-costs"></div>
+            </div>
+            <div>
+                <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Zones</h4>
+                <div class="space-y-2" id="detail-zones"></div>
+            </div>
+            <div id="detail-notes-section" class="hidden">
+                <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Notes internes</h4>
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900" id="detail-notes"></div>
+            </div>
+        </div>
+
+        <!-- Sticky footer actions -->
+        <div class="bg-white border-t border-slate-200 px-6 py-4 shrink-0">
+            <button id="detail-btn-modifier" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-dark text-white text-sm font-medium rounded-xl transition-colors">
+                <span class="material-symbols-outlined text-lg">edit</span>
+                Modifier
+            </button>
+        </div>
+    </div>
+
+    <!-- Revision Banner (hidden by default) -->
+    <div id="revision-banner" class="hidden fixed top-[80px] md:top-0 left-0 right-0 z-[15] md:z-[60] bg-amber-50 border-b border-amber-200 px-4 py-2.5">
+        <div class="max-w-5xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-2 text-sm text-amber-800">
+                <span class="material-symbols-outlined text-lg">edit_note</span>
+                <span>Revision de la soumission <strong id="revision-numero"></strong>. Les modifications seront sauvegardees comme nouvelle soumission.</span>
+            </div>
+            <button id="btn-cancel-revision" class="text-sm font-medium text-amber-700 hover:text-amber-900 underline">
+                Annuler
+            </button>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="assets/logo-apex-data.js"></script>
+    <script src="assets/docs/licence-rbq-data.js"></script>
+    <script src="pdf-generator.js"></script>
+    <script src="js/data/supabase-client.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui/toast.js"></script>
+    <script src="js/ui/modal.js"></script>
+    <script src="js/data/soumission-repo.js"></script>
+    <script src="js/data/pdf-storage.js"></script>
+    <script src="js/services/submission-service.js"></script>
+    <script src="js/ui/history-ui.js"></script>
+    <script src="app.js?v=5"></script>
 </body>
+
 </html>

@@ -7,14 +7,3 @@
   for = "*.css"
   [headers.values]
     Cache-Control = "no-cache, must-revalidate"
-
-# Maintenance mode - redirect all pages to index
-[[redirects]]
-  from = "/settings"
-  to = "/"
-  status = 302
-
-[[redirects]]
-  from = "/settings.html"
-  to = "/"
-  status = 302
